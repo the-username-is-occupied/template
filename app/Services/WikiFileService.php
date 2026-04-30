@@ -53,30 +53,48 @@ class WikiFileService
     }
 
     /**
-     * Write or update a wiki page with YAML frontmatter.
+     * Read the raw body of an existing wiki page (without frontmatter).
+     * Returns null if the page does not exist.
+     */
+    public function getWikiPageContent(string $userspace, string $slug): ?string
+    {
+        $path = "{$userspace}/wiki/{$slug}.md";
+        if (! $this->disk()->exists($path)) {
+            return null;
+        }
+
+        $content = $this->disk()->get($path) ?? '';
+
+        // Strip YAML frontmatter
+        if (preg_match('/^---\s*\n.*?\n---\s*\n/s', $content, $matches)) {
+            return ltrim(substr($content, strlen($matches[0])));
+        }
+
+        return $content;
+    }
+
+    /**
+     * Write or overwrite a wiki page with YAML frontmatter.
      *
-     * @param  array{title: string, slug: string, category: string, content: string, linked_to: string[]}  $page
+     * $linkedTo items are either plain strings (legacy) or arrays with keys: slug, relationship.
+     *
+     * @param  array{title: string, slug: string, category: string, content: string, linked_to: array<int, string|array{slug: string, relationship: string}>}  $page
      * @param  string[]  $sources
      */
-    public function writeWikiPage(string $userspace, array $page, array $sources): bool
+    public function writeWikiPage(string $userspace, array $page, array $sources, bool $isUpdate = false): void
     {
         $path = "{$userspace}/wiki/{$page['slug']}.md";
-        $isUpdate = $this->disk()->exists($path);
         $today = Carbon::now()->toDateString();
 
         $existingSources = $isUpdate ? $this->extractSourcesFromFrontmatter($path) : [];
         $mergedSources = array_values(array_unique(array_merge($existingSources, $sources)));
         $sourcesYaml = implode("\n", array_map(fn ($s) => "  - \"{$s}\"", $mergedSources));
 
-        $linkedSection = '';
-        if (! empty($page['linked_to'])) {
-            $links = implode("\n", array_map(fn ($s) => "- [[{$s}]]", $page['linked_to']));
-            $linkedSection = "\n\n## Связанные заметки\n{$links}";
-        } else {
-            $linkedSection = "\n\n## Связанные заметки\n";
-        }
+        $linkedSection = $this->buildLinkedSection($page['linked_to'] ?? []);
 
-        $content = <<<MD
+        $body = rtrim($page['content']);
+
+        $fileContent = <<<MD
 ---
 title: "{$page['title']}"
 category: {$page['category']}
@@ -85,21 +103,35 @@ sources:
 updated_at: "{$today}"
 ---
 
-{$page['content']}{$linkedSection}
+{$body}
+
+{$linkedSection}
 MD;
 
-        $this->disk()->put($path, $content);
+        $this->disk()->put($path, $fileContent);
+    }
 
-        return $isUpdate;
+    /**
+     * Determine if a wiki page already exists (used to decide create vs. merge).
+     */
+    public function wikiPageExists(string $userspace, string $slug): bool
+    {
+        return $this->disk()->exists("{$userspace}/wiki/{$slug}.md");
     }
 
     /**
      * Update the wiki index with new pages grouped by category.
      *
      * @param  array<int, array{title: string, slug: string, category: string, content: string}>  $pages
+     * @param  array{title: string, slug: string, content: string}  $sourcePage
      */
-    public function updateIndex(string $userspace, string $rawFilename, string $overallSummary, array $pages): void
-    {
+    public function updateIndex(
+        string $userspace,
+        string $rawFilename,
+        string $overallSummary,
+        array $pages,
+        array $sourcePage
+    ): void {
         $indexPath = "{$userspace}/wiki/index.md";
         $existing = $this->disk()->exists($indexPath)
             ? ($this->disk()->get($indexPath) ?? '')
@@ -109,24 +141,19 @@ MD;
         $existing = $this->ensureIndexSection($existing, '## Сущности');
         $existing = $this->ensureIndexSection($existing, '## Концепции');
 
+        // Add the source overview page to ## Источники
         $existing = $this->upsertIndexEntry(
             $existing,
             '## Источники',
-            $rawFilename,
+            $sourcePage['slug'],
             $overallSummary
         );
 
         foreach ($pages as $page) {
-            $sectionHeader = match ($page['category']) {
-                'entity' => '## Сущности',
-                'concept', 'summary', 'synthesis' => '## Концепции',
-                default => '## Концепции',
-            };
+            $sectionHeader = $page['category'] === 'entity' ? '## Сущности' : '## Концепции';
 
-            $firstLine = trim(explode("\n", strip_tags($page['content']))[0] ?? '');
-            $description = mb_strlen($firstLine) > 100 ? mb_substr($firstLine, 0, 97).'...' : $firstLine;
-
-            $existing = $this->upsertIndexEntry($existing, $sectionHeader, $page['slug'], $description);
+            $firstLine = $this->extractFirstSentence($page['content']);
+            $existing = $this->upsertIndexEntry($existing, $sectionHeader, $page['slug'], $firstLine);
         }
 
         $this->disk()->put($indexPath, $existing);
@@ -141,17 +168,21 @@ MD;
     public function appendIngestLog(
         string $userspace,
         string $rawFilename,
+        string $sourcePageSlug,
         array $createdSlugs,
         array $updatedSlugs,
         string $provider,
         string $model,
         int $totalTokens,
-        float $totalCost
+        float $totalCost,
+        int $totalClaims,
+        int $contradictingClaims,
+        int $extendingClaims
     ): void {
         $today = Carbon::now()->toDateString();
         $logPath = "{$userspace}/wiki/log.md";
 
-        $header = $this->disk()->exists($logPath)
+        $existing = $this->disk()->exists($logPath)
             ? ($this->disk()->get($logPath) ?? "# Журнал операций\n")
             : "# Журнал операций\n";
 
@@ -159,14 +190,15 @@ MD;
         $updated = implode(', ', array_map(fn ($s) => "[[{$s}]]", $updatedSlugs));
 
         $entry = "\n## [{$today}] ingest | {$rawFilename}\n";
+        $entry .= "- Источник: [[{$sourcePageSlug}]]\n";
         $entry .= "- Созданы страницы: {$created}\n";
         $entry .= "- Обновлены страницы: {$updated}\n";
-        $entry .= "- Операция: ingest\n";
+        $entry .= "- Новые утверждения: {$totalClaims} ({$contradictingClaims} противоречат существующим, {$extendingClaims} расширяют)\n";
         $entry .= "- Провайдер: {$provider}\n";
         $entry .= "- Модель: {$model}\n";
         $entry .= "- Токенов: {$totalTokens}, Стоимость: \${$totalCost}\n";
 
-        $this->disk()->put($logPath, $header.$entry);
+        $this->disk()->put($logPath, $existing.$entry);
     }
 
     /**
@@ -233,6 +265,40 @@ MD;
     }
 
     /**
+     * Append novel claims to _claims_log.md.
+     *
+     * @param  array<int, array{claim: string, contradicts: string|null, extends: string|null, certainty: string}>  $claims
+     */
+    public function appendClaimsLog(string $userspace, string $sourceSlug, array $claims): void
+    {
+        if (empty($claims)) {
+            return;
+        }
+
+        $today = Carbon::now()->toDateString();
+        $claimsPath = "{$userspace}/wiki/_claims_log.md";
+
+        $existing = $this->disk()->exists($claimsPath)
+            ? ($this->disk()->get($claimsPath) ?? "# Журнал утверждений\n")
+            : "# Журнал утверждений\n";
+
+        $rows = '';
+        foreach ($claims as $c) {
+            $type = $c['contradicts'] ? 'противоречит' : ($c['extends'] ? 'расширяет' : 'новое');
+            $affects = $c['contradicts'] ?? $c['extends'] ?? '—';
+            $affectsStr = $affects !== '—' ? "[[{$affects}]]" : '—';
+            $rows .= "| {$c['claim']} | {$type} | {$affectsStr} | {$c['certainty']} |\n";
+        }
+
+        $entry = "\n## [{$today}] Из источника [[{$sourceSlug}]]\n\n";
+        $entry .= "| Утверждение | Тип | Затрагивает | Уверенность |\n";
+        $entry .= "|---|---|---|---|\n";
+        $entry .= $rows;
+
+        $this->disk()->put($claimsPath, $existing.$entry);
+    }
+
+    /**
      * Lint all wiki pages in the userspace.
      *
      * @return array{
@@ -248,10 +314,10 @@ MD;
         $wikiPath = "{$userspace}/wiki";
         $allFiles = $this->disk()->files($wikiPath);
 
-        $pageFiles = array_filter($allFiles, function ($file) {
-            $basename = basename($file);
+        $skippedFiles = ['index.md', 'log.md', '_claims_log.md'];
 
-            return str_ends_with($file, '.md') && $basename !== 'index.md' && $basename !== 'log.md';
+        $pageFiles = array_filter($allFiles, function ($file) use ($skippedFiles) {
+            return str_ends_with($file, '.md') && ! in_array(basename($file), $skippedFiles, true);
         });
 
         $existingSlugs = array_map(fn ($f) => pathinfo(basename($f), PATHINFO_FILENAME), $pageFiles);
@@ -260,7 +326,6 @@ MD;
         $noFrontmatter = [];
 
         foreach ($pageFiles as $file) {
-            $slug = pathinfo(basename($file), PATHINFO_FILENAME);
             $content = $this->disk()->get($file) ?? '';
 
             if (! $this->hasFrontmatter($content)) {
@@ -371,6 +436,41 @@ MD;
         $this->disk()->put($indexPath, $existing);
     }
 
+    /**
+     * Build the "## Связанные заметки" section from linked_to entries.
+     *
+     * Each entry may be a plain string slug (legacy) or array{slug, relationship}.
+     *
+     * @param  array<int, string|array{slug: string, relationship: string}>  $linkedTo
+     */
+    private function buildLinkedSection(array $linkedTo): string
+    {
+        if (empty($linkedTo)) {
+            return "## Связанные заметки\n";
+        }
+
+        $lines = array_map(function ($item) {
+            if (is_array($item)) {
+                return "- [[{$item['slug']}]] — {$item['relationship']}";
+            }
+
+            return "- [[{$item}]]";
+        }, $linkedTo);
+
+        return "## Связанные заметки\n".implode("\n", $lines)."\n";
+    }
+
+    private function extractFirstSentence(string $content): string
+    {
+        // Strip markdown headings, bold/italic markers, then get first non-empty line
+        $clean = preg_replace('/^#+\s+.*/m', '', $content);
+        $clean = preg_replace('/[*_`]+/', '', $clean ?? '');
+        $lines = array_filter(array_map('trim', explode("\n", $clean ?? '')));
+        $first = reset($lines) ?: '';
+
+        return mb_strlen($first) > 100 ? mb_substr($first, 0, 97).'...' : $first;
+    }
+
     private function buildAgentsMdContent(): string
     {
         return <<<'MD'
@@ -396,11 +496,25 @@ updated_at: "YYYY-MM-DD"
 ---
 ```
 
+## Структура тела страницы
+```
+# Title
+
+## Определение / Что это
+## Ключевая информация
+## Контекст и значение
+## Связи
+## Цитаты и утверждения
+## Связанные заметки
+- [[slug]] — описание отношения
+```
+
 ## Правила поддержки
 - При каждом ingest: создавать/обновлять страницы, актуализировать index.md и log.md
 - При каждом вопросе: искать ответ только в вики
 - Lint: регулярно проверять целостность ссылок
 - Связи: всегда указывать двусторонние ссылки между страницами
+- Новые утверждения: сохранять в _claims_log.md с уровнем уверенности
 MD;
     }
 }
