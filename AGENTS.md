@@ -243,3 +243,39 @@ protected function isAccessible(User $user, ?string $path = null): bool
 - IMPORTANT: Always use `search-docs` tool for version-specific Tailwind CSS documentation and updated code examples. Never rely on training data.
 - IMPORTANT: Activate `tailwindcss-development` every time you're working with a Tailwind CSS or styling-related task.
 </laravel-boost-guidelines>
+
+## Cursor Cloud specific instructions
+
+### System Dependencies
+
+PHP 8.3 (with extensions: bcmath, curl, gd, intl, mbstring, opcache, pgsql, pdo_pgsql, redis, xsl, zip, xml, sqlite3), Composer, PostgreSQL 16, and Redis are required. Node.js 22 is pre-installed via nvm.
+
+### Services
+
+- **PostgreSQL**: Start with `sudo pg_ctlcluster 16 main start`. DB user `root` / password `password`, database `laravel` on `127.0.0.1:5432`.
+- **Redis**: Start with `sudo redis-server --daemonize yes`. Runs on `127.0.0.1:6379`.
+- **Laravel dev server**: `php artisan serve --host=0.0.0.0 --port=8000`
+- **Frontend build**: `npm run build` (or `npm run dev` for HMR). Requires `VITE_APP_URL` to be set in `.env` (e.g. `http://localhost`); without it, `vite.config.js` throws because it calls `new URL(process.env.VITE_APP_URL)`.
+- **Combined dev command**: `composer run dev` starts server, queue listener, pail logs, and vite concurrently.
+
+### .env Configuration for Cloud VM
+
+Copy `.env.example` to `.env`, then adjust these values for local (non-Docker) development:
+- `DB_HOST=127.0.0.1` (not `db`)
+- `REDIS_HOST=127.0.0.1` (not `redis`)
+- `VITE_APP_URL=http://localhost`
+- Optionally set `SESSION_DRIVER=file`, `CACHE_STORE=file`, `QUEUE_CONNECTION=sync` to avoid Redis dependency for basic work.
+
+### Testing
+
+- Tests use SQLite in-memory (configured in `phpunit.xml`), so no external DB is needed to run tests.
+- Run: `php artisan test` (uses Pest 4).
+- Lint: `vendor/bin/pint --test` to check, `vendor/bin/pint` to fix.
+- PHPStan: `vendor/bin/phpstan analyse -c phpstan.neon`
+
+### Gotchas
+
+- The `Makefile` targets use `docker compose exec` and are meant for Docker-based workflow. For local (non-Docker) dev, run commands directly.
+- `composer run dev` requires `npx concurrently` — it's in `devDependencies` so `npm install` must run first.
+- The `--compact` flag does not exist for `php artisan test` in this Laravel version; use `php artisan test` without it.
+- `package-lock.json` is present, so `npm install` (or `npm ci`) is the correct package manager.
