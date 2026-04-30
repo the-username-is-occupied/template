@@ -147,10 +147,10 @@ PROMPT;
                 $schema->object(fn ($s) => [
                     'claim' => $s->string()->required()
                         ->description('The claim/assertion/finding'),
-                    'contradicts' => $s->string()->nullable()
-                        ->description('If this contradicts existing wiki knowledge, which page/concept does it challenge?'),
-                    'extends' => $s->string()->nullable()
-                        ->description('If this extends/refines existing wiki knowledge, which page/concept?'),
+                    'contradicts' => $s->string()->nullable()->required()
+                        ->description('If this contradicts existing wiki knowledge, which page/concept does it challenge? Set to null if not applicable.'),
+                    'extends' => $s->string()->nullable()->required()
+                        ->description('If this extends/refines existing wiki knowledge, which page/concept? Set to null if not applicable.'),
                     'certainty' => $s->string()->enum(['confident', 'hedged', 'speculative'])->required()
                         ->description('How certain is the source about this claim?'),
                 ])
