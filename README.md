@@ -25,7 +25,7 @@ Dashboards:
 cp .env.example .env --update=none
 ```
 
-2. Настройте `COMPOSE_PROJECT_NAME` и `APP_NAMESPACE` в `.env`
+2. Настройте `COMPOSE_PROJECT_NAME` в `.env`
 
 3. Инициализация проекта:
 
