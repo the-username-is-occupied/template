@@ -1,3 +1,4 @@
+import math
 import os
 import shutil
 from pathlib import Path
@@ -65,6 +66,13 @@ def normalize_rag_result(query: str, result: Any) -> dict[str, Any]:
             "sources": result.get("sources", result.get("documents", [])) or [],
         }
 
+    if hasattr(result, "docs"):
+        return {
+            "question": str(getattr(result, "question", query)),
+            "answer": str(getattr(result, "answer", "") or ""),
+            "sources": normalize_query_solution(result),
+        }
+
     return {
         "question": query,
         "answer": str(result),
@@ -93,6 +101,38 @@ def normalize_document(document: Any) -> dict[str, Any]:
     }
 
 
+def normalize_score(score: Any) -> float | None:
+    if score is None:
+        return None
+
+    value = float(score)
+
+    return value if math.isfinite(value) else None
+
+
+def normalize_query_solution(solution: Any) -> list[dict[str, Any]]:
+    docs = getattr(solution, "docs", None)
+    scores = getattr(solution, "doc_scores", None)
+
+    if docs is None:
+        return [normalize_document(document) for document in solution]
+
+    return [
+        {
+            "text": str(document),
+            "score": normalize_score(scores[index]) if scores is not None and index < len(scores) else None,
+        }
+        for index, document in enumerate(docs)
+    ]
+
+
+def unpack_query_solutions(results: Any) -> Any:
+    if isinstance(results, tuple):
+        return results[0]
+
+    return results
+
+
 @app.get("/health")
 def health() -> dict[str, Any]:
     return {"status": "healthy", "hipporag_available": hipporag_available()}
@@ -116,18 +156,28 @@ def query(request: QueryRequest) -> dict[str, Any]:
         hipporag = build_hipporag(request.work_dir, request.llm_model, request.embedding_model, request.llm_base_url)
 
         if request.mode == "retrieve":
-            retrieval_results = hipporag.retrieve(queries=request.queries, num_to_retrieve=request.num_to_retrieve)
+            try:
+                retrieval_results = hipporag.retrieve(queries=request.queries, num_to_retrieve=request.num_to_retrieve)
+            except AssertionError:
+                retrieval_results = hipporag.retrieve_dpr(queries=request.queries, num_to_retrieve=request.num_to_retrieve)
+
+            retrieval_results = unpack_query_solutions(retrieval_results)
             results = [
                 {
                     "query": query_text,
-                    "documents": [normalize_document(document) for document in documents],
+                    "documents": normalize_query_solution(solution),
                 }
-                for query_text, documents in zip(request.queries, retrieval_results)
+                for query_text, solution in zip(request.queries, retrieval_results)
             ]
 
             return {"status": "success", "results": results}
 
-        rag_results = hipporag.rag_qa(queries=request.queries)
+        try:
+            rag_results = hipporag.rag_qa(queries=request.queries)
+        except AssertionError:
+            rag_results = hipporag.rag_qa_dpr(queries=request.queries)
+
+        rag_results = unpack_query_solutions(rag_results)
         results = [
             normalize_rag_result(query_text, result)
             for query_text, result in zip(request.queries, rag_results)
