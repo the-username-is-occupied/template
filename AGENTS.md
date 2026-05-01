@@ -19,7 +19,7 @@ This is a Docker-first Laravel 12 project running on FrankenPHP/Octane. All deve
 
 ### Key gotchas
 
-- **Docker daemon must be started manually** in cloud VMs: `dockerd &>/var/log/dockerd.log &` before any `docker compose` command.
+- **Docker daemon must be started manually** in cloud VMs: `dockerd &>/var/log/dockerd.log &` (wait ~3s) before any `docker compose` command.
 - **The Makefile uses `docker-compose`** (hyphenated, standalone binary) which is not installed by default. Use `docker compose` (plugin) directly, or override via `COMPOSE="docker compose" make <target>`.
 - **`.env` must have `APP_NAMESPACE` set** (e.g. `laravel`) — it's used as container name prefix. Copy `.env.example` to `.env` and `.env.testing.example` to `.env.testing` before starting.
 - **PHP 8.5 deprecation warnings** about `PDO::MYSQL_ATTR_SSL_CA` appear in HTTP responses — these are cosmetic, from the bundled PHP version in FrankenPHP image.
@@ -27,3 +27,5 @@ This is a Docker-first Laravel 12 project running on FrankenPHP/Octane. All deve
 - **Node version in the running container** comes from apt (`nodejs` package) and may be older than the v22 used in the Dockerfile build stage. The Vite dev server inside the container may show engine warnings but works.
 - **Container names** follow the pattern `${APP_NAMESPACE}-app`, `${APP_NAMESPACE}-db`, `${APP_NAMESPACE}-redis`.
 - **Supervisor** manages Octane, Horizon, Pulse, scheduler, and Vite dev server inside the app container.
+- **APP_KEY must be set BEFORE `docker compose up`** — the `env_file` directive injects environment variables at container creation time. If you generate the key after the container starts, you must `docker compose up -d --force-recreate` for Octane to pick it up.
+- **Correct init order**: 1) copy `.env.example` → `.env`, 2) set `APP_NAMESPACE`, 3) `docker compose up -d --build`, 4) `docker exec ... composer install`, 5) `docker exec ... php artisan key:generate`, 6) `docker compose up -d --force-recreate`, 7) `docker exec ... php artisan migrate`.
