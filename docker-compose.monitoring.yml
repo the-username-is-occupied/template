@@ -31,7 +31,7 @@ services:
       - grafana_data:/var/lib/grafana
       - ./docker/grafana/provisioning:/etc/grafana/provisioning
     environment:
-      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD:-admin}
       - GF_USERS_ALLOW_SIGN_UP=false
       - GF_INSTALL_PLUGINS=grafana-clock-panel,grafana-simple-json-datasource
     ports:
@@ -45,19 +45,20 @@ services:
     container_name: postgres-exporter
     networks:
       - monitoring
+      - site_network
     environment:
-      - DATA_SOURCE_NAME=postgresql://laravel:secret@postgres:5432/laravel?sslmode=disable
+      - DATA_SOURCE_NAME=postgresql://${DB_USERNAME}:${DB_PASSWORD}@db:5432/${DB_DATABASE}?sslmode=disable
     ports:
       - "9187:9187"
     depends_on:
       - db
 
-  # Экспортер для Redis
   redis-exporter:
     image: oliver006/redis_exporter:latest
     container_name: redis-exporter
     networks:
       - monitoring
+      - site_network
     environment:
       - REDIS_ADDR=redis://redis:6379
     ports:

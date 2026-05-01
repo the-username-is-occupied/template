@@ -1,16 +1,67 @@
-.git/
-node_modules/
-vendor/
-storage/logs/*
-public/storage
+# Version control
+.git
+.gitignore
+.gitattributes
+
+# CI/CD
+.github
+.gitlab-ci.yml
+.circleci
+
+# IDE
+.vscode
+.idea
+.cursor
+*.swp
+*.swo
+
+# Docker (prevent recursive copy)
+Dockerfile*
+docker-compose*.yml
+compose*.yml
+.dockerignore
+
+# Dependencies (rebuilt in container)
+node_modules
+vendor
+
+# Environment files (secrets)
+.env
+.env.*
+!.env.example
+
+# Build artifacts
+public/build
 public/hot
 public/storage
-.env
-.env.production
-docker-compose.yml
-docker-compose.override.yml
+coverage
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Documentation
+README.md
+CHANGELOG.md
+LICENSE
+docs/
+
+# Tests
 tests/
-coverage/
-*.md
-*.txt
+phpunit.xml
+.phpunit.result.cache
+.phpunit.cache
+
+# Development tools
+.phpactor.json
+
+# Logs
+storage/logs/*
 *.log
+
+# Deploy scripts (not needed in image)
+deploy/
+
+# AI/Factory config
+.ai-factory
+.ai-factory.json

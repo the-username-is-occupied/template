@@ -1,0 +1,932 @@
+---
+description: Laravel AI SDK (laravel/ai) — работа с агентами, файлами, изображениями, аудио, транскрипциями, эмбеддингами, векторными хранилищами, тестированием. Применяй при написании кода с namespace Laravel\Ai или при любых упоминаниях make:agent, Agent, Promptable, Files\Document, Files\Image, Embeddings, Transcription, Stores, streaming, structured output, provider tools.
+globs: ["app/Ai/**/*.php", "app/**/*Agent*.php", "app/**/*Tool*.php", "tests/**/*Ai*.php", "config/ai.php"]
+alwaysApply: false
+---
+
+# Laravel AI SDK — Skill для Cursor Agent
+
+## Установка и конфигурация
+
+```bash
+composer require laravel/ai
+php artisan vendor:publish --provider="Laravel\Ai\AiServiceProvider"
+php artisan migrate
+```
+
+**.env** — ключи провайдеров:
+```
+ANTHROPIC_API_KEY=
+OPENAI_API_KEY=
+GEMINI_API_KEY=
+ELEVENLABS_API_KEY=
+MISTRAL_API_KEY=
+COHERE_API_KEY=
+XAI_API_KEY=
+JINA_API_KEY=
+VOYAGEAI_API_KEY=
+OLLAMA_API_KEY=
+```
+
+Кастомные base URL для прокси (LiteLLM, Azure OpenAI Gateway и др.) — в `config/ai.php`:
+```php
+'providers' => [
+    'openai' => ['driver' => 'openai', 'key' => env('OPENAI_API_KEY'), 'url' => env('OPENAI_BASE_URL')],
+    'anthropic' => ['driver' => 'anthropic', 'key' => env('ANTHROPIC_API_KEY'), 'url' => env('ANTHROPIC_BASE_URL')],
+],
+```
+
+Поддержка провайдеров по фичам:
+| Фича | Провайдеры |
+|---|---|
+| Text/Agents | OpenAI, Anthropic, Gemini, Azure, Groq, xAI, DeepSeek, Mistral, Ollama |
+| Images | OpenAI, Gemini, xAI |
+| TTS | OpenAI, ElevenLabs |
+| STT | OpenAI, ElevenLabs, Mistral |
+| Embeddings | OpenAI, Gemini, Azure, Cohere, Mistral, Jina, VoyageAI |
+| Reranking | Cohere, Jina |
+| Files | OpenAI, Anthropic, Gemini |
+
+---
+
+## Агенты
+
+### Создание
+
+```bash
+php artisan make:agent SalesCoach
+php artisan make:agent SalesCoach --structured   # со схемой structured output
+```
+
+Генерируется в `app/Ai/Agents/`. Агент — PHP-класс, реализующий контракт `Agent` + трейт `Promptable`.
+
+### Полный шаблон агента
+
+```php
+<?php
+
+namespace App\Ai\Agents;
+
+use App\Ai\Tools\RetrievePreviousTranscripts;
+use App\Models\User;
+use Illuminate\Contracts\JsonSchema\JsonSchema;
+use Laravel\Ai\Attributes\MaxSteps;
+use Laravel\Ai\Attributes\MaxTokens;
+use Laravel\Ai\Attributes\Model;
+use Laravel\Ai\Attributes\Provider;
+use Laravel\Ai\Attributes\Temperature;
+use Laravel\Ai\Attributes\Timeout;
+use Laravel\Ai\Contracts\Agent;
+use Laravel\Ai\Contracts\Conversational;
+use Laravel\Ai\Contracts\HasMiddleware;
+use Laravel\Ai\Contracts\HasProviderOptions;
+use Laravel\Ai\Contracts\HasStructuredOutput;
+use Laravel\Ai\Contracts\HasTools;
+use Laravel\Ai\Enums\Lab;
+use Laravel\Ai\Messages\Message;
+use Laravel\Ai\Promptable;
+use Stringable;
+
+#[Provider(Lab::Anthropic)]
+#[Model('claude-opus-4-6')]
+#[MaxSteps(10)]
+#[MaxTokens(4096)]
+#[Temperature(0.7)]
+#[Timeout(120)]
+class SalesCoach implements Agent, Conversational, HasTools, HasStructuredOutput, HasMiddleware, HasProviderOptions
+{
+    use Promptable;
+
+    public function __construct(public User $user) {}
+
+    public function instructions(): Stringable|string
+    {
+        return 'You are a sales coach, analyzing transcripts and providing feedback.';
+    }
+
+    public function messages(): iterable
+    {
+        return History::where('user_id', $this->user->id)
+            ->latest()->limit(50)->get()->reverse()
+            ->map(fn ($m) => new Message($m->role, $m->content))->all();
+    }
+
+    public function tools(): iterable
+    {
+        return [new RetrievePreviousTranscripts];
+    }
+
+    public function schema(JsonSchema $schema): array
+    {
+        return [
+            'feedback' => $schema->string()->required(),
+            'score'    => $schema->integer()->min(1)->max(10)->required(),
+            // Массив объектов:
+            // 'items' => $schema->array()->items($schema->object(fn($s) => ['comment' => $s->string()->required()]))->required(),
+        ];
+    }
+
+    public function middleware(): array
+    {
+        return [new \App\Ai\Middleware\LogPrompts];
+    }
+
+    public function providerOptions(Lab|string $provider): array
+    {
+        return match ($provider) {
+            Lab::OpenAI    => ['reasoning' => ['effort' => 'low'], 'frequency_penalty' => 0.5],
+            Lab::Anthropic => ['thinking' => ['budget_tokens' => 1024]],
+            default        => [],
+        };
+    }
+}
+```
+
+### Атрибуты конфигурации агента
+
+| Атрибут | Описание |
+|---|---|
+| `#[Provider(Lab::Anthropic)]` | Провайдер (или массив для failover) |
+| `#[Model('claude-opus-4-6')]` | Конкретная модель |
+| `#[UseCheapestModel]` | Самая дешёвая модель провайдера |
+| `#[UseSmartestModel]` | Самая мощная модель провайдера |
+| `#[MaxSteps(10)]` | Макс. шагов при использовании инструментов |
+| `#[MaxTokens(4096)]` | Макс. токенов в ответе |
+| `#[Temperature(0.7)]` | Температура (0.0–1.0) |
+| `#[Timeout(120)]` | HTTP-таймаут в секундах (по умолчанию 60) |
+
+### Промптинг (вызов агента)
+
+```php
+// Простой вызов
+$response = (new SalesCoach)->prompt('Analyze this transcript...');
+return (string) $response;
+
+// DI через make()
+$agent = SalesCoach::make(user: $user);
+
+// Переопределение провайдера/модели/таймаута
+$response = (new SalesCoach)->prompt(
+    'Analyze...',
+    provider: Lab::Anthropic,
+    model: 'claude-haiku-4-5-20251001',
+    timeout: 120,
+);
+
+// Structured output — доступ как к массиву
+$response = (new SalesCoach)->prompt('Analyze...');
+return $response['score'];
+```
+
+---
+
+## Вложения (Attachments)
+
+### Документы
+
+```php
+use Laravel\Ai\Files;
+
+$response = (new SalesCoach)->prompt(
+    'Analyze the attached transcript...',
+    attachments: [
+        Files\Document::fromStorage('transcript.pdf'),           // из filesystem disk
+        Files\Document::fromPath('/home/laravel/transcript.md'), // из локального пути
+        Files\Document::fromUrl('https://example.com/doc.pdf'),  // по URL
+        $request->file('transcript'),                            // загруженный файл
+        Files\Document::fromId('file-id'),                       // предварительно сохранённый
+    ]
+);
+```
+
+### Изображения
+
+```php
+use Laravel\Ai\Files;
+
+$response = (new ImageAnalyzer)->prompt(
+    'What is in this image?',
+    attachments: [
+        Files\Image::fromStorage('photo.jpg'),
+        Files\Image::fromPath('/home/laravel/photo.jpg'),
+        Files\Image::fromUrl('https://example.com/photo.jpg'),
+        $request->file('photo'),
+        Files\Image::fromId('file-id'),
+    ]
+);
+```
+
+---
+
+## Управление памятью (Conversation Context)
+
+### Ручная реализация через `Conversational`
+
+```php
+class MyAgent implements Agent, Conversational
+{
+    use Promptable;
+
+    public function messages(): iterable
+    {
+        return History::where('user_id', $this->user->id)
+            ->latest()->limit(50)->get()->reverse()
+            ->map(fn ($m) => new Message($m->role, $m->content))->all();
+    }
+}
+```
+
+### Автоматическое сохранение через `RemembersConversations`
+
+> Требует публикации миграций (`agent_conversations`, `agent_conversation_messages`).
+
+```php
+use Laravel\Ai\Concerns\RemembersConversations;
+use Laravel\Ai\Contracts\Agent;
+use Laravel\Ai\Contracts\Conversational;
+use Laravel\Ai\Promptable;
+
+class MyAgent implements Agent, Conversational
+{
+    use Promptable, RemembersConversations;
+
+    public function instructions(): string { return 'You are a helpful assistant.'; }
+}
+
+// Новый разговор
+$response = (new MyAgent)->forUser($user)->prompt('Hello!');
+$conversationId = $response->conversationId;
+
+// Продолжение разговора
+$response = (new MyAgent)->continue($conversationId, as: $user)->prompt('Tell me more.');
+```
+
+---
+
+## Streaming
+
+```php
+use App\Ai\Agents\SalesCoach;
+use Laravel\Ai\Responses\StreamedAgentResponse;
+
+// Вернуть SSE-стрим из роута
+Route::get('/coach', fn () => (new SalesCoach)->stream('Analyze...'));
+
+// С колбэком по завершении
+Route::get('/coach', function () {
+    return (new SalesCoach)
+        ->stream('Analyze...')
+        ->then(function (StreamedAgentResponse $response) {
+            // $response->text, $response->events, $response->usage
+        });
+});
+
+// Ручная итерация
+$stream = (new SalesCoach)->stream('Analyze...');
+foreach ($stream as $event) { /* ... */ }
+
+// Vercel AI SDK Protocol
+return (new SalesCoach)->stream('Analyze...')->usingVercelDataProtocol();
+```
+
+---
+
+## Broadcasting
+
+```php
+use Illuminate\Broadcasting\Channel;
+
+// Итерация с broadcast
+$stream = (new SalesCoach)->stream('Analyze...');
+foreach ($stream as $event) {
+    $event->broadcast(new Channel('channel-name'));
+}
+
+// Очередь + broadcast
+(new SalesCoach)->broadcastOnQueue('Analyze...', new Channel('channel-name'));
+```
+
+---
+
+## Очереди (Queueing)
+
+```php
+use Laravel\Ai\Responses\AgentResponse;
+
+Route::post('/coach', function (Request $request) {
+    (new SalesCoach)
+        ->queue($request->input('transcript'))
+        ->then(fn (AgentResponse $r) => /* обработка */)
+        ->catch(fn (Throwable $e) => /* ошибка */);
+
+    return back();
+});
+```
+
+---
+
+## Инструменты (Tools)
+
+### Создание
+
+```bash
+php artisan make:tool RandomNumberGenerator
+```
+
+```php
+<?php
+
+namespace App\Ai\Tools;
+
+use Illuminate\Contracts\JsonSchema\JsonSchema;
+use Laravel\Ai\Contracts\Tool;
+use Laravel\Ai\Tools\Request;
+use Stringable;
+
+class RandomNumberGenerator implements Tool
+{
+    public function description(): Stringable|string
+    {
+        return 'Generates cryptographically secure random numbers.';
+    }
+
+    public function handle(Request $request): Stringable|string
+    {
+        return (string) random_int($request['min'], $request['max']);
+    }
+
+    public function schema(JsonSchema $schema): array
+    {
+        return [
+            'min' => $schema->integer()->min(0)->required(),
+            'max' => $schema->integer()->required(),
+        ];
+    }
+}
+```
+
+Добавить в агент:
+```php
+public function tools(): iterable
+{
+    return [new RandomNumberGenerator];
+}
+```
+
+### Similarity Search (RAG)
+
+```php
+use App\Models\Document;
+use Laravel\Ai\Tools\SimilaritySearch;
+
+// Простой вариант
+SimilaritySearch::usingModel(Document::class, 'embedding'),
+
+// С фильтрами
+SimilaritySearch::usingModel(
+    model: Document::class,
+    column: 'embedding',
+    minSimilarity: 0.7,
+    limit: 10,
+    query: fn ($q) => $q->where('published', true),
+)->withDescription('Search the knowledge base.'),
+
+// Кастомная логика
+new SimilaritySearch(using: function (string $query) {
+    return Document::query()
+        ->where('user_id', $this->user->id)
+        ->whereVectorSimilarTo('embedding', $query)
+        ->limit(10)->get();
+}),
+```
+
+### Provider Tools
+
+```php
+use Laravel\Ai\Providers\Tools\FileSearch;
+use Laravel\Ai\Providers\Tools\WebFetch;
+use Laravel\Ai\Providers\Tools\WebSearch;
+
+public function tools(): iterable
+{
+    return [
+        // Web Search (Anthropic, OpenAI, Gemini)
+        (new WebSearch)->max(5)->allow(['laravel.com', 'php.net']),
+        (new WebSearch)->location(city: 'Moscow', region: 'MOW', country: 'RU'),
+
+        // Web Fetch (Anthropic, Gemini)
+        (new WebFetch)->max(3)->allow(['docs.laravel.com']),
+
+        // File Search (OpenAI, Gemini)
+        new FileSearch(stores: ['store_id_1', 'store_id_2']),
+        // С фильтрацией по metadata
+        new FileSearch(stores: ['store_id'], where: ['author' => 'Taylor Otwell', 'year' => 2026]),
+        // Сложные фильтры
+        new FileSearch(stores: ['store_id'], where: fn (FileSearchQuery $q) =>
+            $q->where('author', 'Taylor Otwell')
+              ->whereNot('status', 'draft')
+              ->whereIn('category', ['news', 'updates'])
+        ),
+    ];
+}
+```
+
+---
+
+## Middleware для агентов
+
+```bash
+php artisan make:agent-middleware LogPrompts
+```
+
+```php
+// app/Ai/Middleware/LogPrompts.php
+use Closure;
+use Laravel\Ai\Prompts\AgentPrompt;
+use Laravel\Ai\Responses\AgentResponse;
+
+class LogPrompts
+{
+    public function handle(AgentPrompt $prompt, Closure $next)
+    {
+        Log::info('Prompting agent', ['prompt' => $prompt->prompt]);
+
+        return $next($prompt)->then(function (AgentResponse $response) {
+            Log::info('Agent responded', ['text' => $response->text]);
+        });
+    }
+}
+```
+
+Подключить в агент через `HasMiddleware`:
+```php
+public function middleware(): array { return [new LogPrompts]; }
+```
+
+---
+
+## Анонимные агенты
+
+```php
+use function Laravel\Ai\{agent};
+use Illuminate\Contracts\JsonSchema\JsonSchema;
+
+// Простой
+$response = agent(
+    instructions: 'You are an expert at software development.',
+    messages: [],
+    tools: [],
+)->prompt('Tell me about Laravel');
+
+// Со structured output
+$response = agent(
+    schema: fn (JsonSchema $schema) => [
+        'number' => $schema->integer()->required(),
+    ],
+)->prompt('Generate a random number less than 100');
+```
+
+---
+
+## Изображения
+
+```php
+use Laravel\Ai\Files;
+use Laravel\Ai\Image;
+use Laravel\Ai\Responses\ImageResponse;
+
+// Генерация
+$image = Image::of('A donut on the kitchen counter')
+    ->quality('high')   // 'high' | 'medium' | 'low'
+    ->landscape()       // или ->portrait(), ->square()
+    ->timeout(120)
+    ->generate();
+
+$rawContent = (string) $image;
+
+// С референсными изображениями
+$image = Image::of('Make it impressionist style.')
+    ->attachments([
+        Files\Image::fromStorage('photo.jpg'),
+        Files\Image::fromPath('/home/laravel/photo.jpg'),
+        Files\Image::fromUrl('https://example.com/photo.jpg'),
+        $request->file('photo'),
+    ])
+    ->generate();
+
+// Сохранение
+$path = $image->store();
+$path = $image->storeAs('image.jpg');
+$path = $image->storePublicly();
+$path = $image->storePubliclyAs('image.jpg');
+
+// Очередь
+Image::of('A donut on the counter')->portrait()->queue()
+    ->then(fn (ImageResponse $img) => $img->store());
+```
+
+---
+
+## Аудио (TTS)
+
+```php
+use Laravel\Ai\Audio;
+use Laravel\Ai\Responses\AudioResponse;
+
+$audio = Audio::of('I love coding with Laravel.')
+    ->female()                           // или ->male()
+    ->voice('voice-id-or-name')          // конкретный голос
+    ->instructions('Said like a pirate') // коучинг модели
+    ->generate();
+
+$path = $audio->storeAs('audio.mp3');
+
+// Очередь
+Audio::of('Hello!')->queue()->then(fn (AudioResponse $a) => $a->store());
+```
+
+---
+
+## Транскрипция (STT)
+
+```php
+use Laravel\Ai\Transcription;
+use Laravel\Ai\Responses\TranscriptionResponse;
+
+$transcript = Transcription::fromPath('/home/laravel/audio.mp3')->generate();
+$transcript = Transcription::fromStorage('audio.mp3')->generate();
+$transcript = Transcription::fromUpload($request->file('audio'))->generate();
+
+// Диаризация (разбивка по спикерам)
+$transcript = Transcription::fromStorage('audio.mp3')->diarize()->generate();
+
+return (string) $transcript;
+
+// Очередь
+Transcription::fromStorage('audio.mp3')->queue()
+    ->then(fn (TranscriptionResponse $t) => /* ... */);
+```
+
+---
+
+## Эмбеддинги (Embeddings)
+
+```php
+use Illuminate\Support\Str;
+use Laravel\Ai\Embeddings;
+
+// Через Stringable
+$embeddings = Str::of('Napa Valley has great wine.')->toEmbeddings();
+$embeddings = Str::of('Napa Valley.')->toEmbeddings(cache: true);   // с кешем
+$embeddings = Str::of('Napa Valley.')->toEmbeddings(cache: 3600);   // кеш 1 час
+
+// Для нескольких строк
+$response = Embeddings::for([
+    'Napa Valley has great wine.',
+    'Laravel is a PHP framework.',
+])->dimensions(1536)->generate(Lab::OpenAI, 'text-embedding-3-small');
+
+$response->embeddings; // [[0.123, ...], [0.789, ...]]
+
+// С кешем
+$response = Embeddings::for(['...'])->cache(seconds: 3600)->generate();
+```
+
+### Vector-колонки (pgvector)
+
+```php
+// Миграция
+Schema::ensureVectorExtensionExists();
+Schema::create('documents', function (Blueprint $table) {
+    $table->id();
+    $table->text('content');
+    $table->vector('embedding', dimensions: 1536)->index(); // HNSW cosine index
+    $table->timestamps();
+});
+
+// Модель
+protected function casts(): array { return ['embedding' => 'array']; }
+
+// Запросы
+$docs = Document::query()
+    ->whereVectorSimilarTo('embedding', 'best wineries in Napa', minSimilarity: 0.4)
+    ->limit(10)->get();
+
+// Ручной контроль
+$docs = Document::query()
+    ->select('*')
+    ->selectVectorDistance('embedding', $queryEmbedding, as: 'distance')
+    ->whereVectorDistanceLessThan('embedding', $queryEmbedding, maxDistance: 0.3)
+    ->orderByVectorDistance('embedding', $queryEmbedding)
+    ->limit(10)->get();
+```
+
+---
+
+## Реранкинг (Reranking)
+
+```php
+use Laravel\Ai\Reranking;
+
+$response = Reranking::of([
+    'Django is a Python web framework.',
+    'Laravel is a PHP web application framework.',
+    'React is a JavaScript library.',
+])->limit(5)->rerank('PHP frameworks');
+
+$response->first()->document; // "Laravel is a PHP web application framework."
+$response->first()->score;    // 0.95
+$response->first()->index;    // 1
+
+// Коллекции
+$posts = Post::all()->rerank('body', 'Laravel tutorials');
+$posts = Post::all()->rerank(['title', 'body'], 'Laravel tutorials');
+$posts = Post::all()->rerank(
+    fn ($p) => $p->title.': '.$p->body,
+    query: 'Laravel tutorials',
+    limit: 10,
+    provider: Lab::Cohere
+);
+```
+
+---
+
+## Файлы (Files)
+
+### Сохранение
+
+```php
+use Laravel\Ai\Files\Document;
+use Laravel\Ai\Files\Image;
+
+// Сохранить и получить ID
+$stored = Document::fromPath('/home/laravel/doc.pdf')->put();
+$stored = Document::fromStorage('doc.pdf', disk: 'local')->put();
+$stored = Document::fromUrl('https://example.com/doc.pdf')->put();
+$stored = Document::fromString('Hello!', 'text/plain')->put();
+$stored = Document::fromUpload($request->file('document'))->put();
+
+$fileId = $stored->id;
+
+// Аналогично для Image
+$stored = Image::fromPath('/home/laravel/photo.jpg')->put();
+
+// Указать провайдера
+$stored = Document::fromPath('/doc.pdf')->put(provider: Lab::Anthropic);
+```
+
+### Получение и удаление
+
+```php
+$file = Document::fromId('file-id')->get();
+$file->id;
+$file->mimeType();
+
+Document::fromId('file-id')->delete();
+```
+
+### Использование в агенте
+
+```php
+// Прямая передача (одноразовая загрузка)
+$response = (new SalesCoach)->prompt(
+    'Analyze...',
+    attachments: [Files\Document::fromStorage('transcript.pdf')]
+);
+
+// Через сохранённый ID (многократное использование)
+$stored = Document::fromPath('/report.pdf')->put();
+$response = (new DocumentAnalyzer)->prompt(
+    'Summarize this document.',
+    attachments: [Document::fromId($stored->id)]
+);
+```
+
+---
+
+## Векторные хранилища (Vector Stores)
+
+```php
+use Laravel\Ai\Stores;
+use Laravel\Ai\Files\Document;
+
+// Создать хранилище
+$store = Stores::create('Knowledge Base');
+$store = Stores::create(
+    name: 'Knowledge Base',
+    description: 'Documentation materials.',
+    expiresWhenIdleFor: days(30),
+);
+$storeId = $store->id;
+
+// Получить хранилище
+$store = Stores::get('store_id');
+$store->id; $store->name; $store->fileCounts; $store->ready;
+
+// Удалить
+Stores::delete('store_id');
+$store->delete();
+
+// Добавить файлы
+$doc = $store->add('file_id');
+$doc = $store->add(Document::fromId('file_id'));
+$doc = $store->add(Document::fromPath('/path/to/doc.pdf'));
+$doc = $store->add(Document::fromStorage('manual.pdf'));
+$doc = $store->add($request->file('document'));
+
+// С метаданными (для фильтрации через FileSearch)
+$store->add(Document::fromPath('/report.pdf'), metadata: [
+    'author' => 'Taylor Otwell',
+    'department' => 'Engineering',
+    'year' => 2026,
+]);
+
+// Удалить файл из хранилища
+$store->remove('file_id');
+$store->remove('file_id', deleteFile: true); // удалить и из file storage
+```
+
+---
+
+## Failover
+
+```php
+use App\Ai\Agents\SalesCoach;
+use Laravel\Ai\Image;
+
+// Агент с failover
+$response = (new SalesCoach)->prompt(
+    'Analyze...',
+    provider: [Lab::OpenAI, Lab::Anthropic],
+);
+
+// Генерация изображений с failover
+$image = Image::of('A donut')->generate(provider: [Lab::Gemini, Lab::xAI]);
+```
+
+---
+
+## Тестирование
+
+### Агенты
+
+```php
+use App\Ai\Agents\SalesCoach;
+use Laravel\Ai\Prompts\AgentPrompt;
+use Laravel\Ai\Responses\AgentResponse;
+
+SalesCoach::fake();
+SalesCoach::fake(['First response', 'Second response']);
+SalesCoach::fake(fn (AgentPrompt $p) => 'Response for: '.$p->prompt);
+SalesCoach::fake()->preventStrayPrompts();
+
+SalesCoach::assertPrompted('Analyze this...');
+SalesCoach::assertPrompted(fn (AgentPrompt $p) => $p->contains('Analyze'));
+SalesCoach::assertNotPrompted('Missing prompt');
+SalesCoach::assertNeverPrompted();
+
+// Очередь
+SalesCoach::assertQueued('Analyze this...');
+SalesCoach::assertNeverQueued();
+```
+
+### Изображения
+
+```php
+use Laravel\Ai\Image;
+use Laravel\Ai\Prompts\ImagePrompt;
+
+Image::fake();
+Image::fake([base64_encode($img1), base64_encode($img2)]);
+Image::fake(fn (ImagePrompt $p) => base64_encode('...'));
+Image::fake()->preventStrayImages();
+
+Image::assertGenerated(fn (ImagePrompt $p) => $p->contains('sunset') && $p->isLandscape());
+Image::assertNothingGenerated();
+```
+
+### Аудио
+
+```php
+use Laravel\Ai\Audio;
+use Laravel\Ai\Prompts\AudioPrompt;
+
+Audio::fake();
+Audio::fake()->preventStrayAudio();
+Audio::assertGenerated(fn (AudioPrompt $p) => $p->contains('Hello') && $p->isFemale());
+Audio::assertNothingGenerated();
+```
+
+### Транскрипции
+
+```php
+use Laravel\Ai\Transcription;
+use Laravel\Ai\Prompts\TranscriptionPrompt;
+
+Transcription::fake(['First transcription.', 'Second transcription.']);
+Transcription::fake()->preventStrayTranscriptions();
+Transcription::assertGenerated(fn (TranscriptionPrompt $p) => $p->isDiarized());
+Transcription::assertNothingGenerated();
+```
+
+### Эмбеддинги
+
+```php
+use Laravel\Ai\Embeddings;
+use Laravel\Ai\Prompts\EmbeddingsPrompt;
+
+Embeddings::fake();
+Embeddings::fake(fn (EmbeddingsPrompt $p) =>
+    array_map(fn () => Embeddings::fakeEmbedding($p->dimensions), $p->inputs)
+);
+Embeddings::fake()->preventStrayEmbeddings();
+Embeddings::assertGenerated(fn (EmbeddingsPrompt $p) => $p->contains('Laravel'));
+```
+
+### Реранкинг
+
+```php
+use Laravel\Ai\Reranking;
+use Laravel\Ai\Responses\Data\RankedDocument;
+
+Reranking::fake();
+Reranking::fake([[
+    new RankedDocument(index: 0, document: 'First', score: 0.95),
+    new RankedDocument(index: 1, document: 'Second', score: 0.80),
+]]);
+Reranking::assertReranked(fn ($p) => $p->contains('Laravel'));
+```
+
+### Файлы
+
+```php
+use Laravel\Ai\Files;
+use Laravel\Ai\Contracts\Files\StorableFile;
+use Laravel\Ai\Files\Document;
+
+Files::fake();
+
+Document::fromString('Hello!', mimeType: 'text/plain')->as('hello.txt')->put();
+
+Files::assertStored(fn (StorableFile $f) => (string) $f === 'Hello!');
+Files::assertNothingStored();
+Files::assertDeleted('file-id');
+Files::assertNothingDeleted();
+```
+
+### Векторные хранилища
+
+```php
+use Laravel\Ai\Stores;
+use Laravel\Ai\Contracts\Files\StorableFile;
+
+Stores::fake(); // автоматически фейкает Files
+
+$store = Stores::get('store_id');
+$store->add('added_id');
+$store->remove('removed_id');
+
+Stores::assertCreated('Knowledge Base');
+$store->assertAdded('added_id');
+$store->assertRemoved('removed_id');
+
+// Когда file ID неизвестен
+$store->add(Document::fromString('Hello!', 'text/plain')->as('hello.txt'));
+$store->assertAdded(fn (StorableFile $f) => $f->name() === 'hello.txt');
+```
+
+---
+
+## События (Events)
+
+Список событий SDK для подписки через `Event::listen()`:
+
+| Событие | Когда |
+|---|---|
+| `PromptingAgent` / `AgentPrompted` | До/после промпта агента |
+| `StreamingAgent` / `AgentStreamed` | Стриминг |
+| `InvokingTool` / `ToolInvoked` | Вызов инструмента |
+| `GeneratingImage` / `ImageGenerated` | Генерация изображений |
+| `GeneratingAudio` / `AudioGenerated` | Генерация аудио |
+| `GeneratingTranscription` / `TranscriptionGenerated` | Транскрипция |
+| `GeneratingEmbeddings` / `EmbeddingsGenerated` | Эмбеддинги |
+| `Reranking` / `Reranked` | Реранкинг |
+| `StoringFile` / `FileStored` / `FileDeleted` | Операции с файлами |
+| `CreatingStore` / `StoreCreated` | Создание хранилища |
+| `AddingFileToStore` / `FileAddedToStore` | Добавление файла в хранилище |
+| `RemovingFileFromStore` / `FileRemovedFromStore` | Удаление из хранилища |
+
+---
+
+## Лучшие практики
+
+- **Один агент — одна ответственность.** Не перегружай агент разными задачами — создавай специализированные классы.
+- **Используй `#[UseCheapestModel]`** для простых задач (суммаризация, классификация) и `#[UseSmartestModel]` — для сложного рассуждения.
+- **Предзагружай файлы** (`Document::fromPath(...)->put()`) вместо повторной загрузки при каждом промпте.
+- **Кешируй эмбеддинги** через `->cache()` или глобально в `config/ai.php`.
+- **Failover** всегда указывай массивом провайдеров для production-агентов.
+- **Тестируй агентов** через `Agent::fake()` — не делай реальных вызовов в тестах.
+- **`RemembersConversations`** — простейший способ persisted-чата; для сложной логики реализуй `Conversational` вручную.
+- **Middleware** — для сквозных задач (логирование, аудит токенов, rate limiting на уровне приложения).
+- **Provider Tools** (`WebSearch`, `WebFetch`, `FileSearch`) выполняются провайдером, а не сервером — не тратят PHP-ресурсы.
+- **Vector Stores + `FileSearch`** — предпочтительный подход для RAG над большими корпусами; `SimilaritySearch` через pgvector — для данных, уже хранящихся в БД приложения.

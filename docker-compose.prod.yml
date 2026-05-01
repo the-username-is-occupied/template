@@ -1,9 +1,10 @@
 services:
     app:
+      build:
+        target: prod
       ports:
-        - "8000:8000"
+        - "8000:80"
       volumes:
         - ./docker/supervisor/common.conf:/etc/supervisor/common.conf
         - ./docker/supervisor/prod.conf:/etc/supervisor/conf.d/supervisord.conf
         - ./Caddyfile:/etc/caddy/Caddyfile
-

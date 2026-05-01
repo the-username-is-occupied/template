@@ -20,55 +20,45 @@ Dashboards:
 ## Настройка окружения
 
 1. Скопируйте файл окружения:
+
 ```bash
 cp .env.example .env --update=none
 ```
-```bash
-cp .env.testing.example .env.testing --update=none
-```
-2. Настройте необходимые переменные в `.env`:
-```bash
-APP_NAMESPACE=value # value - префикс к сервисам docker-compose 
-```
+
+2. Настройте `COMPOSE_PROJECT_NAME` в `.env`
+
 3. Инициализация проекта:
 
-Makefile:
 ```bash
-make init
-```
-Taskfile (https://taskfile.dev/docs/installation#get-the-binary):
-```bash
-task init
+make init    # или: task init
 ```
 
+## Quick Commands
 
-## Commonly used tasks
+| Command | Description |
+|---------|-------------|
+| `make dev` | Start dev environment (foreground) |
+| `make up` | Start containers in background |
+| `make shell` | Open bash inside app container |
+| `make test` | Run tests in parallel |
+| `make check` | Run all quality checks (lint, rector, phpstan, test, insights) |
+| `make fmt` | Fix code style (Pint) |
+| `make migrate` | Run database migrations |
+| `make logs` | Tail container logs |
+| `make infra` | Start only DB + Redis |
+| `make prod-build` | Build production image |
+| `make deploy` | Run production deployment |
+
+Run `make help` or `task --list` for all available targets.
+
+## Docker — Dev vs Production
 
 ```bash
-make/task exec # контейнер laravel
-```
-```bash
-make/task up
-```
-```bash
-make/task stop
-```
-```bash
-make/task tink
-```
-```bash
-make/task check # проверка качества кода
-```
+# Development (auto-merges compose.override.yml)
+docker compose up
 
-
-
-# Code quality: 
-```bash
-make check
-```
-или
-```bash
-task check
+# Production (hardened overlay)
+docker compose -f compose.yml -f compose.production.yml up -d
 ```
 
 # About 

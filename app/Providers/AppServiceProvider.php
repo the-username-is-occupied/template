@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Providers;
 
-use App\Jobs\Test;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Resources\Json\JsonResource;
 use Illuminate\Support\Facades\Schedule;
@@ -42,13 +41,8 @@ class AppServiceProvider extends ServiceProvider
 
     private function schedule(): void
     {
-        //        Schedule::job(new Test)->everyMinute();
-
         Schedule::command('pulse:check')->everyMinute();
-
         Schedule::command('pulse:ingest')->everyMinute();
-
         Schedule::command('telescope:prune --hours=72')->daily();
-
     }
 }

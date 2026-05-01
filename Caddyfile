@@ -16,14 +16,8 @@
         header Cache-Control "public, max-age=31536000, immutable"
     }
 
-    # Serve PHP via FrankenPHP
+    # Serve PHP via FrankenPHP (includes file_server and try_files internally)
     php_server
-
-    # Fallback to public/index.php for Laravel
-    try_files {path} /index.php
-
-    # Serve remaining files
-    file_server
 
     # Basic security headers
     header {

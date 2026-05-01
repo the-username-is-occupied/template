@@ -13,8 +13,8 @@ scrape_configs:
 
   - job_name: 'postgres'
     static_configs:
-      - targets: ['postgres:9187'] # Для postgres_exporter
+      - targets: ['postgres-exporter:9187']
 
   - job_name: 'redis'
     static_configs:
-      - targets: ['redis:9121'] # Для redis_exporter
+      - targets: ['redis-exporter:9121']

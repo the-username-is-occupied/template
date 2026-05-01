@@ -1,246 +1,231 @@
+# --- Makefile for Laravel + FrankenPHP ---
+
+SHELL := bash
+.ONESHELL:
+.SHELLFLAGS := -eu -o pipefail -c
+.DELETE_ON_ERROR:
+MAKEFLAGS += --warn-undefined-variables
+MAKEFLAGS += --no-builtin-rules
+
 ifneq (,$(wildcard .env))
 include .env
 export
 endif
 
-SHELL := bash
+# --- Git ---
+VERSION    ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo "dev")
+COMMIT     ?= $(shell git rev-parse --short HEAD 2>/dev/null || echo "unknown")
+BUILD_TIME := $(shell date -u '+%Y-%m-%dT%H:%M:%SZ')
 
-APP_NAMESPACE ?= $(APP_NAMESPACE)
-CONTAINER ?= $(APP_NAMESPACE)-app
-DOCKER_TTY ?= -it
-COMPOSE ?= docker-compose
+# --- Docker ---
+COMPOSE      := docker compose
+COMPOSE_PROD := docker compose -f compose.yml -f compose.production.yml
+EXEC         := $(COMPOSE) exec app
+ARTISAN      := $(EXEC) php artisan
 
-DOCKER_EXEC := docker exec $(DOCKER_TTY) $(CONTAINER)
+# ===================================================================
+.DEFAULT_GOAL := help
 
-.DEFAULT_GOAL := echo
+##@ Development
 
-# -------------------------------------------------------------------
-# Compose / Orchestration
-# -------------------------------------------------------------------
-.PHONY: compose-build
-compose-build:
-	$(COMPOSE) up -d --build
-
-.PHONY: compose-up
-compose-up:
-	$(COMPOSE) up -d --remove-orphans
-
-.PHONY: compose-build-prod
-compose-build-prod:
-	$(COMPOSE) -f docker-compose.yml -f docker-compose.prod.yml up -d --build
-
-.PHONY: compose-up-prod
-compose-up-prod:
-	$(COMPOSE) -f docker-compose.yml -f docker-compose.prod.yml up -d --remove-orphans
-
-.PHONY: compose-restart
-compose-restart:
-	$(COMPOSE) restart
-
-.PHONY: compose-stop
-compose-stop:
-	$(COMPOSE) stop
-
-.PHONY: compose-down
-compose-down:
-	$(COMPOSE) down -v
-
-# -------------------------------------------------------------------
-# App / Container
-# -------------------------------------------------------------------
-.PHONY: app-shell
-app-shell:
-	$(DOCKER_EXEC) /bin/bash
-
-.PHONY: app-composer-install
-app-composer-install:
-	$(DOCKER_EXEC) composer install --no-interaction --prefer-dist --no-progress
-
-.PHONY: app-npm-install
-app-npm-install:
-	$(DOCKER_EXEC) npm install
-
-.PHONY: app-key-generate
-app-key-generate:
-	$(DOCKER_EXEC) php artisan key:generate
-
-.PHONY: app-storage-link
-app-storage-link:
-	$(DOCKER_EXEC) php artisan storage:link
-
-.PHONY: app-cache-clear
-app-cache-clear:
-	$(DOCKER_EXEC) php artisan cache:clear
-
-.PHONY: app-horizon-install
-app-horizon-install:
-	$(DOCKER_EXEC) php artisan horizon:install
-
-# -------------------------------------------------------------------
-# Database
-# -------------------------------------------------------------------
-.PHONY: db-migrate
-db-migrate:
-	$(DOCKER_EXEC) php artisan migrate
-
-.PHONY: db-seed
-db-seed:
-	$(DOCKER_EXEC) php artisan db:seed
-
-.PHONY: db-setup
-db-setup: db-migrate db-seed
-	@true
-
-.PHONY: db-wipe
-db-wipe:
-	$(DOCKER_EXEC) php artisan db:wipe
-
-.PHONY: db-refresh
-db-refresh: db-wipe db-setup
-
-# -------------------------------------------------------------------
-# Quality / CI
-# -------------------------------------------------------------------
-.PHONY: quality-pint-fix
-quality-pint-fix:
-	$(DOCKER_EXEC) vendor/bin/pint --config ./pint.json
-
-.PHONY: quality-pint-check
-quality-pint-check:
-	$(DOCKER_EXEC) vendor/bin/pint --test --config ./pint.json
-
-.PHONY: quality-rector
-quality-rector:
-	$(DOCKER_EXEC) vendor/bin/rector process
-
-.PHONY: quality-insights
-quality-insights:
-	$(DOCKER_EXEC) vendor/bin/phpinsights --summary
-
-.PHONY: quality-stan
-quality-stan:
-	$(DOCKER_EXEC) vendor/bin/phpstan analyse -c ./phpstan.neon
-
-.PHONY: quality-test
-quality-test:
-	$(MAKE) app-cache-clear
-	$(DOCKER_EXEC) php artisan test --env=testing --parallel
-
-.PHONY: quality-all
-quality-all:
-	$(MAKE) quality-pint-check
-	$(MAKE) quality-rector
-	$(MAKE) quality-test
-	$(MAKE) quality-insights
-	$(MAKE) quality-stan
-
-# -------------------------------------------------------------------
-# Composite / Scenarios
-# -------------------------------------------------------------------
-.PHONY: init
-init:
-	$(MAKE) compose-build
-	$(MAKE) app-composer-install
-	$(MAKE) app-npm-install
-	$(MAKE) app-key-generate
-	$(MAKE) app-storage-link
-	$(MAKE) app-horizon-install
-	$(MAKE) db-setup
-	$(MAKE) compose-stop
-	$(MAKE) compose-up
-	$(MAKE) quality-test
-
-# -------------------------------------------------------------------
-# Utils
-# -------------------------------------------------------------------
-.PHONY: echo
-echo:
-	@echo Hello World! I am Makefile.
-	@echo APP_NAMESPACE: $(APP_NAMESPACE)
-	@echo CONTAINER: $(CONTAINER)
-
-.PHONY: tink
-tink:
-	docker exec -it $(CONTAINER) php artisan tink
-
-.PHONY: swagger
-swagger:
-	docker exec -it $(CONTAINER) php artisan l5-swagger:generate
-# -------------------------------------------------------------------
-# Aliases (совместимость со старыми именами)
-# -------------------------------------------------------------------
-.PHONY: exec
-exec: app-shell
-	@true
-
-.PHONY: check
-check: quality-all
-	@true
-
-.PHONY: build
-build: compose-build
-	@true
+.PHONY: dev
+dev: ## Start dev environment (foreground with logs)
+	$(COMPOSE) up
 
 .PHONY: up
-up: compose-up
-	@true
+up: ## Start containers in background
+	$(COMPOSE) up -d --remove-orphans
 
-.PHONY: build-prod
-build-prod: compose-build-prod
-	@true
-
-.PHONY: up-prod
-up-prod: compose-up-prod
-	@true
+.PHONY: build
+build: ## Build and start containers
+	$(COMPOSE) up -d --build
 
 .PHONY: restart
-restart: compose-restart
-	@true
+restart: ## Restart all containers
+	$(COMPOSE) restart
 
 .PHONY: stop
-stop: compose-stop
-	@true
+stop: ## Stop all containers
+	$(COMPOSE) stop
 
 .PHONY: down
-down: compose-down
-	@true
+down: ## Stop and remove containers and volumes
+	$(COMPOSE) down -v
+
+.PHONY: logs
+logs: ## Tail container logs (all services)
+	$(COMPOSE) logs -f --tail=100
+
+.PHONY: ps
+ps: ## Show running containers
+	$(COMPOSE) ps
+
+.PHONY: infra
+infra: ## Start only infrastructure (db, redis)
+	$(COMPOSE) up -d db redis
+
+##@ Application
+
+.PHONY: shell
+shell: ## Open bash inside the app container
+	$(EXEC) /bin/bash
 
 .PHONY: composer-install
-composer-install: app-composer-install
-	@true
+composer-install: ## Install PHP dependencies
+	$(EXEC) composer install --no-interaction --prefer-dist --no-progress
 
 .PHONY: npm-install
-npm-install: app-npm-install
-	@true
+npm-install: ## Install Node dependencies
+	$(EXEC) npm ci
 
 .PHONY: key-generate
-key-generate: app-key-generate
-	@true
+key-generate: ## Generate APP_KEY
+	$(ARTISAN) key:generate
 
 .PHONY: storage-link
-storage-link: app-storage-link
-	@true
+storage-link: ## Create storage symlink
+	$(ARTISAN) storage:link
 
-.PHONY: pint
-pint: quality-pint-fix
-	@true
+.PHONY: cache-clear
+cache-clear: ## Clear all application caches
+	$(ARTISAN) cache:clear
 
-.PHONY: pint-test
-pint-test: quality-pint-check
-	@true
+.PHONY: optimize
+optimize: ## Cache config/routes/views (for prod)
+	$(ARTISAN) optimize
+
+.PHONY: optimize-clear
+optimize-clear: ## Clear cached config/routes/views
+	$(ARTISAN) optimize:clear
+
+##@ Database
+
+.PHONY: migrate
+migrate: ## Run database migrations
+	$(ARTISAN) migrate
+
+.PHONY: migrate-fresh
+migrate-fresh: ## Drop all tables and re-run migrations
+	$(ARTISAN) migrate:fresh
+
+.PHONY: seed
+seed: ## Run database seeders
+	$(ARTISAN) db:seed
+
+.PHONY: db-setup
+db-setup: migrate seed ## Migrate + seed
+
+.PHONY: db-fresh
+db-fresh: migrate-fresh seed ## Fresh migrate + seed
+
+##@ Quality / CI
+
+.PHONY: fmt
+fmt: ## Fix code style (Pint)
+	$(EXEC) vendor/bin/pint --config ./pint.json
+
+.PHONY: lint
+lint: ## Check code style without fixing (Pint)
+	$(EXEC) vendor/bin/pint --test --config ./pint.json
 
 .PHONY: rector
-rector: quality-rector
-	@true
+rector: ## Run Rector refactoring
+	$(EXEC) vendor/bin/rector process
+
+.PHONY: rector-dry
+rector-dry: ## Rector dry-run
+	$(EXEC) vendor/bin/rector process --dry-run
 
 .PHONY: insights
-insights: quality-insights
-	@true
+insights: ## Run PHP Insights
+	$(EXEC) vendor/bin/phpinsights --summary
 
 .PHONY: stan
-stan: quality-stan
-	@true
+stan: ## Run PHPStan static analysis
+	$(EXEC) vendor/bin/phpstan analyse -c ./phpstan.neon
 
 .PHONY: test
-test: quality-test
-	@true
+test: ## Run tests in parallel
+	$(ARTISAN) test --env=testing --parallel
+
+.PHONY: check
+check: lint rector-dry stan test insights ## Run all quality checks
+
+.PHONY: ci
+ci: composer-install lint rector-dry stan test ## Full CI pipeline
+
+##@ Docker — Production
+
+.PHONY: prod-build
+prod-build: ## Build production image
+	$(COMPOSE_PROD) build
+
+.PHONY: prod-up
+prod-up: ## Start production environment
+	$(COMPOSE_PROD) up -d
+
+.PHONY: prod-down
+prod-down: ## Stop production environment
+	$(COMPOSE_PROD) down
+
+.PHONY: prod-logs
+prod-logs: ## Tail production logs
+	$(COMPOSE_PROD) logs -f --tail=100
+
+.PHONY: prod-ps
+prod-ps: ## Show production containers
+	$(COMPOSE_PROD) ps
+
+##@ Deploy
+
+.PHONY: deploy
+deploy: ## Run production deployment
+	./deploy/scripts/deploy.sh
+
+.PHONY: deploy-update
+deploy-update: ## Run zero-downtime update
+	./deploy/scripts/update.sh
+
+.PHONY: deploy-rollback
+deploy-rollback: ## Rollback to previous version
+	./deploy/scripts/rollback.sh
+
+.PHONY: deploy-health
+deploy-health: ## Run production health check
+	./deploy/scripts/health-check.sh
+
+.PHONY: deploy-backup
+deploy-backup: ## Backup production database
+	./deploy/scripts/backup.sh
+
+##@ Utilities
+
+.PHONY: tinker
+tinker: ## Open Laravel Tinker
+	$(ARTISAN) tinker
+
+.PHONY: swagger
+swagger: ## Generate Swagger/OpenAPI docs
+	$(ARTISAN) l5-swagger:generate
+
+.PHONY: horizon
+horizon: ## Show Horizon status
+	$(ARTISAN) horizon:status
+
+##@ Composite
+
+.PHONY: init
+init: build composer-install npm-install key-generate storage-link db-setup ## Full project init
+	@echo "--- Init complete. Run 'make dev' to start. ---"
+
+.PHONY: clean
+clean: ## Remove generated files and caches
+	rm -rf public/build public/hot coverage/
+
+##@ Help
+
+.PHONY: help
+help: ## Show this help
+	@awk 'BEGIN {FS = ":.*##"; printf "Usage:\n  make \033[36m<target>\033[0m\n"} \
+		/^[a-zA-Z_-]+:.*?## / {printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2} \
+		/^##@/ {printf "\n\033[1m%s\033[0m\n", substr($$0, 5)}' $(MAKEFILE_LIST)

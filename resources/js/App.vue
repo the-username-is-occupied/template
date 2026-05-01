@@ -4,12 +4,8 @@
     </div>
 </template>
 
-<script>
-export default {
-    data() {
-        return {
-            message: 'Привет, Vue в Laravel!'
-        }
-    }
-}
+<script setup>
+import { ref } from 'vue'
+
+const message = ref('Привет, Vue в Laravel!')
 </script>

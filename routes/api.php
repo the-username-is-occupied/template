@@ -1,6 +1,7 @@
 <?php
 
-\Illuminate\Support\Facades\Route::get('/', function () {
-    return app()->version();
-    
-})->name('api');
+declare(strict_types=1);
+
+use Illuminate\Support\Facades\Route;
+
+Route::get('/', fn () => app()->version())->name('api');
