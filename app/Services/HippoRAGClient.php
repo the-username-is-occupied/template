@@ -70,10 +70,21 @@ class HippoRAGClient
 
     private function request(): PendingRequest
     {
-        return Http::baseUrl((string) config('hipporag.api_url'))
+        return Http::baseUrl($this->apiUrl())
             ->acceptJson()
             ->asJson()
             ->timeout((int) config('hipporag.timeout'));
+    }
+
+    private function apiUrl(): string
+    {
+        $apiUrl = (string) config('hipporag.api_url');
+
+        if ($this->isContainerRuntime() && $this->isLocalhostUrl($apiUrl)) {
+            return (string) config('hipporag.internal_api_url');
+        }
+
+        return $apiUrl;
     }
 
     public function workDir(string $userSpaceUuid): string
@@ -90,5 +101,15 @@ class HippoRAGClient
         if (function_exists('set_time_limit')) {
             set_time_limit($timeout + 30);
         }
+    }
+
+    private function isContainerRuntime(): bool
+    {
+        return file_exists('/.dockerenv');
+    }
+
+    private function isLocalhostUrl(string $url): bool
+    {
+        return in_array(parse_url($url, PHP_URL_HOST), ['localhost', '127.0.0.1'], true);
     }
 }

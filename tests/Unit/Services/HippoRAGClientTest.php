@@ -44,6 +44,24 @@ it('extends php execution time for long hipporag requests', function (): void {
     expect((int) ini_get('max_execution_time'))->toBeGreaterThanOrEqual(330);
 });
 
+it('uses the internal hipporag api url when localhost is configured in docker', function (): void {
+    Config::set('hipporag.api_url', 'http://localhost:8000');
+    Config::set('hipporag.internal_api_url', 'http://hipporag-api:8000');
+    Http::fake([
+        'hipporag-api:8000/query' => Http::response([
+            'status' => 'success',
+            'results' => [],
+        ]),
+    ]);
+
+    app(HippoRAGClient::class)->query([
+        'work_dir' => '/data/userspace_abc',
+        'queries' => ['Question?'],
+    ]);
+
+    Http::assertSent(fn ($request): bool => $request->url() === 'http://hipporag-api:8000/query');
+});
+
 it('throws when hipporag returns an error payload', function (): void {
     Config::set('hipporag.api_url', 'http://hipporag-api:8000');
     Http::fake([
