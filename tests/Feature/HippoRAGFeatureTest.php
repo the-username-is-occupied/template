@@ -5,6 +5,7 @@ declare(strict_types=1);
 use App\Models\Source;
 use App\Models\TokenUsageLog;
 use App\Models\UserSpace;
+use Illuminate\Foundation\Http\Middleware\ValidateCsrfToken;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Http;
@@ -13,6 +14,7 @@ use Illuminate\Support\Facades\Storage;
 uses(RefreshDatabase::class);
 
 beforeEach(function (): void {
+    $this->withoutMiddleware(ValidateCsrfToken::class);
     config()->set('hipporag.api_url', 'http://hipporag-api:8000');
     Storage::fake('local');
     Http::preventStrayRequests();
