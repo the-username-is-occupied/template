@@ -50,6 +50,8 @@ class HippoRAGClient
      */
     private function post(string $path, array $payload): array
     {
+        $this->extendExecutionTime();
+
         $response = $this->request()->post($path, $payload)->throw();
         $data = $response->json();
 
@@ -58,7 +60,9 @@ class HippoRAGClient
         }
 
         if (($data['status'] ?? null) === 'error') {
-            throw new RuntimeException((string) ($data['detail'] ?? 'HippoRAG API error.'));
+            $detail = trim((string) ($data['detail'] ?? ''));
+
+            throw new RuntimeException($detail !== '' ? $detail : 'HippoRAG API error.');
         }
 
         return $data;
@@ -77,5 +81,14 @@ class HippoRAGClient
         $prefix = rtrim((string) config('hipporag.work_dir_prefix'), '/');
 
         return $prefix.'/userspace_'.$userSpaceUuid;
+    }
+
+    private function extendExecutionTime(): void
+    {
+        $timeout = max(1, (int) config('hipporag.timeout'));
+
+        if (function_exists('set_time_limit')) {
+            set_time_limit($timeout + 30);
+        }
     }
 }
