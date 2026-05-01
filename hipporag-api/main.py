@@ -1,0 +1,154 @@
+import os
+import shutil
+from pathlib import Path
+from typing import Any, Literal
+
+from fastapi import FastAPI
+from pydantic import BaseModel, Field
+
+try:
+    from hipporag import HippoRAG
+except Exception:
+    HippoRAG = None
+
+
+app = FastAPI(title="HippoRAG API")
+
+
+class IndexRequest(BaseModel):
+    work_dir: str
+    documents: list[str] = Field(min_length=1)
+    llm_model: str
+    embedding_model: str
+    llm_base_url: str | None = None
+
+
+class QueryRequest(BaseModel):
+    work_dir: str
+    queries: list[str] = Field(min_length=1)
+    mode: Literal["rag", "retrieve"] = "rag"
+    num_to_retrieve: int = 5
+    llm_model: str
+    embedding_model: str
+    llm_base_url: str | None = None
+
+
+class DeleteRequest(BaseModel):
+    work_dir: str
+
+
+def hipporag_available() -> bool:
+    return HippoRAG is not None
+
+
+def build_hipporag(work_dir: str, llm_model: str, embedding_model: str, llm_base_url: str | None) -> Any:
+    if HippoRAG is None:
+        raise RuntimeError("HippoRAG package is not available")
+
+    kwargs = {
+        "save_dir": work_dir,
+        "llm_model_name": llm_model,
+        "embedding_model_name": embedding_model,
+    }
+
+    if llm_base_url:
+        kwargs["llm_base_url"] = llm_base_url
+
+    return HippoRAG(**kwargs)
+
+
+def normalize_rag_result(query: str, result: Any) -> dict[str, Any]:
+    if isinstance(result, dict):
+        return {
+            "question": str(result.get("question", query)),
+            "answer": str(result.get("answer", result.get("response", ""))),
+            "sources": result.get("sources", result.get("documents", [])) or [],
+        }
+
+    return {
+        "question": query,
+        "answer": str(result),
+        "sources": [],
+    }
+
+
+def normalize_document(document: Any) -> dict[str, Any]:
+    if isinstance(document, dict):
+        return {
+            "text": str(document.get("text", document.get("content", document.get("document", "")))),
+            "score": document.get("score"),
+        }
+
+    if isinstance(document, (list, tuple)) and document:
+        score = document[1] if len(document) > 1 else None
+
+        return {
+            "text": str(document[0]),
+            "score": score,
+        }
+
+    return {
+        "text": str(document),
+        "score": None,
+    }
+
+
+@app.get("/health")
+def health() -> dict[str, Any]:
+    return {"status": "healthy", "hipporag_available": hipporag_available()}
+
+
+@app.post("/index")
+def index(request: IndexRequest) -> dict[str, Any]:
+    try:
+        Path(request.work_dir).mkdir(parents=True, exist_ok=True)
+        hipporag = build_hipporag(request.work_dir, request.llm_model, request.embedding_model, request.llm_base_url)
+        hipporag.index(docs=request.documents)
+
+        return {"status": "success", "num_documents": len(request.documents)}
+    except Exception as exception:
+        return {"status": "error", "detail": str(exception)}
+
+
+@app.post("/query")
+def query(request: QueryRequest) -> dict[str, Any]:
+    try:
+        hipporag = build_hipporag(request.work_dir, request.llm_model, request.embedding_model, request.llm_base_url)
+
+        if request.mode == "retrieve":
+            retrieval_results = hipporag.retrieve(queries=request.queries, num_to_retrieve=request.num_to_retrieve)
+            results = [
+                {
+                    "query": query_text,
+                    "documents": [normalize_document(document) for document in documents],
+                }
+                for query_text, documents in zip(request.queries, retrieval_results)
+            ]
+
+            return {"status": "success", "results": results}
+
+        rag_results = hipporag.rag_qa(queries=request.queries)
+        results = [
+            normalize_rag_result(query_text, result)
+            for query_text, result in zip(request.queries, rag_results)
+        ]
+
+        return {"status": "success", "results": results}
+    except Exception as exception:
+        return {"status": "error", "detail": str(exception)}
+
+
+@app.post("/delete")
+def delete(request: DeleteRequest) -> dict[str, Any]:
+    try:
+        data_root = Path(os.getenv("HIPPORAG_DATA_ROOT", "/app/data")).resolve()
+        target = Path(request.work_dir).resolve()
+
+        if not target.is_relative_to(data_root):
+            return {"status": "error", "detail": "Refusing to delete outside HippoRAG data root"}
+
+        shutil.rmtree(target, ignore_errors=True)
+
+        return {"status": "success", "deleted": True}
+    except Exception as exception:
+        return {"status": "error", "detail": str(exception)}
