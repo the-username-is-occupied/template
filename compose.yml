@@ -67,6 +67,7 @@ services:
     container_name: hipporag-api
     environment:
       - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - HIPPORAG_LLM_API_KEY=${HIPPORAG_LLM_API_KEY:-${FREELLMAPI_API_KEY:-${OPENAI_API_KEY:-}}}
       - HF_HOME=/app/data/huggingface
     volumes:
       - ./hipporag-data:/app/data

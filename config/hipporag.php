@@ -11,6 +11,7 @@ return [
     'default_embedding_model' => env('HIPPORAG_EMBEDDING_MODEL', 'text-embedding-3-small'),
     'llm_base_url' => env('HIPPORAG_LLM_BASE_URL'),
     'embedding_base_url' => env('HIPPORAG_EMBEDDING_BASE_URL'),
+    'llm_api_key' => env('HIPPORAG_LLM_API_KEY', env('FREELLMAPI_API_KEY')),
     'token_pricing' => [
         'gpt-4o-mini' => [
             'prompt' => 0.000150,

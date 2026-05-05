@@ -37,4 +37,10 @@ return [
         ],
     ],
 
+    'freellmapi' => [
+        'url' => env('FREELLMAPI_URL', 'http://localhost:3001/v1'),
+        'internal_url' => env('FREELLMAPI_INTERNAL_URL', 'http://freellmapi:3001/v1'),
+        'api_key' => env('FREELLMAPI_API_KEY'),
+    ],
+
 ];

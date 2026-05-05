@@ -41,6 +41,7 @@ class HippoRAGQueryService
             'embedding_model' => (string) config('hipporag.default_embedding_model'),
             'llm_base_url' => config('hipporag.llm_base_url'),
             'embedding_base_url' => config('hipporag.embedding_base_url'),
+            'llm_api_key' => config('hipporag.llm_api_key'),
         ]);
 
         $results = $this->normalizeResults($response['results'] ?? []);
