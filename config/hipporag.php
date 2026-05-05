@@ -8,8 +8,9 @@ return [
     'timeout' => env('HIPPORAG_HTTP_TIMEOUT', 300),
     'work_dir_prefix' => env('HIPPORAG_WORK_DIR_PREFIX', '/app/data'),
     'default_model' => env('HIPPORAG_LLM_MODEL', 'gpt-4o-mini'),
-    'default_embedding_model' => env('HIPPORAG_EMBEDDING_MODEL', 'nvidia/NV-Embed-v2'),
+    'default_embedding_model' => env('HIPPORAG_EMBEDDING_MODEL', 'text-embedding-3-small'),
     'llm_base_url' => env('HIPPORAG_LLM_BASE_URL'),
+    'embedding_base_url' => env('HIPPORAG_EMBEDDING_BASE_URL'),
     'token_pricing' => [
         'gpt-4o-mini' => [
             'prompt' => 0.000150,

@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Resources\Json\JsonResource;
 use Illuminate\Support\Facades\Schedule;
 use Illuminate\Support\ServiceProvider;
+use Illuminate\Support\Facades\URL;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -25,6 +26,14 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        if (filled($appUrl = config('app.url'))) {
+            URL::forceRootUrl($appUrl);
+
+            $scheme = parse_url($appUrl, PHP_URL_SCHEME);
+            if (is_string($scheme) && $scheme !== '') {
+                URL::forceScheme($scheme);
+            }
+        }
         Model::preventLazyLoading(! app()->isProduction());
         JsonResource::withoutWrapping();
         $this->schedule();

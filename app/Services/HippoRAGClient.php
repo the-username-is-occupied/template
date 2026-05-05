@@ -55,6 +55,7 @@ class HippoRAGClient
         $response = $this->request()->post($path, $payload)->throw();
         $data = $response->json();
 
+
         if (! is_array($data)) {
             throw new RuntimeException('HippoRAG API returned malformed JSON.');
         }
