@@ -22,6 +22,7 @@ class IndexRequest(BaseModel):
     llm_model: str
     embedding_model: str
     llm_base_url: str | None = None
+    llm_api_key: str | None = None
 
 
 class QueryRequest(BaseModel):
@@ -32,6 +33,7 @@ class QueryRequest(BaseModel):
     llm_model: str
     embedding_model: str
     llm_base_url: str | None = None
+    llm_api_key: str | None = None
 
 
 class DeleteRequest(BaseModel):
@@ -42,7 +44,7 @@ def hipporag_available() -> bool:
     return HippoRAG is not None
 
 
-def build_hipporag(work_dir: str, llm_model: str, embedding_model: str, llm_base_url: str | None) -> Any:
+def build_hipporag(work_dir: str, llm_model: str, embedding_model: str, llm_base_url: str | None, llm_api_key: str | None) -> Any:
     if HippoRAG is None:
         raise RuntimeError("HippoRAG package is not available")
 
@@ -54,6 +56,10 @@ def build_hipporag(work_dir: str, llm_model: str, embedding_model: str, llm_base
 
     if llm_base_url:
         kwargs["llm_base_url"] = llm_base_url
+
+    resolved_llm_api_key = llm_api_key or os.getenv("HIPPORAG_LLM_API_KEY")
+    if resolved_llm_api_key:
+        os.environ["OPENAI_API_KEY"] = resolved_llm_api_key
 
     return HippoRAG(**kwargs)
 
@@ -142,7 +148,13 @@ def health() -> dict[str, Any]:
 def index(request: IndexRequest) -> dict[str, Any]:
     try:
         Path(request.work_dir).mkdir(parents=True, exist_ok=True)
-        hipporag = build_hipporag(request.work_dir, request.llm_model, request.embedding_model, request.llm_base_url)
+        hipporag = build_hipporag(
+            request.work_dir,
+            request.llm_model,
+            request.embedding_model,
+            request.llm_base_url,
+            request.llm_api_key,
+        )
         hipporag.index(docs=request.documents)
 
         return {"status": "success", "num_documents": len(request.documents)}
@@ -153,7 +165,13 @@ def index(request: IndexRequest) -> dict[str, Any]:
 @app.post("/query")
 def query(request: QueryRequest) -> dict[str, Any]:
     try:
-        hipporag = build_hipporag(request.work_dir, request.llm_model, request.embedding_model, request.llm_base_url)
+        hipporag = build_hipporag(
+            request.work_dir,
+            request.llm_model,
+            request.embedding_model,
+            request.llm_base_url,
+            request.llm_api_key,
+        )
 
         if request.mode == "retrieve":
             try:

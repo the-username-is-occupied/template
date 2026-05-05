@@ -84,6 +84,7 @@ class HippoRAGIndexingService
             'llm_model' => (string) config('hipporag.default_model'),
             'embedding_model' => (string) config('hipporag.default_embedding_model'),
             'llm_base_url' => config('hipporag.llm_base_url'),
+            'llm_api_key' => config('hipporag.llm_api_key'),
         ]);
         $responseTimeMs = (int) round((microtime(true) - $startedAt) * 1000);
 

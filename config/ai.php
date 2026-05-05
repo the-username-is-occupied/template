@@ -120,6 +120,12 @@ return [
             'url' => env('OLLAMA_URL', 'http://localhost:11434'),
         ],
 
+        'freellmapi' => [
+            'driver' => 'openai',
+            'key' => env('FREELLMAPI_API_KEY'),
+            'url' => env('FREELLMAPI_URL', 'http://localhost:3001/v1'),
+        ],
+
         'openai' => [
             'driver' => 'openai',
             'key' => env('OPENAI_API_KEY'),
