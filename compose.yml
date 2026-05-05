@@ -62,6 +62,24 @@ services:
     networks:
       - backend
 
+  freellmapi:
+    build:
+      context: ./docker/freellmapi
+      dockerfile: Dockerfile
+      args:
+        FREELLMAPI_REF: ${FREELLMAPI_REF:-main}
+    environment:
+      PORT: "3001"
+      ENCRYPTION_KEY: ${FREELLMAPI_ENCRYPTION_KEY:-}
+    volumes:
+      - freellmapi_data:/app/server/data
+    ports:
+      - "${FREELLMAPI_PORT:-3001}:3001"
+    restart: unless-stopped
+    networks:
+      - frontend
+      - backend
+
   hipporag-api:
     build: ./hipporag-api
     container_name: hipporag-api
@@ -80,6 +98,7 @@ services:
 volumes:
   postgres_data:
   redis_data:
+  freellmapi_data:
 
 networks:
   frontend:
