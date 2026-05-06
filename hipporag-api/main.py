@@ -2,6 +2,7 @@ import contextvars
 import hashlib
 import importlib
 import inspect
+import json
 import math
 import os
 import re
@@ -373,6 +374,113 @@ def source_registry() -> ChunkSourceRegistry:
     return ChunkSourceRegistry()
 
 
+def mock_index_file(work_dir: str) -> Path:
+    return Path(work_dir).resolve() / "mock_index.json"
+
+
+def load_mock_index(work_dir: str) -> list[dict[str, Any]]:
+    index_file = mock_index_file(work_dir)
+    if not index_file.exists():
+        return []
+
+    try:
+        payload = json.loads(index_file.read_text(encoding="utf-8"))
+    except Exception:
+        return []
+
+    if not isinstance(payload, list):
+        return []
+
+    normalized: list[dict[str, Any]] = []
+    for row in payload:
+        if not isinstance(row, dict):
+            continue
+
+        text = str(row.get("text", ""))
+        source_uuid = str(row.get("source_uuid", "")).strip().lower()
+        chunk_hash_value = str(row.get("chunk_hash", "")).strip().lower()
+        if text == "" or source_uuid == "" or chunk_hash_value == "":
+            continue
+
+        normalized.append(
+            {
+                "text": text,
+                "source_uuid": source_uuid,
+                "chunk_hash": chunk_hash_value,
+            }
+        )
+
+    return normalized
+
+
+def persist_mock_index(work_dir: str, chunks: list[dict[str, Any]]) -> None:
+    index_file = mock_index_file(work_dir)
+    existing_rows = load_mock_index(work_dir)
+    index_by_hash = {str(row["chunk_hash"]): row for row in existing_rows}
+
+    for chunk in chunks:
+        text = str(chunk.get("text", ""))
+        source_uuid = str(chunk.get("source_uuid", "")).strip().lower()
+        chunk_hash_value = str(chunk.get("chunk_hash", "")).strip().lower()
+        if text == "" or source_uuid == "" or chunk_hash_value == "":
+            continue
+
+        index_by_hash[chunk_hash_value] = {
+            "text": text,
+            "source_uuid": source_uuid,
+            "chunk_hash": chunk_hash_value,
+        }
+
+    index_file.parent.mkdir(parents=True, exist_ok=True)
+    index_file.write_text(
+        json.dumps(list(index_by_hash.values()), ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
+
+
+def query_terms(query: str) -> set[str]:
+    return set(re.findall(r"[a-zA-Z0-9_]+", query.lower()))
+
+
+def mock_retrieve_documents(
+    work_dir: str,
+    query: str,
+    num_to_retrieve: int,
+    score_threshold: float,
+) -> list[dict[str, Any]]:
+    terms = query_terms(query)
+    if terms == set():
+        return []
+
+    ranked: list[dict[str, Any]] = []
+    for row in load_mock_index(work_dir):
+        text = str(row["text"])
+        text_terms = query_terms(text)
+        if text_terms == set():
+            continue
+
+        overlap = len(terms.intersection(text_terms))
+        if overlap == 0:
+            continue
+
+        score = overlap / max(1, len(terms))
+        if score < score_threshold:
+            continue
+
+        ranked.append(
+            {
+                "text": text,
+                "score": score,
+                "chunk_hash": str(row["chunk_hash"]),
+                "source_uuid": str(row["source_uuid"]),
+            }
+        )
+
+    ranked.sort(key=lambda item: float(item["score"]), reverse=True)
+
+    return ranked[:num_to_retrieve]
+
+
 @app.get("/health")
 def health() -> dict[str, Any]:
     return {"status": "healthy", "hipporag_available": hipporag_available()}
@@ -406,6 +514,22 @@ def index(request: IndexRequest) -> dict[str, Any]:
             }
 
         Path(request.work_dir).mkdir(parents=True, exist_ok=True)
+        if HippoRAG is None:
+            persist_mock_index(request.work_dir, chunks)
+
+            return {
+                "status": "success",
+                "mode": "index",
+                "num_sources": len(request.sources),
+                "num_chunks": len(chunks),
+                "graph_info": {
+                    "num_passage_nodes": len(chunks),
+                    "num_extracted_triples": 0,
+                    "facts_per_chunk": 0.0,
+                },
+                "token_usage": current_token_usage(),
+            }
+
         hipporag = build_hipporag(request.work_dir, request.llm_model_name)
         hipporag.index(docs=[chunk["text"] for chunk in chunks])
 
@@ -434,6 +558,26 @@ def index(request: IndexRequest) -> dict[str, Any]:
 def query(request: QueryRequest) -> dict[str, Any]:
     try:
         initialize_token_usage()
+        if HippoRAG is None:
+            return {
+                "status": "success",
+                "results": [
+                    {
+                        "query": query_text,
+                        "documents": mock_retrieve_documents(
+                            request.work_dir,
+                            query_text,
+                            request.num_to_retrieve,
+                            request.score_threshold,
+                        ),
+                    }
+                    for query_text in request.queries
+                ],
+                "mode": "retrieve",
+                "score_threshold": request.score_threshold,
+                "token_usage": current_token_usage(),
+            }
+
         hipporag = build_hipporag(request.work_dir, request.llm_model_name)
 
         try:

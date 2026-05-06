@@ -81,7 +81,9 @@ services:
       - backend
 
   hipporag-api:
-    build: ./hipporag-api
+    build:
+      context: .
+      dockerfile: ./docker/hipporag-api/Dockerfile
     container_name: hipporag-api
     environment:
       - OPENAI_API_KEY=${OPENAI_API_KEY}
