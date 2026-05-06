@@ -7,6 +7,9 @@ namespace App\Services;
 use App\Models\Source;
 use App\Models\UserSpace;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 
 class HippoRAGIndexingService
 {
@@ -25,91 +28,165 @@ class HippoRAGIndexingService
      *     completion_tokens: int,
      *     estimated_cost_usd: float,
      *     response_time_ms: int,
-     *     response: array<string, mixed>
+     *     response: array<string, mixed>,
+     *     mode: string,
+     *     graph_info: array<string, mixed>,
+     *     chunks: array<int, array<string, mixed>>
      * }
      */
-    public function index(UserSpace $userSpace, array $files): array
-    {
+    public function index(
+        UserSpace $userSpace,
+        array $files,
+        string $pastedText,
+        string $llmModelName,
+        string $indexMode,
+        int $chunkSize,
+        float $overlapRatio,
+    ): array {
+        $mode = $indexMode === 'chunk' ? 'chunk' : 'index';
         $sources = [];
+        $sourceInputs = [];
         $fileResults = [];
-        $documents = [];
-        $promptTokens = 0;
+        $estimatedPromptTokens = 0;
 
         foreach ($files as $file) {
             $contents = (string) file_get_contents($file->getRealPath());
-            $sha256 = hash('sha256', $contents);
             $originalName = $this->sanitizeFilename($file->getClientOriginalName());
+            $tokens = $this->tokenUsage->estimateTokens($contents);
+            $estimatedPromptTokens += $tokens;
+            $fileResults[] = [
+                'filename' => $originalName,
+                'tokens' => $tokens,
+                'cost' => $this->tokenUsage->estimateCost($llmModelName, $tokens, 0),
+            ];
 
-            $path = $file->storeAs($userSpace->storageDirectory(), $originalName);
-            $source = Source::query()->firstOrCreate(
-                ['sha256' => $sha256],
-                [
-                    'user_space_id' => $userSpace->id,
-                    'filename' => $originalName,
-                    'original_name' => $originalName,
-                    'mime_type' => $file->getClientMimeType() ?: 'text/plain',
-                    'size' => $file->getSize() ?: strlen($contents),
-                    'path' => $path,
-                ],
-            );
+            if ($mode === 'index') {
+                $source = $this->persistSource($userSpace, $file, $contents, $originalName);
+                $sources[] = $source;
+                $sourceInputs[] = [
+                    'source_uuid' => $source->uuid,
+                    'filename' => $source->original_name,
+                    'text' => $contents,
+                ];
 
-            if ((int) $source->user_space_id !== (int) $userSpace->id) {
-                $source = Source::query()->create([
-                    'user_space_id' => $userSpace->id,
-                    'filename' => $originalName,
-                    'original_name' => $originalName,
-                    'mime_type' => $file->getClientMimeType() ?: 'text/plain',
-                    'size' => $file->getSize() ?: strlen($contents),
-                    'sha256' => hash('sha256', $sha256.$userSpace->uuid),
-                    'path' => $path,
-                ]);
+                continue;
             }
 
-            $document = "[SOURCE_ID:{$source->uuid}]\n{$contents}";
-            $tokens = $this->tokenUsage->estimateTokens($document);
-            $documents[] = $document;
-            $sources[] = $source;
-            $promptTokens += $tokens;
-            $fileResults[] = [
-                'filename' => $source->original_name,
-                'tokens' => $tokens,
-                'cost' => $this->tokenUsage->estimateCost((string) config('hipporag.default_model'), $tokens, 0),
+            $sourceInputs[] = [
+                'source_uuid' => (string) Str::uuid(),
+                'filename' => $originalName,
+                'text' => $contents,
             ];
+        }
+
+        $normalizedPastedText = trim($pastedText);
+        if ($normalizedPastedText !== '') {
+            $clipboardFilename = 'clipboard_'.now()->format('Ymd_His').'.txt';
+            $clipboardTokens = $this->tokenUsage->estimateTokens($normalizedPastedText);
+            $estimatedPromptTokens += $clipboardTokens;
+            $fileResults[] = [
+                'filename' => $clipboardFilename,
+                'tokens' => $clipboardTokens,
+                'cost' => $this->tokenUsage->estimateCost($llmModelName, $clipboardTokens, 0),
+            ];
+
+            if ($mode === 'index') {
+                $clipboardPath = sprintf('%s/%s', $userSpace->storageDirectory(), $clipboardFilename);
+                Storage::disk('local')->put($clipboardPath, $normalizedPastedText);
+                $clipboardHash = hash('sha256', $normalizedPastedText.$userSpace->uuid);
+                $source = Source::query()->firstOrCreate(
+                    ['sha256' => $clipboardHash],
+                    [
+                        'user_space_id' => $userSpace->id,
+                        'filename' => $clipboardFilename,
+                        'original_name' => $clipboardFilename,
+                        'mime_type' => 'text/plain',
+                        'size' => strlen($normalizedPastedText),
+                        'path' => $clipboardPath,
+                    ],
+                );
+                $sources[] = $source;
+                $sourceInputs[] = [
+                    'source_uuid' => $source->uuid,
+                    'filename' => $source->original_name,
+                    'text' => $normalizedPastedText,
+                ];
+            } else {
+                $sourceInputs[] = [
+                    'source_uuid' => (string) Str::uuid(),
+                    'filename' => $clipboardFilename,
+                    'text' => $normalizedPastedText,
+                ];
+            }
         }
 
         $startedAt = microtime(true);
         $response = $this->client->index([
             'work_dir' => $userSpace->workDir(),
-            'documents' => $documents,
-            'llm_model' => (string) config('hipporag.default_model'),
-            'embedding_model' => (string) config('hipporag.default_embedding_model'),
-            'llm_base_url' => config('hipporag.llm_base_url'),
-            'embedding_base_url' => config('hipporag.embedding_base_url'),
-            'llm_api_key' => config('hipporag.llm_api_key'),
+            'sources' => $sourceInputs,
+            'llm_model_name' => $llmModelName,
+            'mode' => $mode,
+            'chunk_size' => $chunkSize,
+            'overlap_ratio' => $overlapRatio,
         ]);
         $responseTimeMs = (int) round((microtime(true) - $startedAt) * 1000);
 
-        $model = (string) config('hipporag.default_model');
-        $estimatedCost = $this->tokenUsage->estimateCost($model, $promptTokens, 0);
+        $promptTokens = (int) data_get($response, 'token_usage.prompt_tokens', $estimatedPromptTokens);
+        $completionTokens = (int) data_get($response, 'token_usage.completion_tokens', 0);
+        $estimatedCost = $this->tokenUsage->estimateCost($llmModelName, $promptTokens, $completionTokens);
         $this->tokenUsage->log(
             userSpace: $userSpace,
             operationType: 'indexing',
-            model: $model,
+            model: $llmModelName,
             promptTokens: $promptTokens,
-            completionTokens: null,
+            completionTokens: $completionTokens,
             estimatedCostUsd: $estimatedCost,
         );
 
         return [
-            'sources' => $sources,
+            'sources' => Collection::make($sources)->all(),
             'files' => $fileResults,
-            'num_files' => count($sources),
+            'num_files' => count($sourceInputs),
             'prompt_tokens' => $promptTokens,
-            'completion_tokens' => 0,
+            'completion_tokens' => $completionTokens,
             'estimated_cost_usd' => $estimatedCost,
             'response_time_ms' => $responseTimeMs,
             'response' => $response,
+            'mode' => $mode,
+            'graph_info' => (array) data_get($response, 'graph_info', []),
+            'chunks' => (array) data_get($response, 'chunks', []),
         ];
+    }
+
+    private function persistSource(UserSpace $userSpace, UploadedFile $file, string $contents, string $originalName): Source
+    {
+        $sha256 = hash('sha256', $contents);
+        $path = $file->storeAs($userSpace->storageDirectory(), $originalName);
+        $source = Source::query()->firstOrCreate(
+            ['sha256' => $sha256],
+            [
+                'user_space_id' => $userSpace->id,
+                'filename' => $originalName,
+                'original_name' => $originalName,
+                'mime_type' => $file->getClientMimeType() ?: 'text/plain',
+                'size' => $file->getSize() ?: strlen($contents),
+                'path' => $path,
+            ],
+        );
+
+        if ((int) $source->user_space_id !== (int) $userSpace->id) {
+            return Source::query()->create([
+                'user_space_id' => $userSpace->id,
+                'filename' => $originalName,
+                'original_name' => $originalName,
+                'mime_type' => $file->getClientMimeType() ?: 'text/plain',
+                'size' => $file->getSize() ?: strlen($contents),
+                'sha256' => hash('sha256', $sha256.$userSpace->uuid),
+                'path' => $path,
+            ]);
+        }
+
+        return $source;
     }
 
     private function sanitizeFilename(string $filename): string

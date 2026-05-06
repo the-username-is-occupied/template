@@ -4,16 +4,14 @@ declare(strict_types=1);
 
 namespace App\Services;
 
-use App\Models\Source;
-use App\Models\TokenUsageLog;
 use App\Models\UserSpace;
-use Illuminate\Support\Collection;
 use RuntimeException;
 
 class HippoRAGQueryService
 {
     public function __construct(
         private readonly HippoRAGClient $client,
+        private readonly HippoRAGAgentService $agentService,
         private readonly TokenUsageService $tokenUsage,
         private readonly SourceIdRenderer $sourceIdRenderer,
     ) {}
@@ -25,96 +23,96 @@ class HippoRAGQueryService
      *     prompt_tokens: int,
      *     completion_tokens: int,
      *     estimated_cost_usd: float,
-     *     referenced_sources: Collection<int, Source>
+     *     referenced_sources: array<int, array{uuid: string, filename: string, url: string}>
      * }
      */
-    public function query(UserSpace $userSpace, array $queries, string $mode, int $numToRetrieve): array
-    {
-        $model = (string) config('hipporag.default_model');
+    public function query(
+        UserSpace $userSpace,
+        array $queries,
+        string $mode,
+        int $numToRetrieve,
+        string $llmModelName,
+        float $scoreThreshold,
+        ?string $agentInstructions,
+    ): array {
         $startedAt = microtime(true);
         $response = $this->client->query([
             'work_dir' => $userSpace->workDir(),
             'queries' => $queries,
-            'mode' => $mode,
+            'mode' => 'retrieve',
             'num_to_retrieve' => $numToRetrieve,
-            'llm_model' => $model,
-            'embedding_model' => (string) config('hipporag.default_embedding_model'),
-            'llm_base_url' => config('hipporag.llm_base_url'),
-            'embedding_base_url' => config('hipporag.embedding_base_url'),
-            'llm_api_key' => config('hipporag.llm_api_key'),
+            'llm_model_name' => $llmModelName,
+            'score_threshold' => $scoreThreshold,
         ]);
 
-        $results = $this->normalizeResults($response['results'] ?? []);
+        $retrievalResults = $this->normalizeResults($response['results'] ?? []);
+        $documentsByQuery = [];
+        foreach ($retrievalResults as $result) {
+            $documentsByQuery[] = $this->normalizeDocuments($result['documents'] ?? []);
+        }
+
+        $answers = [];
+        $agentUsage = ['prompt_tokens' => 0, 'completion_tokens' => 0, 'total_tokens' => 0];
+        if ($mode === 'rag') {
+            $agentResult = $this->agentService->answer(
+                queries: $queries,
+                documentsByQuery: $documentsByQuery,
+                modelName: $llmModelName,
+                userInstructions: $agentInstructions,
+            );
+            $answers = $agentResult['answers'];
+            $agentUsage = $agentResult['token_usage'];
+        }
+
         $rendered = [];
         $sourceUuids = [];
-        $completionText = '';
-
-        foreach ($results as $result) {
-            if ($mode === 'rag') {
-                $answer = (string) ($result['answer'] ?? '');
-                $renderedAnswer = $this->sourceIdRenderer->render($answer);
-                $sourceUuids = array_merge($sourceUuids, $renderedAnswer['source_uuids']);
-                $completionText .= $answer."\n";
-
-                $sources = [];
-                foreach ($result['sources'] ?? [] as $source) {
-                    $text = (string) ($source['text'] ?? '');
-                    $renderedSourceText = $this->sourceIdRenderer->render($text);
-                    $sourceUuids = array_merge($sourceUuids, $renderedSourceText['source_uuids']);
-                    $completionText .= $text."\n";
-                    $sources[] = [
-                        'text' => $text,
-                        'text_html' => (string) $renderedSourceText['html'],
-                        'score' => $source['score'] ?? null,
-                    ];
-                }
-
-                $rendered[] = [
-                    'question' => (string) ($result['question'] ?? $result['query'] ?? ''),
-                    'answer' => $answer,
-                    'answer_html' => (string) $renderedAnswer['html'],
-                    'sources' => $sources,
-                ];
-
-                continue;
-            }
-
+        foreach ($retrievalResults as $index => $result) {
             $documents = [];
-            foreach ($result['documents'] ?? [] as $document) {
-                $text = (string) ($document['text'] ?? '');
+            foreach ($documentsByQuery[$index] ?? [] as $document) {
+                $text = (string) $document['text'];
                 $renderedDocumentText = $this->sourceIdRenderer->render($text);
                 $sourceUuids = array_merge($sourceUuids, $renderedDocumentText['source_uuids']);
-                $completionText .= $text."\n";
                 $documents[] = [
                     'text' => $text,
                     'text_html' => (string) $renderedDocumentText['html'],
-                    'score' => $document['score'] ?? null,
+                    'score' => $document['score'],
+                    'source_uuid' => $document['source_uuid'],
                 ];
             }
 
+            $answer = $mode === 'rag' ? (string) ($answers[$index] ?? '') : '';
+            $renderedAnswer = $mode === 'rag'
+                ? $this->sourceIdRenderer->render($answer)
+                : ['html' => null, 'source_uuids' => []];
+            $sourceUuids = array_merge($sourceUuids, (array) $renderedAnswer['source_uuids']);
+
             $rendered[] = [
                 'question' => (string) ($result['query'] ?? $result['question'] ?? ''),
-                'answer_html' => null,
+                'answer' => $answer,
+                'answer_html' => $mode === 'rag' ? (string) $renderedAnswer['html'] : null,
                 'sources' => $documents,
             ];
         }
 
-        $promptTokens = $this->tokenUsage->estimateTokens(implode("\n", $queries));
-        $completionTokens = $this->tokenUsage->estimateTokens($completionText);
-        $estimatedCost = $this->tokenUsage->estimateCost($model, $promptTokens, $completionTokens);
-
-        TokenUsageLog::query()->create([
-            'user_space_id' => $userSpace->id,
-            'operation_type' => 'query',
-            'model_name' => $model,
-            'prompt_tokens' => $promptTokens,
-            'completion_tokens' => $completionTokens,
-            'estimated_cost_usd' => $estimatedCost,
-        ]);
+        $retrievalPromptTokens = (int) data_get($response, 'token_usage.prompt_tokens', 0);
+        $retrievalCompletionTokens = (int) data_get($response, 'token_usage.completion_tokens', 0);
+        $promptTokens = $retrievalPromptTokens + (int) $agentUsage['prompt_tokens'];
+        $completionTokens = $retrievalCompletionTokens + (int) $agentUsage['completion_tokens'];
+        $estimatedCost = $this->tokenUsage->estimateCost($llmModelName, $promptTokens, $completionTokens);
+        $this->tokenUsage->log(
+            userSpace: $userSpace,
+            operationType: 'query',
+            model: $llmModelName,
+            promptTokens: $promptTokens,
+            completionTokens: $completionTokens,
+            estimatedCostUsd: $estimatedCost,
+        );
 
         return [
             'results' => $rendered,
             'mode' => $mode,
+            'score_threshold' => $scoreThreshold,
+            'llm_model_name' => $llmModelName,
             'prompt_tokens' => $promptTokens,
             'completion_tokens' => $completionTokens,
             'estimated_cost_usd' => $estimatedCost,
@@ -137,5 +135,58 @@ class HippoRAGQueryService
         }
 
         return [$results];
+    }
+
+    /**
+     * @return array<int, array{text: string, score: float|int|null, source_uuid: string|null}>
+     */
+    private function normalizeDocuments(mixed $documents): array
+    {
+        if (! is_array($documents)) {
+            return [];
+        }
+
+        $normalized = array_map(function (mixed $document): array {
+            $sourceUuid = null;
+            $score = null;
+            $text = '';
+
+            if (is_array($document)) {
+                $text = trim((string) ($document['text'] ?? ''));
+                $score = $document['score'] ?? null;
+                $sourceUuid = $this->normalizeSourceUuid($document['source_uuid'] ?? null);
+            }
+
+            if ($text === '') {
+                return [
+                    'text' => '',
+                    'score' => null,
+                    'source_uuid' => null,
+                ];
+            }
+
+            if ($sourceUuid !== null) {
+                $text = '[SOURCE_ID:'.$sourceUuid.'] '.$text;
+            }
+
+            return [
+                'text' => $text,
+                'score' => is_numeric($score) ? (float) $score : null,
+                'source_uuid' => $sourceUuid,
+            ];
+        }, $documents);
+
+        return array_values(array_filter($normalized, static fn (array $row): bool => $row['text'] !== ''));
+    }
+
+    private function normalizeSourceUuid(mixed $value): ?string
+    {
+        if (! is_string($value)) {
+            return null;
+        }
+
+        $trimmed = trim($value);
+
+        return $trimmed === '' ? null : strtolower($trimmed);
     }
 }

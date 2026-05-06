@@ -123,7 +123,7 @@ return [
         'freellmapi' => [
             'driver' => 'openai',
             'key' => env('FREELLMAPI_API_KEY'),
-            'url' => env('FREELLMAPI_URL', 'http://localhost:3001/v1'),
+            'url' => env('FREELLMAPI_INTERNAL_URL', env('FREELLMAPI_URL', 'http://localhost:3001/v1')),
         ],
 
         'openai' => [
