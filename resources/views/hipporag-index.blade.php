@@ -20,7 +20,7 @@
             <div>
                 <p class="text-sm font-semibold uppercase tracking-wide text-indigo-600">Laravel + HippoRAG + AI Agent</p>
                 <h1 class="text-3xl font-bold">hipporag-index</h1>
-                <p class="text-slate-600">Model/base URL/api key are backend-configured. UI sends only model name and user parameters.</p>
+                <p class="text-slate-600">Chat model is selected by user (OpenAI or FreeLLMAPI catalog). Embedding model stays fixed from backend config (OpenAI default).</p>
             </div>
             <a href="{{ route('hipporag.index') }}" class="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium shadow-sm hover:bg-slate-50">Refresh</a>
         </header>
@@ -138,7 +138,7 @@
                                 Model name
                                 <select name="llm_model_name" class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2">
                                     @foreach ($llmModels as $model)
-                                        <option value="{{ $model['name'] }}" @selected(($formState['llm_model_name'] ?? config('hipporag.default_model')) === $model['name'])>
+                                            <option value="{{ $model['provider'] }}::{{ $model['name'] }}" @selected((($formState['llm_provider'] ?? config('hipporag.default_provider')).'::'.($formState['llm_model_name'] ?? config('hipporag.default_model'))) === ($model['provider'].'::'.$model['name']))>
                                             {{ $model['name'] }} ({{ $model['provider'] }})
                                         </option>
                                     @endforeach
@@ -189,7 +189,7 @@
                                 Model name
                                 <select name="llm_model_name" class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2">
                                     @foreach ($llmModels as $model)
-                                        <option value="{{ $model['name'] }}" @selected(($formState['llm_model_name'] ?? config('hipporag.default_model')) === $model['name'])>
+                                            <option value="{{ $model['provider'] }}::{{ $model['name'] }}" @selected((($formState['llm_provider'] ?? config('hipporag.default_provider')).'::'.($formState['llm_model_name'] ?? config('hipporag.default_model'))) === ($model['provider'].'::'.$model['name']))>
                                             {{ $model['name'] }} ({{ $model['provider'] }})
                                         </option>
                                     @endforeach
@@ -237,6 +237,13 @@
                             <p>Processed <strong>{{ $lastOperation['num_files'] }}</strong> input source(s) in <strong>{{ $lastOperation['response_time_ms'] }}</strong> ms.</p>
                             <p>Tokens used: ~{{ number_format($lastOperation['prompt_tokens']) }} prompt + ~{{ number_format($lastOperation['completion_tokens']) }} completion</p>
                             <p>Estimated cost: ${{ number_format($lastOperation['estimated_cost_usd'], 8) }}</p>
+                            @if (! empty($lastOperation['warnings']))
+                                <div class="mt-3 rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">
+                                    @foreach ($lastOperation['warnings'] as $warning)
+                                        <p>{{ $warning }}</p>
+                                    @endforeach
+                                </div>
+                            @endif
                             @if (($lastOperation['mode'] ?? 'index') === 'index')
                                 <div class="mt-3 rounded-lg border border-slate-200 bg-white p-3">
                                     <p class="font-medium">Graph metrics</p>
@@ -245,17 +252,23 @@
                                     <p class="text-sm">Facts per chunk: {{ number_format((float) data_get($lastOperation, 'graph_info.facts_per_chunk', 0), 4) }}</p>
                                 </div>
                             @endif
-                            @if (($lastOperation['mode'] ?? null) === 'chunk' && ! empty($lastOperation['chunks']))
+                            @if (($lastOperation['mode'] ?? null) === 'chunk')
                                 <div class="mt-3">
-                                    <p class="font-medium">Chunk preview (top 10)</p>
-                                    <div class="mt-2 space-y-2">
-                                        @foreach (array_slice($lastOperation['chunks'], 0, 10) as $chunk)
-                                            <div class="rounded-lg border border-slate-200 bg-white p-3 text-xs">
-                                                <p class="font-mono">source: {{ $chunk['source_uuid'] ?? 'n/a' }} · tokens: {{ $chunk['token_count'] ?? 0 }}</p>
-                                                <p class="mt-1 whitespace-pre-wrap">{{ Str::limit($chunk['text'] ?? '', 280) }}</p>
-                                            </div>
-                                        @endforeach
-                                    </div>
+                                    <p class="font-medium">Chunk list ({{ count($lastOperation['chunks'] ?? []) }})</p>
+                                    @if (! empty($lastOperation['chunks']))
+                                        <div class="mt-2 max-h-[560px] space-y-2 overflow-y-auto pr-1">
+                                            @foreach ($lastOperation['chunks'] as $chunk)
+                                                <div class="rounded-lg border border-slate-200 bg-white p-3 text-xs">
+                                                    <p class="font-mono">#{{ $chunk['index'] ?? ($loop->index + 1) }} · source: {{ $chunk['source_uuid'] ?? 'n/a' }} · tokens: {{ $chunk['token_count'] ?? 'n/a' }}</p>
+                                                    <p class="mt-1 whitespace-pre-wrap">{{ $chunk['text'] ?? '' }}</p>
+                                                </div>
+                                            @endforeach
+                                        </div>
+                                    @else
+                                        <p class="mt-2 rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">
+                                            HippoRAG не вернул содержимое чанков в ответе. Видны только метрики индексации.
+                                        </p>
+                                    @endif
                                 </div>
                             @endif
                         </div>

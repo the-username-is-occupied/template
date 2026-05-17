@@ -1,5 +1,25 @@
 <?php
 
+/*
+ * Laravel AI (agents, /v1/responses) reads this URL directly. Inside Docker, FREELLMAPI_URL often
+ * stays http://localhost:3001/v1 for browser-side docs while the app must call the compose service.
+ * Mirror LlmModelCatalogService: rewrite localhost to FREELLMAPI_INTERNAL_URL or freellmapi:3001.
+ */
+$freellmapiProviderUrl = trim((string) (env('FREELLMAPI_INTERNAL_URL') ?: env('FREELLMAPI_URL', 'http://localhost:3001/v1')), '/');
+
+if ($freellmapiProviderUrl !== '' && file_exists('/.dockerenv')) {
+    $host = parse_url($freellmapiProviderUrl, PHP_URL_HOST);
+
+    if (in_array($host, ['localhost', '127.0.0.1'], true)) {
+        $internalOverride = trim((string) env('FREELLMAPI_INTERNAL_URL'));
+        $freellmapiProviderUrl = trim($internalOverride !== '' ? $internalOverride : 'http://freellmapi:3001/v1', '/');
+    }
+}
+
+if ($freellmapiProviderUrl === '') {
+    $freellmapiProviderUrl = trim((string) env('FREELLMAPI_URL', 'http://localhost:3001/v1'), '/');
+}
+
 return [
 
     /*
@@ -120,10 +140,15 @@ return [
             'url' => env('OLLAMA_URL', 'http://localhost:11434'),
         ],
 
+        /*
+         * Use the Groq driver (Chat Completions) — same OpenAI-style URL/key wiring as native OpenAI.
+         * The `openai` driver calls POST /v1/responses, which most OpenAI-compatible proxies (FreeLLM API)
+         * do not implement; they expose POST /v1/chat/completions instead.
+         */
         'freellmapi' => [
-            'driver' => 'openai',
+            'driver' => 'groq',
             'key' => env('FREELLMAPI_API_KEY'),
-            'url' => env('FREELLMAPI_INTERNAL_URL', env('FREELLMAPI_URL', 'http://localhost:3001/v1')),
+            'url' => $freellmapiProviderUrl,
         ],
 
         'openai' => [

@@ -83,23 +83,44 @@ class HippoRAGTestController extends Controller
     public function indexFiles(IndexRequest $request): RedirectResponse
     {
         $space = $request->userSpace();
-        $result = $this->indexingService->index(
-            userSpace: $space,
-            files: $request->file('files', []),
-            pastedText: $request->pastedText(),
-            llmModelName: $request->llmModelName(),
-            indexMode: $request->indexMode(),
-            chunkSize: $request->chunkSize(),
-            overlapRatio: $request->overlapRatio(),
-        );
-
         $this->persistFormState($request, [
             'llm_model_name' => $request->llmModelName(),
+            'llm_provider' => $request->llmProvider(),
             'index_mode' => $request->indexMode(),
             'chunk_size' => $request->chunkSize(),
             'overlap_ratio' => $request->overlapRatio(),
             'pasted_text' => $request->pastedText(),
         ]);
+
+        try {
+            $result = $this->indexingService->index(
+                userSpace: $space,
+                files: $request->file('files', []),
+                pastedText: $request->pastedText(),
+                llmModelName: $request->llmModelName(),
+                llmProvider: $request->llmProvider(),
+                indexMode: $request->indexMode(),
+                chunkSize: $request->chunkSize(),
+                overlapRatio: $request->overlapRatio(),
+            );
+        } catch (Throwable $throwable) {
+            report($throwable);
+            logger()->warning('HippoRAG indexing failed.', [
+                'user_space_id' => $space->id,
+                'mode' => $request->indexMode(),
+                'llm_model_name' => $request->llmModelName(),
+                'error' => $throwable->getMessage(),
+            ]);
+
+            $message = trim($throwable->getMessage());
+            $detail = $message !== '' ? $message : 'unknown runtime error';
+
+            return redirect()
+                ->route('hipporag.index', ['space' => $space->uuid])
+                ->withErrors([
+                    'indexing' => sprintf('HippoRAG indexing failed: %s', $detail),
+                ]);
+        }
 
         foreach ($result['files'] as $fileResult) {
             $this->logOperation($request, sprintf(
@@ -128,12 +149,14 @@ class HippoRAGTestController extends Controller
             (string) $request->validated('mode'),
             (int) $request->validated('num_to_retrieve'),
             $request->llmModelName(),
+            $request->llmProvider(),
             $request->scoreThreshold(),
             $request->agentInstructions(),
         );
 
         $this->persistFormState($request, [
             'llm_model_name' => $request->llmModelName(),
+            'llm_provider' => $request->llmProvider(),
             'questions' => (string) $request->validated('questions'),
             'mode' => (string) $request->validated('mode'),
             'num_to_retrieve' => (int) $request->validated('num_to_retrieve'),
@@ -210,6 +233,7 @@ class HippoRAGTestController extends Controller
     {
         $defaults = [
             'llm_model_name' => (string) config('hipporag.default_model'),
+            'llm_provider' => (string) config('hipporag.default_provider'),
             'index_mode' => 'index',
             'chunk_size' => (int) config('hipporag.chunk_size', 512),
             'overlap_ratio' => (float) config('hipporag.chunk_overlap_ratio', 0.12),
@@ -217,7 +241,7 @@ class HippoRAGTestController extends Controller
             'questions' => '',
             'mode' => 'rag',
             'num_to_retrieve' => 5,
-            'score_threshold' => (float) config('hipporag.score_threshold', 0.4),
+            'score_threshold' => (float) config('hipporag.score_threshold', 0),
             'agent_instructions' => '',
         ];
 

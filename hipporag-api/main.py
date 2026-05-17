@@ -2,6 +2,7 @@ import contextvars
 import hashlib
 import importlib
 import inspect
+import logging
 import math
 import os
 import re
@@ -31,6 +32,48 @@ TOKEN_USAGE_CONTEXT: contextvars.ContextVar[dict[str, int] | None] = contextvars
     "hipporag_token_usage",
     default=None,
 )
+
+logger = logging.getLogger(__name__)
+
+
+def format_exception_detail(exception: BaseException) -> str:
+    """Many libraries raise AssertionError() or Exception() with no message; str() is then empty."""
+    text = str(exception).strip()
+
+    if text:
+        return text
+
+    return type(exception).__name__
+
+
+def iter_exception_chain(exception: BaseException):
+    current: BaseException | None = exception
+    visited: set[int] = set()
+
+    while current is not None:
+        current_id = id(current)
+        if current_id in visited:
+            break
+        visited.add(current_id)
+        yield current
+        current = current.__cause__ or current.__context__
+
+
+def is_authentication_failure(exception: BaseException) -> bool:
+    patterns = (
+        "authenticationerror",
+        "invalid api key",
+        "incorrect api key",
+        "unauthorized",
+        "401",
+    )
+
+    for chain_exception in iter_exception_chain(exception):
+        message = format_exception_detail(chain_exception).lower()
+        if any(pattern in message for pattern in patterns):
+            return True
+
+    return False
 
 
 def initialize_token_usage() -> None:
@@ -126,21 +169,28 @@ class SourceInput(BaseModel):
     filename: str | None = None
 
 
-class IndexRequest(BaseModel):
+class HippoRAGBuildConfig(BaseModel):
+    llm_model_name: str = Field(min_length=1)
+    llm_base_url: str = Field(min_length=1)
+    llm_api_key: str = Field(min_length=1)
+    embedding_base_url: str = Field(min_length=1)
+    embedding_api_key: str = Field(min_length=1)
+    embedding_model_name: str = Field(min_length=1)
+
+
+class IndexRequest(HippoRAGBuildConfig):
     work_dir: str
     sources: list[SourceInput] = Field(min_length=1)
-    llm_model_name: str = "auto"
     mode: Literal["index", "chunk"] = "index"
     chunk_size: int = Field(default=512, ge=64, le=4096)
     overlap_ratio: float = Field(default=0.12, ge=0.10, le=0.15)
 
 
-class QueryRequest(BaseModel):
+class QueryRequest(HippoRAGBuildConfig):
     work_dir: str
     queries: list[str] = Field(min_length=1)
     mode: Literal["rag", "retrieve"] = "rag"
     num_to_retrieve: int = Field(default=5, ge=1, le=50)
-    llm_model_name: str = "auto"
     score_threshold: float = Field(default=0.4, ge=0.0, le=1.0)
 
 
@@ -152,60 +202,51 @@ def hipporag_available() -> bool:
     return HippoRAG is not None
 
 
-def resolve_llm_base_url() -> str | None:
-    return os.getenv("HIPPORAG_LLM_BASE_URL") or os.getenv("FREELLMAPI_INTERNAL_URL") or os.getenv("OPENAI_URL")
-
-
-def resolve_llm_api_key() -> str | None:
-    return os.getenv("HIPPORAG_LLM_API_KEY") or os.getenv("FREELLMAPI_API_KEY") or os.getenv("OPENAI_API_KEY")
-
-
-def resolve_embedding_base_url() -> str | None:
-    return os.getenv("HIPPORAG_EMBEDDING_BASE_URL") or os.getenv("OPENAI_URL") or "https://api.openai.com/v1"
-
-
-def resolve_embedding_api_key() -> str | None:
-    return os.getenv("HIPPORAG_EMBEDDING_API_KEY") or os.getenv("OPENAI_API_KEY")
-
-
-def resolve_embedding_model_name() -> str:
-    return os.getenv("HIPPORAG_EMBEDDING_MODEL", "text-embedding-3-small")
-
-
-def build_hipporag(work_dir: str, llm_model_name: str) -> Any:
-    if HippoRAG is None:
-        raise RuntimeError("HippoRAG package is not available")
-
-    llm_base_url = resolve_llm_base_url()
-    llm_api_key = resolve_llm_api_key()
-    embedding_base_url = resolve_embedding_base_url()
-    embedding_api_key = resolve_embedding_api_key()
-    embedding_model_name = resolve_embedding_model_name()
-
-    if embedding_api_key:
-        os.environ["OPENAI_API_KEY"] = embedding_api_key
-    elif llm_api_key:
-        os.environ["OPENAI_API_KEY"] = llm_api_key
-
+def build_hipporag_kwargs(work_dir: str, config: HippoRAGBuildConfig) -> dict[str, Any]:
     constructor_signature = inspect.signature(HippoRAG)
     parameters = constructor_signature.parameters
     kwargs: dict[str, Any] = {
         "save_dir": work_dir,
-        "llm_model_name": llm_model_name,
-        "embedding_model_name": embedding_model_name,
+        "llm_model_name": config.llm_model_name,
+        "embedding_model_name": config.embedding_model_name,
     }
-
     optional_parameters = {
-        "llm_base_url": llm_base_url,
-        "llm_api_key": llm_api_key,
-        "embedding_base_url": embedding_base_url,
-        "embedding_api_key": embedding_api_key,
+        "llm_base_url": config.llm_base_url,
+        "llm_api_key": config.llm_api_key,
+        "embedding_base_url": config.embedding_base_url,
+        "embedding_api_key": config.embedding_api_key,
     }
 
     for key, value in optional_parameters.items():
-        if value and key in parameters:
+        if key in parameters:
             kwargs[key] = value
 
+    missing_required = [
+        name
+        for name, parameter in parameters.items()
+        if parameter.default is inspect.Signature.empty
+        and parameter.kind in (inspect.Parameter.POSITIONAL_OR_KEYWORD, inspect.Parameter.KEYWORD_ONLY)
+        and name != "self"
+        and name not in kwargs
+    ]
+
+    if missing_required:
+        missing = ", ".join(sorted(missing_required))
+        raise ValueError(f"Missing required HippoRAG constructor parameter(s) in request: {missing}")
+
+    return kwargs
+
+
+def build_hipporag(work_dir: str, config: HippoRAGBuildConfig) -> Any:
+    if HippoRAG is None:
+        raise RuntimeError("HippoRAG package is not available")
+
+    # Keep LLM auth as the primary OpenAI-compatible fallback.
+    # HippoRAG/OpenAI internals may still read env vars even when explicit kwargs are passed.
+    os.environ["OPENAI_API_KEY"] = config.llm_api_key or config.embedding_api_key
+    os.environ["OPENAI_BASE_URL"] = config.llm_base_url
+
+    kwargs = build_hipporag_kwargs(work_dir, config)
     return HippoRAG(**kwargs)
 
 
@@ -284,15 +325,19 @@ def build_length_function(embedding_model: str):
     return lambda text: len(encoding.encode(text))
 
 
-def chunk_sources(sources: list[SourceInput], chunk_size: int, overlap_ratio: float) -> list[dict[str, Any]]:
+def chunk_sources(
+    sources: list[SourceInput],
+    chunk_size: int,
+    overlap_ratio: float,
+    embedding_model_name: str,
+) -> list[dict[str, Any]]:
     if RecursiveCharacterTextSplitter is None:
         raise RuntimeError("langchain-text-splitters is required for chunking mode")
 
-    embedding_model = resolve_embedding_model_name()
     chunk_overlap = max(1, int(chunk_size * overlap_ratio))
     chunk_overlap = min(chunk_overlap, chunk_size - 1)
 
-    length_function = build_length_function(embedding_model)
+    length_function = build_length_function(embedding_model_name)
     splitter = RecursiveCharacterTextSplitter(
         chunk_size=chunk_size,
         chunk_overlap=chunk_overlap,
@@ -318,6 +363,51 @@ def chunk_sources(sources: list[SourceInput], chunk_size: int, overlap_ratio: fl
                     "token_count": int(length_function(split_chunk)),
                 }
             )
+
+    return chunks
+
+
+def split_single_chunk_for_stability(chunk: dict[str, Any]) -> list[dict[str, Any]]:
+    text = str(chunk.get("text", "")).strip()
+    if text == "":
+        return []
+
+    midpoint = len(text) // 2
+    split_position = text.rfind(" ", 0, midpoint)
+    if split_position == -1:
+        split_position = text.find(" ", midpoint)
+    if split_position == -1:
+        return [chunk]
+
+    first_text = text[:split_position].strip()
+    second_text = text[split_position:].strip()
+    if first_text == "" or second_text == "":
+        return [chunk]
+
+    first_chunk = {
+        **chunk,
+        "chunk_index": 0,
+        "text": first_text,
+        "chunk_hash": chunk_hash(first_text),
+        "token_count": max(1, int(math.ceil(len(first_text) / 4))),
+    }
+    second_chunk = {
+        **chunk,
+        "chunk_index": 1,
+        "text": second_text,
+        "chunk_hash": chunk_hash(second_text),
+        "token_count": max(1, int(math.ceil(len(second_text) / 4))),
+    }
+
+    return [first_chunk, second_chunk]
+
+
+def ensure_indexable_chunks(chunks: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    if len(chunks) == 0:
+        return []
+
+    if len(chunks) == 1:
+        return split_single_chunk_for_stability(chunks[0])
 
     return chunks
 
@@ -373,6 +463,27 @@ def source_registry() -> ChunkSourceRegistry:
     return ChunkSourceRegistry()
 
 
+def run_hipporag_retrieval(hipporag: Any, queries: list[str], num_to_retrieve: int) -> Any:
+    """
+    Prefer full HippoRAG retrieve; fall back to dense passage retrieval when the graph or
+    fact embeddings are missing or inconsistent (common after sparse triple extraction).
+    """
+    try:
+        return hipporag.retrieve(queries=queries, num_to_retrieve=num_to_retrieve)
+    except AssertionError:
+        logger.info("HippoRAG: retrieve failed (AssertionError), using retrieve_dpr")
+        return hipporag.retrieve_dpr(queries=queries, num_to_retrieve=num_to_retrieve)
+    except ValueError as exception:
+        message = str(exception)
+        if "shapes" in message and "not aligned" in message:
+            logger.info(
+                "HippoRAG: retrieve failed (empty fact embeddings / shape mismatch), using retrieve_dpr: %s",
+                message,
+            )
+            return hipporag.retrieve_dpr(queries=queries, num_to_retrieve=num_to_retrieve)
+        raise
+
+
 @app.get("/health")
 def health() -> dict[str, Any]:
     return {"status": "healthy", "hipporag_available": hipporag_available()}
@@ -382,7 +493,13 @@ def health() -> dict[str, Any]:
 def index(request: IndexRequest) -> dict[str, Any]:
     try:
         initialize_token_usage()
-        chunks = chunk_sources(request.sources, request.chunk_size, request.overlap_ratio)
+        chunks = chunk_sources(
+            sources=request.sources,
+            chunk_size=request.chunk_size,
+            overlap_ratio=request.overlap_ratio,
+            embedding_model_name=request.embedding_model_name,
+        )
+        index_chunks = ensure_indexable_chunks(chunks)
         chunk_preview = [
             {
                 "source_uuid": chunk["source_uuid"],
@@ -405,16 +522,22 @@ def index(request: IndexRequest) -> dict[str, Any]:
                 "token_usage": current_token_usage(),
             }
 
+        if len(index_chunks) == 0:
+            return {
+                "status": "error",
+                "detail": "No non-empty chunks were produced from the provided sources",
+            }
+
         Path(request.work_dir).mkdir(parents=True, exist_ok=True)
-        hipporag = build_hipporag(request.work_dir, request.llm_model_name)
-        hipporag.index(docs=[chunk["text"] for chunk in chunks])
+        hipporag = build_hipporag(request.work_dir, request)
+        hipporag.index(docs=[chunk["text"] for chunk in index_chunks])
 
         registry = source_registry()
         registry.register(
             request.work_dir,
             {
                 chunk["chunk_hash"]: chunk["source_uuid"]
-                for chunk in chunks
+                for chunk in index_chunks
             },
         )
 
@@ -422,25 +545,44 @@ def index(request: IndexRequest) -> dict[str, Any]:
             "status": "success",
             "mode": "index",
             "num_sources": len(request.sources),
-            "num_chunks": len(chunks),
+            "num_chunks": len(index_chunks),
             "graph_info": graph_info_payload(hipporag),
             "token_usage": current_token_usage(),
         }
+    except ZeroDivisionError:
+        logger.exception("HippoRAG /index failed: no OpenIE phrases after LLM extraction (often 404 on chat endpoint)")
+        return {
+            "status": "error",
+            "detail": (
+                "Indexing produced no extracted entities or triples (LLM NER/OpenIE failed). "
+                "Typical cause: request uses an invalid LLM endpoint/model pair (for example, OpenAI URL with a proxy-only model id). "
+                "Verify llm_base_url, llm_model_name, and llm_api_key in the request payload sent by Laravel."
+            ),
+        }
     except Exception as exception:
-        return {"status": "error", "detail": str(exception)}
+        if is_authentication_failure(exception):
+            logger.exception("HippoRAG /index failed due to LLM authentication")
+            return {
+                "status": "error",
+                "detail": (
+                    "LLM authentication failed during NER/OpenIE extraction. "
+                    "Check llm_base_url, llm_model_name, and llm_api_key for the selected provider. "
+                    "When provider and model do not match the endpoint, HippoRAG may later surface a secondary "
+                    "'no extracted triples' or 'division by zero' error."
+                ),
+            }
+
+        logger.exception("HippoRAG /index failed")
+        return {"status": "error", "detail": format_exception_detail(exception)}
 
 
 @app.post("/query")
 def query(request: QueryRequest) -> dict[str, Any]:
     try:
         initialize_token_usage()
-        hipporag = build_hipporag(request.work_dir, request.llm_model_name)
+        hipporag = build_hipporag(request.work_dir, request)
 
-        try:
-            retrieval_results = hipporag.retrieve(queries=request.queries, num_to_retrieve=request.num_to_retrieve)
-        except AssertionError:
-            retrieval_results = hipporag.retrieve_dpr(queries=request.queries, num_to_retrieve=request.num_to_retrieve)
-
+        retrieval_results = run_hipporag_retrieval(hipporag, request.queries, request.num_to_retrieve)
         retrieval_results = unpack_query_solutions(retrieval_results)
         registry = source_registry()
         results: list[dict[str, Any]] = []
@@ -451,8 +593,9 @@ def query(request: QueryRequest) -> dict[str, Any]:
 
             for document in normalized_documents:
                 score = normalize_score(document.get("score"))
-                if score is None or score < request.score_threshold:
-                    continue
+                # Score threshold temporarily disabled — return all retrieved chunks.
+                # if score is None or score < request.score_threshold:
+                #     continue
 
                 text = str(document.get("text", ""))
                 resolved_chunk_hash = chunk_hash(text)
@@ -480,7 +623,8 @@ def query(request: QueryRequest) -> dict[str, Any]:
             "token_usage": current_token_usage(),
         }
     except Exception as exception:
-        return {"status": "error", "detail": str(exception)}
+        logger.exception("HippoRAG /query failed")
+        return {"status": "error", "detail": format_exception_detail(exception)}
 
 
 @app.post("/delete")
@@ -496,4 +640,5 @@ def delete(request: DeleteRequest) -> dict[str, Any]:
 
         return {"status": "success", "deleted": True}
     except Exception as exception:
-        return {"status": "error", "detail": str(exception)}
+        logger.exception("HippoRAG /delete failed")
+        return {"status": "error", "detail": format_exception_detail(exception)}

@@ -81,6 +81,10 @@ class LlmModelCatalogService
     private function fetchProviderModels(string $provider): array
     {
         $baseUrl = trim((string) config("ai.providers.{$provider}.url"), '/');
+        if ($provider === 'freellmapi' && $this->isContainerRuntime() && $this->isLocalhostUrl($baseUrl)) {
+            $baseUrl = trim((string) config('services.freellmapi.internal_url'), '/');
+        }
+
         if ($baseUrl === '') {
             throw new RuntimeException(sprintf('Provider %s URL is not configured.', $provider));
         }
@@ -119,5 +123,15 @@ class LlmModelCatalogService
         }
 
         return $rows;
+    }
+
+    private function isContainerRuntime(): bool
+    {
+        return file_exists('/.dockerenv');
+    }
+
+    private function isLocalhostUrl(string $url): bool
+    {
+        return in_array(parse_url($url, PHP_URL_HOST), ['localhost', '127.0.0.1'], true);
     }
 }

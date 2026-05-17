@@ -57,7 +57,12 @@ class QueryRequest extends FormRequest
 
     public function llmModelName(): string
     {
-        return (string) $this->validated('llm_model_name');
+        return $this->parseLlmSelection()['model_name'];
+    }
+
+    public function llmProvider(): ?string
+    {
+        return $this->parseLlmSelection()['provider'];
     }
 
     public function scoreThreshold(): float
@@ -70,5 +75,28 @@ class QueryRequest extends FormRequest
         $instructions = trim((string) $this->validated('agent_instructions', ''));
 
         return $instructions === '' ? null : $instructions;
+    }
+
+    /**
+     * @return array{provider: string|null, model_name: string}
+     */
+    private function parseLlmSelection(): array
+    {
+        $rawValue = trim((string) $this->validated('llm_model_name'));
+        if (! str_contains($rawValue, '::')) {
+            return [
+                'provider' => null,
+                'model_name' => $rawValue,
+            ];
+        }
+
+        [$provider, $modelName] = explode('::', $rawValue, 2);
+        $provider = trim($provider);
+        $modelName = trim($modelName);
+
+        return [
+            'provider' => $provider !== '' ? $provider : null,
+            'model_name' => $modelName !== '' ? $modelName : $rawValue,
+        ];
     }
 }

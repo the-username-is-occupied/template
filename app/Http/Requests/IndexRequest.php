@@ -73,7 +73,12 @@ class IndexRequest extends FormRequest
 
     public function llmModelName(): string
     {
-        return (string) $this->validated('llm_model_name');
+        return $this->parseLlmSelection()['model_name'];
+    }
+
+    public function llmProvider(): ?string
+    {
+        return $this->parseLlmSelection()['provider'];
     }
 
     public function indexMode(): string
@@ -94,5 +99,28 @@ class IndexRequest extends FormRequest
     public function pastedText(): string
     {
         return trim((string) $this->validated('pasted_text', ''));
+    }
+
+    /**
+     * @return array{provider: string|null, model_name: string}
+     */
+    private function parseLlmSelection(): array
+    {
+        $rawValue = trim((string) $this->validated('llm_model_name'));
+        if (! str_contains($rawValue, '::')) {
+            return [
+                'provider' => null,
+                'model_name' => $rawValue,
+            ];
+        }
+
+        [$provider, $modelName] = explode('::', $rawValue, 2);
+        $provider = trim($provider);
+        $modelName = trim($modelName);
+
+        return [
+            'provider' => $provider !== '' ? $provider : null,
+            'model_name' => $modelName !== '' ? $modelName : $rawValue,
+        ];
     }
 }

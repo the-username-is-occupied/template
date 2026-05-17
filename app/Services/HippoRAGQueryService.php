@@ -12,6 +12,7 @@ class HippoRAGQueryService
     public function __construct(
         private readonly HippoRAGClient $client,
         private readonly HippoRAGAgentService $agentService,
+        private readonly HippoRAGConnectionConfig $connectionConfig,
         private readonly TokenUsageService $tokenUsage,
         private readonly SourceIdRenderer $sourceIdRenderer,
     ) {}
@@ -32,6 +33,7 @@ class HippoRAGQueryService
         string $mode,
         int $numToRetrieve,
         string $llmModelName,
+        ?string $llmProvider,
         float $scoreThreshold,
         ?string $agentInstructions,
     ): array {
@@ -41,14 +43,16 @@ class HippoRAGQueryService
             'queries' => $queries,
             'mode' => 'retrieve',
             'num_to_retrieve' => $numToRetrieve,
-            'llm_model_name' => $llmModelName,
+            'llm_model' => $llmModelName,
+            'embedding_model' => (string) config('hipporag.default_embedding_model'),
             'score_threshold' => $scoreThreshold,
+            ...$this->connectionConfig->build($llmModelName, $llmProvider),
         ]);
 
-        $retrievalResults = $this->normalizeResults($response['results'] ?? []);
+        $retrievalResults = $this->normalizeResults($this->extractResults($response));
         $documentsByQuery = [];
         foreach ($retrievalResults as $result) {
-            $documentsByQuery[] = $this->normalizeDocuments($result['documents'] ?? []);
+            $documentsByQuery[] = $this->normalizeDocuments($this->extractDocumentsPayload($result));
         }
 
         $answers = [];
@@ -146,15 +150,27 @@ class HippoRAGQueryService
             return [];
         }
 
+        if (! array_is_list($documents)) {
+            if ($this->isDocumentShape($documents)) {
+                $documents = [$documents];
+            } else {
+                $documents = array_values($documents);
+            }
+        }
+
         $normalized = array_map(function (mixed $document): array {
             $sourceUuid = null;
             $score = null;
             $text = '';
 
+            if (is_string($document)) {
+                $text = trim($document);
+            }
+
             if (is_array($document)) {
-                $text = trim((string) ($document['text'] ?? ''));
-                $score = $document['score'] ?? null;
-                $sourceUuid = $this->normalizeSourceUuid($document['source_uuid'] ?? null);
+                $text = $this->extractDocumentText($document);
+                $score = $this->extractDocumentScore($document);
+                $sourceUuid = $this->extractDocumentSourceUuid($document);
             }
 
             if ($text === '') {
@@ -188,5 +204,130 @@ class HippoRAGQueryService
         $trimmed = trim($value);
 
         return $trimmed === '' ? null : strtolower($trimmed);
+    }
+
+    /**
+     * @param  array<string, mixed>  $response
+     */
+    private function extractResults(array $response): mixed
+    {
+        $candidates = [
+            $response['results'] ?? null,
+            $response['data'] ?? null,
+            $response['retrieval_results'] ?? null,
+        ];
+
+        foreach ($candidates as $candidate) {
+            if (is_array($candidate)) {
+                return $candidate;
+            }
+        }
+
+        return [];
+    }
+
+    /**
+     * @param  array<string, mixed>  $result
+     */
+    private function extractDocumentsPayload(array $result): mixed
+    {
+        $candidates = [
+            $result['documents'] ?? null,
+            $result['passages'] ?? null,
+            $result['chunks'] ?? null,
+            $result['ctxs'] ?? null,
+            $result['contexts'] ?? null,
+            $result['retrieved_documents'] ?? null,
+            $result['sources'] ?? null,
+        ];
+
+        foreach ($candidates as $candidate) {
+            if (is_array($candidate)) {
+                return $candidate;
+            }
+        }
+
+        return [];
+    }
+
+    /**
+     * @param  array<string, mixed>  $document
+     */
+    private function extractDocumentText(array $document): string
+    {
+        $value = $document['text']
+            ?? $document['chunk']
+            ?? $document['content']
+            ?? $document['passage']
+            ?? $document['document']
+            ?? $document['ctx']
+            ?? $document['context']
+            ?? $document['snippet']
+            ?? null;
+
+        if (is_array($value)) {
+            $value = $value['text'] ?? $value['content'] ?? null;
+        }
+
+        return trim((string) ($value ?? ''));
+    }
+
+    /**
+     * @param  array<string, mixed>  $document
+     */
+    private function extractDocumentScore(array $document): float|int|null
+    {
+        $score = $document['score']
+            ?? $document['retrieval_score']
+            ?? $document['similarity']
+            ?? $document['rank_score']
+            ?? null;
+
+        return is_numeric($score) ? (float) $score : null;
+    }
+
+    /**
+     * @param  array<string, mixed>  $document
+     */
+    private function extractDocumentSourceUuid(array $document): ?string
+    {
+        $directValue = $document['source_uuid']
+            ?? $document['source_id']
+            ?? $document['uuid']
+            ?? null;
+        $sourceUuid = $this->normalizeSourceUuid($directValue);
+        if ($sourceUuid !== null) {
+            return $sourceUuid;
+        }
+
+        $metaCandidates = [
+            data_get($document, 'metadata.source_uuid'),
+            data_get($document, 'metadata.source_id'),
+            data_get($document, 'meta.source_uuid'),
+            data_get($document, 'meta.source_id'),
+        ];
+
+        foreach ($metaCandidates as $candidate) {
+            $sourceUuid = $this->normalizeSourceUuid($candidate);
+            if ($sourceUuid !== null) {
+                return $sourceUuid;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * @param  array<string, mixed>  $document
+     */
+    private function isDocumentShape(array $document): bool
+    {
+        return isset($document['text'])
+            || isset($document['chunk'])
+            || isset($document['content'])
+            || isset($document['passage'])
+            || isset($document['document'])
+            || isset($document['ctx'])
+            || isset($document['context']);
     }
 }

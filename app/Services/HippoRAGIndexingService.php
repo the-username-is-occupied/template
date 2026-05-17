@@ -10,11 +10,13 @@ use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use Throwable;
 
 class HippoRAGIndexingService
 {
     public function __construct(
         private readonly HippoRAGClient $client,
+        private readonly HippoRAGConnectionConfig $connectionConfig,
         private readonly TokenUsageService $tokenUsage,
     ) {}
 
@@ -31,7 +33,8 @@ class HippoRAGIndexingService
      *     response: array<string, mixed>,
      *     mode: string,
      *     graph_info: array<string, mixed>,
-     *     chunks: array<int, array<string, mixed>>
+     *     chunks: array<int, array<string, mixed>>,
+     *     warnings: array<int, string>
      * }
      */
     public function index(
@@ -39,6 +42,7 @@ class HippoRAGIndexingService
         array $files,
         string $pastedText,
         string $llmModelName,
+        ?string $llmProvider,
         string $indexMode,
         int $chunkSize,
         float $overlapRatio,
@@ -120,15 +124,55 @@ class HippoRAGIndexingService
             }
         }
 
+        $documents = $this->buildDocuments($sourceInputs);
+
+        $warnings = [];
         $startedAt = microtime(true);
-        $response = $this->client->index([
+        $indexPayload = [
             'work_dir' => $userSpace->workDir(),
             'sources' => $sourceInputs,
-            'llm_model_name' => $llmModelName,
+            'documents' => $documents,
+            'llm_model' => $llmModelName,
+            'embedding_model' => (string) config('hipporag.default_embedding_model'),
             'mode' => $mode,
             'chunk_size' => $chunkSize,
             'overlap_ratio' => $overlapRatio,
-        ]);
+            ...$this->connectionConfig->build($llmModelName, $llmProvider),
+        ];
+
+        try {
+            $response = $this->client->index($indexPayload);
+        } catch (Throwable $throwable) {
+            if ($this->shouldRetryWithoutSourceRegistry($mode, $throwable, $indexPayload)) {
+                unset($indexPayload['sources']);
+                report($throwable);
+                logger()->warning('HippoRAG index retried without sources registry.', [
+                    'work_dir' => $userSpace->workDir(),
+                    'mode' => $mode,
+                    'reason' => $throwable->getMessage(),
+                ]);
+                $response = $this->client->index($indexPayload);
+                $warnings[] = 'HippoRAG source UUID registry is unavailable; indexing continued without registry payload.';
+            } else {
+                if ($mode !== 'chunk') {
+                    throw $throwable;
+                }
+
+                report($throwable);
+                $response = [
+                    'status' => 'error',
+                    'detail' => $throwable->getMessage(),
+                    'token_usage' => [
+                        'prompt_tokens' => $estimatedPromptTokens,
+                        'completion_tokens' => 0,
+                    ],
+                ];
+                $warnings[] = sprintf(
+                    'HippoRAG chunk API failed (%s).',
+                    trim($throwable->getMessage()) !== '' ? $throwable->getMessage() : 'unknown error'
+                );
+            }
+        }
         $responseTimeMs = (int) round((microtime(true) - $startedAt) * 1000);
 
         $promptTokens = (int) data_get($response, 'token_usage.prompt_tokens', $estimatedPromptTokens);
@@ -154,8 +198,138 @@ class HippoRAGIndexingService
             'response' => $response,
             'mode' => $mode,
             'graph_info' => (array) data_get($response, 'graph_info', []),
-            'chunks' => (array) data_get($response, 'chunks', []),
+            'chunks' => $this->extractChunks($response),
+            'warnings' => $warnings,
         ];
+    }
+
+    /**
+     * @return array<int, array{index: int, source_uuid: string|null, token_count: int|null, text: string}>
+     */
+    private function extractChunks(array $response): array
+    {
+        $chunks = $this->normalizeChunks(data_get($response, 'chunks', []));
+        if ($chunks !== []) {
+            return $chunks;
+        }
+
+        $chunks = $this->normalizeChunks(data_get($response, 'documents', []));
+        if ($chunks !== []) {
+            return $chunks;
+        }
+
+        $chunks = $this->normalizeChunks(data_get($response, 'passages', []));
+        if ($chunks !== []) {
+            return $chunks;
+        }
+
+        $results = data_get($response, 'results', []);
+        if (! is_array($results)) {
+            return [];
+        }
+
+        $collected = [];
+        foreach ($results as $result) {
+            if (! is_array($result)) {
+                continue;
+            }
+
+            if (isset($result['chunks'])) {
+                $collected = [...$collected, ...$this->normalizeChunks($result['chunks'])];
+            }
+
+            if (isset($result['documents'])) {
+                $collected = [...$collected, ...$this->normalizeChunks($result['documents'])];
+            }
+        }
+
+        return array_values(array_map(
+            static fn (array $chunk, int $offset): array => [
+                ...$chunk,
+                'index' => $offset + 1,
+            ],
+            $collected,
+            array_keys($collected),
+        ));
+    }
+
+    /**
+     * @return array<int, array{index: int, source_uuid: string|null, token_count: int|null, text: string}>
+     */
+    private function normalizeChunks(mixed $rawChunks): array
+    {
+        if (! is_array($rawChunks)) {
+            return [];
+        }
+
+        if (! array_is_list($rawChunks)) {
+            if (array_key_exists('text', $rawChunks) || array_key_exists('chunk', $rawChunks) || array_key_exists('content', $rawChunks)) {
+                $rawChunks = [$rawChunks];
+            } else {
+                $rawChunks = array_values($rawChunks);
+            }
+        }
+
+        $normalized = [];
+        foreach ($rawChunks as $offset => $chunk) {
+            if (is_string($chunk)) {
+                $text = trim($chunk);
+                if ($text === '') {
+                    continue;
+                }
+
+                $normalized[] = [
+                    'index' => $offset + 1,
+                    'source_uuid' => null,
+                    'token_count' => null,
+                    'text' => $text,
+                ];
+
+                continue;
+            }
+
+            if (! is_array($chunk)) {
+                continue;
+            }
+
+            $text = trim((string) ($chunk['text'] ?? $chunk['chunk'] ?? $chunk['content'] ?? ''));
+            if ($text === '') {
+                continue;
+            }
+
+            $sourceUuid = $chunk['source_uuid'] ?? $chunk['source_id'] ?? null;
+            $tokenCount = $chunk['token_count'] ?? $chunk['tokens'] ?? null;
+
+            $normalized[] = [
+                'index' => $offset + 1,
+                'source_uuid' => is_string($sourceUuid) && $sourceUuid !== '' ? $sourceUuid : null,
+                'token_count' => is_numeric($tokenCount) ? (int) $tokenCount : null,
+                'text' => $text,
+            ];
+        }
+
+        return $normalized;
+    }
+
+    /**
+     * @param  array<int, array{source_uuid: string, filename: string, text: string}>  $sourceInputs
+     * @return array<int, string>
+     */
+    private function buildDocuments(array $sourceInputs): array
+    {
+        $documents = [];
+        foreach ($sourceInputs as $sourceInput) {
+            $text = trim((string) ($sourceInput['text'] ?? ''));
+            if ($text === '') {
+                continue;
+            }
+
+            $sourceUuid = (string) ($sourceInput['source_uuid'] ?? '');
+            $prefix = sprintf('[SOURCE_ID:%s] ', $sourceUuid);
+            $documents[] = $prefix.$text;
+        }
+
+        return $documents;
     }
 
     private function persistSource(UserSpace $userSpace, UploadedFile $file, string $contents, string $originalName): Source
@@ -195,5 +369,24 @@ class HippoRAGIndexingService
         $sanitized = preg_replace('/[^A-Za-z0-9._-]+/', '_', $basename) ?: 'source.txt';
 
         return trim($sanitized, '._') ?: 'source.txt';
+    }
+
+    /**
+     * @param  array<string, mixed>  $payload
+     */
+    private function shouldRetryWithoutSourceRegistry(string $mode, Throwable $throwable, array $payload): bool
+    {
+        if ($mode !== 'index') {
+            return false;
+        }
+
+        if (! isset($payload['sources']) || ! is_array($payload['sources']) || $payload['sources'] === []) {
+            return false;
+        }
+
+        return Str::contains(
+            Str::lower($throwable->getMessage()),
+            'redis package is required for source uuid registry'
+        );
     }
 }
