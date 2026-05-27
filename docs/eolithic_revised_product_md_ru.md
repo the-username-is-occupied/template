@@ -1,15 +1,12 @@
-# Eolithic.io — Product Overview (Revised)
+# Eolithic.io — Product Overview
 
 ## 1. Видение
 
-**Домен:** https://eolithic.io  
-**Девиз:** *Eolithic. Carved truth.*
-
-Eolithic — это платформа для создания **живых AI knowledge bases** поверх Telegram, YouTube и других контент-источников.
+Eolithic — это платформа для создания **AI knowledge bases** поверх Telegram, YouTube и других контент-источников.
 
 Проще говоря:
 
-> NotebookLM для creator- и expert-контента — но с автоматическим ingest, живыми обновлениями, публичным доступом и монетизацией.
+> NotebookLM с автоматическим ingest, живыми обновлениями, публичным доступом и монетизацией.
 
 Eolithic превращает поток контента в:
 - searchable knowledge layer,
@@ -35,7 +32,7 @@ Eolithic превращает поток контента в:
 - аудитория задает одни и те же вопросы,
 - архив контента почти не монетизируется,
 - старые инсайты исчезают из информационного потока,
-- новые подписчики не способны быстро «распробовать» экспертизу.
+- новые подписчики не способны быстро «распробовать» контент или экспертизу.
 
 При этом у многих creators уже есть:
 - сотни постов,
@@ -60,7 +57,7 @@ Eolithic превращает поток контента в:
 - смотреть длинные видео,
 - вручную искать контекст.
 
-Это создает огромный friction.
+Зачастую это утомительно.
 
 ---
 
@@ -68,7 +65,7 @@ Eolithic превращает поток контента в:
 
 Eolithic создает поверх контента автора:
 
-- живую AI knowledge base,
+- knowledge base,
 - searchable memory layer,
 - grounded Q&A interface.
 
@@ -96,13 +93,6 @@ Eolithic создает поверх контента автора:
 ---
 
 # 4. Ключевая идея
-
-Eolithic — это не «AI-клон личности».
-
-Платформа не пытается:
-- имитировать человека,
-- копировать голос,
-- заменять автора.
 
 Eolithic строит:
 
@@ -163,12 +153,6 @@ Eolithic строит:
 
 > knowledge evolves continuously.
 
-Обычный RAG:
-- загружает документы,
-- ищет чанки,
-- stateless retrieval.
-
-Eolithic:
 - continuously ingests new content,
 - обновляет knowledge structure,
 - поддерживает evolving memory layer.
@@ -188,41 +172,12 @@ Eolithic:
 
 ## LLM Wiki Approach
 
-Eolithic использует подход persistent LLM Wiki:
+Eolithic под копотом предлагается использовать один из Google NotebookLM Unofficial Python API. Full programmatic access to NotebookLM's features
 
-- knowledge компилируется,
-- структурируется,
-- обновляется инкрементально,
-- а не переизвлекается с нуля каждый запрос.
+- https://github.com/teng-lin/notebooklm-py/tree/main
+- https://github.com/PleasePrompto/notebooklm-mcp
+- https://github.com/Pantheon-Security/notebooklm-mcp-secure
 
-Это позволяет:
-- снижать стоимость retrieval,
-- сохранять контекст,
-- видеть chronology,
-- отслеживать evolution of ideas.
-
----
-
-# 8. Knowledge Graph (Future Direction)
-
-На MVP полноценный граф не обязателен.
-
-Базовая retrieval-система может работать через:
-- summaries,
-- indexes,
-- metadata,
-- cross-links.
-
-Но архитектура закладывается под knowledge graph.
-
-В будущем граф позволит:
-
-- улучшать retrieval,
-- искать semantic bridges,
-- находить contradictions,
-- строить maps of expertise,
-- показывать evolution of thought,
-- делать cross-expert synthesis.
 
 ---
 

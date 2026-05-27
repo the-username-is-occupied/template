@@ -51,6 +51,25 @@ make init    # или: task init
 
 Run `make help` or `task --list` for all available targets.
 
+## NotebookLM (isolated service)
+
+```bash
+# Start isolated NotebookLM container
+docker compose up -d notebooklm
+
+# First-time login (opens browser flow)
+docker compose exec notebooklm notebooklm login
+
+# Verify auth and API roundtrip
+docker compose exec notebooklm notebooklm auth check --test
+
+# Import existing auth state from host machine (default path)
+make nlm-auth-import
+
+# Import from custom file path
+AUTH_FILE=/path/to/storage_state.json make nlm-auth-import
+```
+
 ## Docker — Dev vs Production
 
 ```bash

@@ -62,12 +62,28 @@ services:
     networks:
       - backend
 
+  notebooklm:
+    build:
+      context: .
+      dockerfile: ./docker/notebooklm/Dockerfile
+    environment:
+      NOTEBOOKLM_PROFILE: ${NOTEBOOKLM_PROFILE:-default}
+      NOTEBOOKLM_AUTH_JSON: ${NOTEBOOKLM_AUTH_JSON:-}
+    volumes:
+      - notebooklm_data:/root/.notebooklm
+    restart: unless-stopped
+    networks:
+      - notebooklm_net
+
 volumes:
   postgres_data:
   redis_data:
+  notebooklm_data:
 
 networks:
   frontend:
     driver: bridge
   backend:
+    driver: bridge
+  notebooklm_net:
     driver: bridge

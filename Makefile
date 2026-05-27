@@ -64,6 +64,30 @@ ps: ## Show running containers
 infra: ## Start only infrastructure (db, redis)
 	$(COMPOSE) up -d db redis
 
+##@ NotebookLM
+.PHONY: nlm-shell
+nlm-shell: ## Start isolated NotebookLM service
+	$(COMPOSE) exec notebooklm /bin/bash 
+
+.PHONY: nlm-up
+nlm-up: ## Start isolated NotebookLM service
+	$(COMPOSE) up -d notebooklm
+
+.PHONY: nlm-login
+nlm-login: ## Run NotebookLM interactive login
+	$(COMPOSE) exec notebooklm notebooklm login
+
+.PHONY: nlm-auth-check
+nlm-auth-check: ## Verify NotebookLM auth session
+	$(COMPOSE) exec notebooklm notebooklm auth check --test
+
+.PHONY: nlm-auth-import
+nlm-auth-import: ## Import local NotebookLM storage_state.json into container
+	@AUTH_FILE="$${AUTH_FILE:-$$HOME/.notebooklm/profiles/default/storage_state.json}"; \
+	test -f "$$AUTH_FILE" || { echo "Auth file not found: $$AUTH_FILE"; exit 1; }; \
+	$(COMPOSE) exec -T notebooklm sh -lc 'mkdir -p /root/.notebooklm/profiles/default && cat > /root/.notebooklm/profiles/default/storage_state.json' < "$$AUTH_FILE"; \
+	echo "Imported auth file from $$AUTH_FILE"
+
 ##@ Application
 
 .PHONY: shell
