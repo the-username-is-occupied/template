@@ -7,6 +7,14 @@
     encode zstd gzip
     root * /var/www/html/public
 
+    mercure {
+        transport_url {$MERCURE_TRANSPORT_URL:bolt:///data/mercure.db}
+        publisher_jwt {$MERCURE_JWT_SECRET:!ChangeThisMercureHubJWTSecretKey!} HS256
+        subscriber_jwt {$MERCURE_JWT_SECRET:!ChangeThisMercureHubJWTSecretKey!} HS256
+        anonymous
+        subscriptions
+    }
+
     @static {
         file
         path /build/* /assets/* /storage/* *.ico *.css *.js *.gif *.jpg *.jpeg *.png *.svg *.webp *.avif *.woff *.woff2 *.ttf

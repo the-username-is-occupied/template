@@ -37,4 +37,11 @@ return [
         ],
     ],
 
+    'mercure' => [
+        'hub_url' => env('MERCURE_HUB_URL', env('APP_URL').'/.well-known/mercure'),
+        'public_url' => env('MERCURE_PUBLIC_URL', env('APP_URL').'/.well-known/mercure'),
+        'jwt_secret' => env('MERCURE_JWT_SECRET', '!ChangeThisMercureHubJWTSecretKey!'),
+        'topic_prefix' => env('MERCURE_TOPIC_PREFIX', env('APP_URL').'/debug/sse'),
+    ],
+
 ];

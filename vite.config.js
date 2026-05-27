@@ -8,12 +8,11 @@ export default defineConfig({
         host: '0.0.0.0',
         port: 5173,
         hmr: {
-            host: new URL(process.env.VITE_APP_URL).hostname,
-            protocol: 'wss'
+            host: 'localhost',
+            protocol: 'ws'
         },
         strictPort: true,
         cors: true,
-        origin: process.env.VITE_APP_URL,
         watch: {
             usePolling: true
         }
