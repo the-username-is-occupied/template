@@ -40,6 +40,13 @@ This project has domain-specific skills available. You MUST activate the relevan
 - Use descriptive names for variables and methods. For example, `isRegisteredForDiscounts`, not `discount()`.
 - Check for existing components to reuse before writing a new one.
 
+## Docker-First Workflow
+
+- This project runs inside Docker. Treat the container as the working environment and assume host PHP, Composer, Node, Artisan, and test tooling are not available.
+- Use the Makefile as the canonical entry point for everyday work. Prefer targets such as `make shell`, `make composer-install`, `make npm-install`, `make migrate`, `make test`, `make fmt`, `make stan`, `make rector`, and `make tinker`.
+- When a direct command is necessary, run it inside the `app` container with `docker compose exec app ...`.
+- Do not instruct the user to run application commands from the host unless the task explicitly requires a host-level Docker or deployment action.
+
 ## Verification Scripts
 
 - Do not create verification scripts or tinker when tests cover that functionality and prove they work. Unit and feature tests are more important.
