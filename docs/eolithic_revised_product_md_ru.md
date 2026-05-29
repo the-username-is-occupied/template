@@ -2,7 +2,8 @@
 
 ## 1. Видение
 
-Eolithic — это платформа для создания **AI knowledge bases** поверх Telegram, YouTube и других контент-источников.
+Eolithic — это обертка над Google NotebookLM для создания **AI knowledge bases** поверх Telegram, YouTube и других контент-источников.
+Под капотом используется notebooklm-py библиотека для автоматизированной работы с Google NotebookLM.
 
 Проще говоря:
 
@@ -79,10 +80,7 @@ Eolithic создает поверх контента автора:
 
 Система автоматически:
 - индексирует контент,
-- обновляет knowledge base,
-- структурирует темы,
-- связывает сущности,
-- позволяет задавать вопросы поверх всей базы.
+- обновляет knowledge base
 
 Ответы:
 - grounded на источниках,
@@ -90,19 +88,6 @@ Eolithic создает поверх контента автора:
 - показывают таймкоды и origin,
 - минимизируют hallucinations.
 
----
-
-# 4. Ключевая идея
-
-Eolithic строит:
-
-> knowledge interface поверх архива контента.
-
-Главная ценность:
-- retrieval,
-- synthesis,
-- discoverability,
-- continuity of knowledge.
 
 ---
 
@@ -145,41 +130,6 @@ Eolithic строит:
 
 ---
 
-# 7. Архитектурный подход
-
-## Living Knowledge Base
-
-Главная техническая идея:
-
-> knowledge evolves continuously.
-
-- continuously ingests new content,
-- обновляет knowledge structure,
-- поддерживает evolving memory layer.
-
----
-
-## Data Layers
-
-| Layer | Description |
-|---|---|
-| Raw Sources | Telegram posts, YouTube transcripts, files |
-| Structured Memory | Summaries, entities, topic pages |
-| Retrieval Layer | Routing + semantic retrieval |
-| Knowledge Graph (future) | Explicit relations between concepts |
-
----
-
-## LLM Wiki Approach
-
-Eolithic под копотом предлагается использовать один из Google NotebookLM Unofficial Python API. Full programmatic access to NotebookLM's features
-
-- https://github.com/teng-lin/notebooklm-py/tree/main
-- https://github.com/PleasePrompto/notebooklm-mcp
-- https://github.com/Pantheon-Security/notebooklm-mcp-secure
-
-
----
 
 # 9. Монетизация
 
@@ -272,29 +222,6 @@ Eolithic развивается как:
 
 ---
 
-# 12. Главный moat
-
-Главный moat Eolithic — не просто AI.
-
-И не просто RAG.
-
-А:
-
-- continuous ingest,
-- evolving memory,
-- structured normalization,
-- grounded retrieval,
-- living knowledge infrastructure.
-
-Самая сложная часть продукта:
-- parsing,
-- updates,
-- deduplication,
-- chronology,
-- contradiction handling,
-- evolving structure.
-
----
 
 # 13. Стратегия MVP
 
@@ -308,12 +235,6 @@ Eolithic развивается как:
 - grounded Q&A
 - sharable public page
 
-Без:
-- сложного graph UI,
-- Neo4j,
-- ontology system,
-- advanced marketplace mechanics,
-- сложных access tiers.
 
 ---
 
@@ -339,27 +260,10 @@ Retention важнее монетизации.
 | Риск | Комментарий |
 |---|---|
 | AI-wrapper commoditization | Нужно строить moat вокруг ingest + structured memory |
-| Low-quality creator flood | Важно развивать quality ranking и trust layer |
 | Низкая willingness to pay | Нужны freemium и subscription модели |
-| Dependency on LLM APIs | Multi-provider architecture |
-| Marketplace spam | Reputation system и ranking |
 
 ---
 
-# 16. Долгосрочное видение
-
-Eolithic может стать:
-
-- knowledge layer for creators,
-- memory layer for organizations,
-- marketplace of grounded expertise,
-- infrastructure for living AI knowledge systems.
-
-Не просто AI-chat поверх PDF.
-
-А:
-
-> continuously evolving, source-grounded knowledge network.
 
 ---
 
@@ -382,7 +286,6 @@ Eolithic превращает Telegram, YouTube и другие контент-�
 - находить информацию мгновенно,
 - работать с длинным контентом как с knowledge base.
 
-Eolithic — это не AI-клон человека.
 
 Это:
 
