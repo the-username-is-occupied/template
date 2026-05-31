@@ -27,7 +27,7 @@ test('test_multiple_source_ids_are_replaced_correctly', function (): void {
 
     $html = (string) $rendered['html'];
 
-    expect($html)->toContain('href="http://localhost/test-hipporag/sources/'.$first->id.'"')
+    expect($html)->toContain('href="http://localhost/hipporag-index/sources/'.$first->id.'"')
         ->and($html)->toContain('>alpha.md</a>')
         ->and($html)->toContain('>beta.txt</a>')
         ->and($renderer->extractSourceUuids('x [SOURCE_ID:550e8400-e29b-41d4-a716-446655440000] y [SOURCE_ID:650e8400-e29b-41d4-a716-446655440001]'))->toBe([

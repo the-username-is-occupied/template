@@ -8,6 +8,7 @@ use App\Models\UserSpace;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rules\File;
+use Illuminate\Validation\Validator;
 
 class IndexRequest extends FormRequest
 {
@@ -28,8 +29,13 @@ class IndexRequest extends FormRequest
     {
         return [
             'user_space_id' => ['required', 'integer', 'exists:user_spaces,id'],
-            'files' => ['required', 'array', 'min:1'],
+            'files' => ['nullable', 'array'],
             'files.*' => ['required', File::types(['txt', 'md', 'text'])->max('10mb')],
+            'pasted_text' => ['nullable', 'string', 'max:200000'],
+            'llm_model_name' => ['required', 'string', 'max:190'],
+            'index_mode' => ['required', 'in:index,chunk'],
+            'chunk_size' => ['required', 'integer', 'min:64', 'max:4096'],
+            'overlap_ratio' => ['required', 'numeric', 'min:0.1', 'max:0.15'],
         ];
     }
 
@@ -39,13 +45,82 @@ class IndexRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'files.required' => 'Please choose at least one plain text or Markdown file.',
+            'files.array' => 'Files payload is invalid.',
             'files.*.mimes' => 'Only .txt, .text, and .md files are supported for this POC.',
+            'llm_model_name.required' => 'Please choose an LLM model.',
+            'index_mode.in' => 'Unsupported indexing mode.',
+            'overlap_ratio.min' => 'Overlap ratio must be at least 0.10 (10%).',
+            'overlap_ratio.max' => 'Overlap ratio must be at most 0.15 (15%).',
         ];
+    }
+
+    public function withValidator(Validator $validator): void
+    {
+        $validator->after(function (Validator $validator): void {
+            $files = $this->file('files', []);
+            $pastedText = trim((string) $this->input('pasted_text', ''));
+
+            if (count($files) === 0 && $pastedText === '') {
+                $validator->errors()->add('files', 'Upload at least one file or paste text.');
+            }
+        });
     }
 
     public function userSpace(): UserSpace
     {
         return UserSpace::query()->findOrFail($this->integer('user_space_id'));
+    }
+
+    public function llmModelName(): string
+    {
+        return $this->parseLlmSelection()['model_name'];
+    }
+
+    public function llmProvider(): ?string
+    {
+        return $this->parseLlmSelection()['provider'];
+    }
+
+    public function indexMode(): string
+    {
+        return (string) $this->validated('index_mode');
+    }
+
+    public function chunkSize(): int
+    {
+        return (int) $this->validated('chunk_size');
+    }
+
+    public function overlapRatio(): float
+    {
+        return (float) $this->validated('overlap_ratio');
+    }
+
+    public function pastedText(): string
+    {
+        return trim((string) $this->validated('pasted_text', ''));
+    }
+
+    /**
+     * @return array{provider: string|null, model_name: string}
+     */
+    private function parseLlmSelection(): array
+    {
+        $rawValue = trim((string) $this->validated('llm_model_name'));
+        if (! str_contains($rawValue, '::')) {
+            return [
+                'provider' => null,
+                'model_name' => $rawValue,
+            ];
+        }
+
+        [$provider, $modelName] = explode('::', $rawValue, 2);
+        $provider = trim($provider);
+        $modelName = trim($modelName);
+
+        return [
+            'provider' => $provider !== '' ? $provider : null,
+            'model_name' => $modelName !== '' ? $modelName : $rawValue,
+        ];
     }
 }

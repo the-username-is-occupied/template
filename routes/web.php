@@ -7,7 +7,9 @@ Route::get('/', function () {
     return view('welcome');
 });
 
-Route::prefix('test-hipporag')->name('hipporag.')->group(function (): void {
+Route::redirect('/test-hipporag', '/hipporag-index');
+
+Route::prefix('hipporag-index')->name('hipporag.')->group(function (): void {
     Route::get('/', [HippoRAGTestController::class, 'index'])->name('index');
     Route::post('/spaces', [HippoRAGTestController::class, 'storeSpace'])->name('spaces.store');
     Route::post('/spaces/{userSpace}/select', [HippoRAGTestController::class, 'selectSpace'])->name('spaces.select');

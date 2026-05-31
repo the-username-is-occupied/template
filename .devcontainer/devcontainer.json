@@ -1,0 +1,34 @@
+{
+  "name": "EOL Laravel",
+  "dockerComposeFile": ["../compose.yml", "../compose.override.yml"],
+  "service": "app",
+  "workspaceFolder": "/var/www/html",
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "bmewburn.vscode-intelephense-client",
+        "xdebug.php-debug",
+        "amiralizadeh9480.laravel-extra-intellisense",
+        "onecentlin.laravel-blade"
+      ],
+      "settings": {
+        "php.validate.executablePath": "/usr/local/bin/php",
+        "php.validate.enable": true,
+        "intelephense.environment.phpVersion": "8.3",
+        "intelephense.files.maxSize": 5000000,
+        "LaravelExtraIntellisense.phpCommand": "/usr/local/bin/php"
+      }
+    }
+  },
+  "forwardPorts": [80, 5173],
+  "portsAttributes": {
+    "80": {
+      "label": "App (FrankenPHP)",
+      "onAutoForward": "notify"
+    },
+    "5173": {
+      "label": "Vite",
+      "onAutoForward": "silent"
+    }
+  }
+}
