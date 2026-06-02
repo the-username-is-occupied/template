@@ -1,7 +1,15 @@
-# AI асистент по контенту. 
-Инструмент индексирует источники (телеграм, ютуб, текст, файлы) и предоставляет семантический поиск с заземлением на источники.
+# Eolithic
 
-- мультипрофиль - динамическое добавление технических google аккаунтов
+## Stack
+- Laravel 12
+- Notebooklm-py (Unoficial Google Notebooklm API) as FastAPI Service
+- Custom python TG scrapper as FastAPI Service
+- yt-dlp: Youtube channel video list as FastAPI Service
+- Vue 3 + Quasar Framework
+- Redis
+- PostgreSQL
+- FrankenPHP (Laravel Octane, Native SSE Mercure Hub)
+- Docker Compose
 
 ## Cжатие источников 
 
