@@ -142,33 +142,6 @@ Eolithic создает поверх контента автора:
 
 Варианты монетизации:
 
-### 1. Subscription access
-
-Наиболее перспективная модель.
-
-Например:
-- бесплатные вопросы,
-- затем monthly subscription.
-
----
-
-### 2. Creator membership enhancement
-
-AI knowledge base становится частью:
-- premium community,
-- creator membership,
-- paid subscription.
-
----
-
-### 3. Pay-per-query (optional)
-
-Подходит для:
-- экспертных ниш,
-- дорогих domain answers,
-- high-value consultations.
-
-Но не должен быть единственной моделью.
 
 ---
 
