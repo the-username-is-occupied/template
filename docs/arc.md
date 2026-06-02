@@ -33,3 +33,4 @@
 
 ## Dashboard пользователя:
 
+## Подсчет retantion
