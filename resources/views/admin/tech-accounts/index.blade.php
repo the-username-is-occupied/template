@@ -65,7 +65,6 @@
                     </td>
                     <td class="px-4 py-4 text-slate-300">
                         <div class="max-w-xs break-all">{{ $account->cookie_path ?? '—' }}</div>
-                        <div class="mt-2 text-xs text-slate-500">Proxy: {{ $account->proxy_host ?? '—' }}</div>
                     </td>
                     <td class="px-4 py-4 text-slate-300">{{ $account->last_used_at?->format('Y-m-d H:i') ?? '—' }}</td>
                     <td class="px-4 py-4 text-right">

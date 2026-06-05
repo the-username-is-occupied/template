@@ -37,12 +37,22 @@ Laravel: обновить статус → active
 **Угроза:** datacenter IP → Google risk-scoring → сессии деградируют быстрее, аккаунты могут быть заблокированы.
 
 ### Меры
+Один прокси на процесс — это ровно то, что поддерживается из коробки через env vars.
 
-**1. Residential proxy на каждый аккаунт**
+В `compose.yml`:
 
-Каждый `NotebookLMClient` инициализируется с выделенным residential IP (конфигурируется на уровне `httpx.AsyncClient`).
+```yaml
+fastapi-nlm:
+  environment:
+    HTTP_PROXY: "http://user:pass@residential-host:port"
+    HTTPS_PROXY: "http://user:pass@residential-host:port"
+    NO_PROXY: "localhost,postgres,redis"
+```
 
-MVP: 3-4 IP на 10 аккаунтов (2-3 аккаунта на IP). Аккаунты с одного IP обслуживают разные knowledge bases — так инцидент на одном IP не кладёт весь сервис.
+httpx читает эти переменные автоматически — все `NotebookLMClient` внутри процесса пойдут через один прокси. Ничего дополнительно в коде делать не нужно.
+
+`NO_PROXY` важен — без него внутренние запросы к Redis и Postgres тоже пойдут через прокси.
+
 
 
 **3. Keepalive jitter**
@@ -101,7 +111,6 @@ email            varchar
 pool_type        enum(free, plus, pro, ultra)
 status           enum(initializing, active, inactive, banned)
 cookie_path      varchar
-proxy_host       varchar        -- residential proxy для этого аккаунта
 notebooks_count  int default 0
 chats_today      int default 0
 chats_reset_at   timestamp

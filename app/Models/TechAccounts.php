@@ -34,7 +34,6 @@ class TechAccounts extends Model
         'pool_type',
         'status',
         'cookie_path',
-        'proxy_host',
         'notebooks_count',
         'chats_today',
         'chats_reset_at',

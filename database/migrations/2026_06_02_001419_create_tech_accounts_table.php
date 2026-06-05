@@ -20,7 +20,6 @@ return new class extends Migration
             $table->string('pool_type')->index();
             $table->string('status')->index();
             $table->string('cookie_path')->nullable();
-            $table->string('proxy_host')->nullable();
             $table->unsignedInteger('notebooks_count')->default(0);
             $table->unsignedInteger('chats_today')->default(0);
             $table->timestamp('chats_reset_at')->nullable();

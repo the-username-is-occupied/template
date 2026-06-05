@@ -38,12 +38,6 @@
         </label>
 
         <label class="space-y-2">
-            <span class="text-sm font-medium text-slate-200">Proxy host</span>
-            <input type="text" name="proxy_host" value="{{ old('proxy_host', $account->proxy_host) }}" class="w-full rounded-2xl border border-white/10 bg-slate-900/60 px-4 py-3 text-white">
-            @error('proxy_host')<p class="text-sm text-rose-300">{{ $message }}</p>@enderror
-        </label>
-
-        <label class="space-y-2">
             <span class="text-sm font-medium text-slate-200">Storage state JSON {{ $account->exists ? '(optional)' : '(required)' }}</span>
             <input type="file" name="storage_state" accept="application/json,.json" class="w-full rounded-2xl border border-dashed border-white/20 bg-slate-900/60 px-4 py-3 text-white file:mr-4 file:rounded-full file:border-0 file:bg-white file:px-4 file:py-2 file:text-sm file:font-semibold file:text-slate-950">
             @error('storage_state')<p class="text-sm text-rose-300">{{ $message }}</p>@enderror

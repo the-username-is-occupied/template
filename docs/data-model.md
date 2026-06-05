@@ -94,7 +94,6 @@ google_accounts
   pool_type        enum(free, plus, pro, ultra)
   status           enum(initializing, active, inactive, banned)
   cookie_path      varchar
-  proxy_host       varchar
   notebooks_count  int default 0
   chats_today      int default 0
   chats_reset_at   timestamp

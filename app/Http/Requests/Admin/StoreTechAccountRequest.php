@@ -26,7 +26,6 @@ final class StoreTechAccountRequest extends FormRequest
             'email' => ['required', 'email', 'max:255', Rule::unique('tech_accounts', 'email')],
             'pool_type' => ['required', Rule::enum(TechAccountPoolType::class)],
             'status' => ['required', Rule::enum(TechAccountStatus::class)],
-            'proxy_host' => ['nullable', 'string', 'max:255'],
             'notebooks_count' => ['nullable', 'integer', 'min:0'],
             'chats_today' => ['nullable', 'integer', 'min:0'],
             'chats_reset_at' => ['nullable', 'date'],

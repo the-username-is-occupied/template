@@ -34,7 +34,6 @@ final class TechAccountsAdminTest extends TestCase
             'email' => 'account-one@example.com',
             'pool_type' => 'free',
             'status' => 'active',
-            'proxy_host' => 'proxy.example.com',
             'notebooks_count' => 3,
             'chats_today' => 7,
             'chats_reset_at' => now()->format('Y-m-d H:i:s'),
@@ -77,7 +76,6 @@ final class TechAccountsAdminTest extends TestCase
     //         'email' => 'origina232l@example.com',
     //         'pool_type' => 'free',
     //         'status' => 'active',
-    //         'proxy_host' => 'updated-proxy.example.com',
     //         'notebooks_count' => 8,
     //         'chats_today' => 11,
     //         'chats_reset_at' => now()->format('Y-m-d H:i:s'),
@@ -91,7 +89,6 @@ final class TechAccountsAdminTest extends TestCase
     //     $this->assertSame($id, $account->id);
     //     $this->assertSame('Updated Name', $account->name);
     //     $this->assertSame('original@example.com', $account->email);
-    //     $this->assertSame('updated-proxy.example.com', $account->proxy_host);
     //     $this->assertSame($cookieBasePath.'/'.$account->id.'/storage_state.json', $account->cookie_path);
     // }
 }

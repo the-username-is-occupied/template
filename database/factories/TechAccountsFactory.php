@@ -27,7 +27,6 @@ class TechAccountsFactory extends Factory
             'pool_type' => fake()->randomElement(TechAccountPoolType::cases()),
             'status' => fake()->randomElement(TechAccountStatus::cases()),
             'cookie_path' => null,
-            'proxy_host' => fake()->optional()->domainName(),
             'notebooks_count' => fake()->numberBetween(0, 20),
             'chats_today' => fake()->numberBetween(0, 50),
             'chats_reset_at' => now()->subHour(),
