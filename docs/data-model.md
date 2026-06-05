@@ -87,27 +87,12 @@ md_bundles
 -- Technical Accounts
 -- ─────────────────────────────────────────
 
-google_accounts
-  id               uuid pk
-  name             varchar
-  email            varchar
-  pool_type        enum(free, plus, pro, ultra)
-  status           enum(initializing, active, inactive, banned)
-  cookie_path      varchar
-  notebooks_count  int default 0
-  chats_today      int default 0
-  chats_reset_at   timestamp
-  last_used_at     timestamp
+tec_accounts - TechAccounts Eloquent Model
+
   created_at       timestamp
 
 -- Лимиты по типу аккаунта (синхронизируются вручную)
-account_tier_limits
-  tier                  enum(free, plus, pro, ultra) pk
-  notebooks_limit       int
-  sources_per_notebook  int
-  chats_per_day         int
-  audio_per_day         int
-  updated_at            timestamp
+account_tier_limits - Eloquent Model
 
 -- ─────────────────────────────────────────
 -- Chat
