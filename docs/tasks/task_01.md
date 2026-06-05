@@ -90,8 +90,10 @@ Laravel: обновить статус
 
 FastAPI предоставляет `/health/accounts` . Laravel поллит и помечает деградировавшие аккаунты через статус в tech_accounts и ошибкой в лог.
 
-Т.е. отправляет  массив account_id, получается массив [account_id => healthy | unhealthy]
-**Индикатор здоровья сессии:** `mtime` файла `storage_state.json`. Должен обновляться каждые ~600 сек пока keepalive работает. Stale mtime = деградация сессии.
+Т.е. отправляет  массив account_id, получается массив [account_id => ['mtime' =>  healthy | unhealthy, 'is_connected' => bool ]]
+**Индикатор здоровья сессии:** `mtime` файла `storage_state.json`. Должен обновляться каждые ~600 сек пока keepalive работает. Stale mtime = деградация сессии. Так же собирать значение NotebookLMClient.is_connected: bool 
+
+Добавить job для проверки и shedule каждую минуту проверять health
 
 ## Тестирование
 
