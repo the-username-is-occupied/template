@@ -39,6 +39,8 @@ This project has domain-specific skills available in `**/skills/**`. You MUST ac
 - You must follow all existing code conventions used in this application. When creating or editing a file, check sibling files for the correct structure, approach, and naming.
 - Use descriptive names for variables and methods. For example, `isRegisteredForDiscounts`, not `discount()`.
 - Check for existing components to reuse before writing a new one.
+- All data entering the application must be represented as DTOs via `spatie/laravel-data`, including the HTTP, console, and job layers.
+- Keep application layers thin: controllers, commands, and jobs should orchestrate work only, and business logic should live in service classes.
 
 ## Docker-First Workflow
 
@@ -174,6 +176,7 @@ This project has domain-specific skills available in `**/skills/**`. You MUST ac
 
 - When modifying a column, the migration must include all of the attributes that were previously defined on the column. Otherwise, they will be dropped and lost.
 - Laravel 12 allows limiting eagerly loaded records natively, without external packages: `$query->latest()->limit(10);`.
+- For enum-backed values in the database, always store the column as `int` and cast it to a native PHP enum in the model via Eloquent.
 
 ### Models
 
