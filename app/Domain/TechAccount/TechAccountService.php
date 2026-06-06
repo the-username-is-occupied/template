@@ -35,7 +35,7 @@ class TechAccountService
             'cookie_path' => $this->cookiePath($account),
         ])->save();
 
-        // $this->notebookLMService->initializeAccount((string) $account->id);
+        $this->notebookLMService->initializeAccount((string) $account->id);
 
         return $account;
     }
@@ -57,7 +57,7 @@ class TechAccountService
 
     public function delete(TechAccounts $account): void
     {
-        // $this->notebookLMService->removeAccount((string) $account->id);
+        $this->notebookLMService->removeAccount((string) $account->id);
 
         $directory = dirname($this->cookiePath($account));
 

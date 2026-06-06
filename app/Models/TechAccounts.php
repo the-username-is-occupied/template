@@ -58,8 +58,17 @@ class TechAccounts extends Model
         return $this->belongsTo(AccountTierLimit::class, 'pool_type', 'tier');
     }
 
-    public function test(string $q = "Кто такая Сильвана? Ответь коротко")
-    {     return (new NotebookLMService)->getNotebook($this->id, "664040dd-5608-490a-b35f-92b06979f768");
-        return (new NotebookLMService)->askQuestion($this->id,"664040dd-5608-490a-b35f-92b06979f768", $q);
+    public function test(string $q = 'Кто такая Сильвана? Ответь коротко')
+    {
+        // sylvanas 664040dd-5608-490a-b35f-92b06979f768
+        // return (new NotebookLMService)->listNotebooks($this->id);
+        // return (new NotebookLMService)->getNotebook($this->id, "80be8d97-a00f-4ce1-a560-a424e65ee56d");
+        // return (new NotebookLMService)->setPublic($this->id, "80be8d97-a00f-4ce1-a560-a424e65ee56d");
+        return (new NotebookLMService)->askQuestion($this->id, '80be8d97-a00f-4ce1-a560-a424e65ee56d', $q);
+    }
+
+    public function createnb(string $q = 'Notebook')
+    {
+        return (new NotebookLMService)->createNotebook($this->id, $q);
     }
 }

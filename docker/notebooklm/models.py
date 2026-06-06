@@ -16,7 +16,7 @@ class BaseResponse(BaseModel):
 class Notebook(BaseModel):
     id: str = Field(..., description="Notebook ID")
     title: str = Field(..., description="Notebook title")
-    created_at: datetime = Field(..., description="Creation timestamp")
+    created_at: Optional[datetime] = Field(default=None, description="Creation timestamp")
     sources_count: int = Field(default=0, description="Number of sources")
     is_owner: bool = Field(default=True, description="Whether current user is owner")
 
@@ -111,10 +111,20 @@ class SettingsResponse(BaseResponse):
 
 
 # Sharing models
+class SharedUser(BaseModel):
+    email: str = Field(..., description="User's email address")
+    permission: str = Field(..., description="Permission: OWNER, EDITOR, or VIEWER")
+    display_name: Optional[str] = Field(None, description="User's display name")
+    avatar_url: Optional[str] = Field(None, description="URL to user's avatar image")
+
+
 class ShareStatus(BaseModel):
-    is_public: bool = Field(default=False, description="Whether notebook is public")
-    view_level: str = Field(..., description="View level: public, restricted, private")
-    users: List[Dict[str, Any]] = Field(default_factory=list, description="Shared users")
+    notebook_id: str = Field(..., description="The notebook ID")
+    is_public: bool = Field(default=False, description="Whether publicly accessible")
+    access: str = Field(..., description="Access level: RESTRICTED or ANYONE_WITH_LINK")
+    view_level: str = Field(..., description="View level: FULL_NOTEBOOK or CHAT_ONLY")
+    shared_users: List[SharedUser] = Field(default_factory=list, description="List of users with access")
+    share_url: Optional[str] = Field(None, description="Public URL if is_public=True")
 
 
 class SharingStatusResponse(BaseResponse):

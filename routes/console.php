@@ -10,4 +10,4 @@ Artisan::command('inspire', function () {
 })->purpose('Display an inspiring quote');
 
 // Check NotebookLM account health every minute
-Schedule::job(new CheckAccountHealth)->everyMinute();
+// Schedule::job(new CheckAccountHealth)->everyMinute();

@@ -8,6 +8,8 @@ use App\Domain\NotebookLM\NotebookLMService;
 use App\Enums\TechAccountStatus;
 use App\Models\TechAccounts;
 use Illuminate\Contracts\Queue\ShouldQueue;
+use Illuminate\Foundation\Queue\Queueable;
+use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Support\Facades\Log;
 
 /**
@@ -19,6 +21,8 @@ use Illuminate\Support\Facades\Log;
  */
 class CheckAccountHealth implements ShouldQueue
 {
+    use InteractsWithQueue, Queueable;
+
     /**
      * The number of seconds to wait before retrying the job.
      */
@@ -64,10 +68,12 @@ class CheckAccountHealth implements ShouldQueue
             Log::warning('Account not found in database', [
                 'account_id' => $accountId,
             ]);
+            Log::warning('еуеку', []);
 
             return;
         }
 
+        $mtimeAgeSeconds = $health['mtime_age_seconds'] ?? null;
         $mtime = $health['mtime'] ?? 'unknown';
         $isConnected = $health['is_connected'] ?? false;
         $status = $health['status'] ?? 'unknown';
@@ -79,36 +85,37 @@ class CheckAccountHealth implements ShouldQueue
         if (! $isConnected) {
             $isDegraded = true;
             $reason = 'Client not connected';
-        } elseif ($mtime === 'stale') {
+        } elseif ($mtimeAgeSeconds !== null && $mtimeAgeSeconds > 600) {
             $isDegraded = true;
-            $reason = 'storage_state.json is stale (mtime > 600s)';
-        } elseif ($mtime === 'missing') {
+            $reason = "storage_state.json is stale (mtime_age_seconds: {$mtimeAgeSeconds}s > 600s)";
+        } elseif ($mtime !== 'healthy') {
             $isDegraded = true;
-            $reason = 'storage_state.json is missing';
-        } elseif ($status === 'degraded') {
+            $reason = "mtime is not healthy: {$mtime}";
+        } elseif ($status !== 'healthy') {
             $isDegraded = true;
-            $reason = 'Account status is degraded';
+            $reason = "Account status is not healthy: {$status}";
         }
 
         // Update account status
-        if ($isDegraded && $account->status !== TechAccountStatus::Degraded) {
+        if ($isDegraded && $account->status !== TechAccountStatus::Inactive) {
             $account->update([
-                'status' => TechAccountStatus::Degraded,
+                'status' => TechAccountStatus::Inactive,
             ]);
 
-            Log::warning('Account marked as degraded', [
+            Log::warning('Account marked as inactive', [
                 'account_id' => $accountId,
                 'reason' => $reason,
                 'health' => $health,
             ]);
-        } elseif (! $isDegraded && $account->status === TechAccountStatus::Degraded) {
-            // Recover to active if it was degraded
+        } elseif (! $isDegraded && ! in_array($account->status, [TechAccountStatus::Active, TechAccountStatus::Banned])) {
+            // Activate if healthy and not already active or banned
             $account->update([
                 'status' => TechAccountStatus::Active,
             ]);
 
-            Log::info('Account recovered from degraded state', [
+            Log::info('Account activated', [
                 'account_id' => $accountId,
+                'previous_status' => $account->status->value,
             ]);
         }
     }

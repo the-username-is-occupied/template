@@ -59,8 +59,8 @@
                         } }}">{{ $account->status->label() }}</span>
                     </td>
                     <td class="px-4 py-4 text-slate-300">
-                        <div>Notebooks: {{ $account->notebooks_count }}</div>
-                        <div>Chats today: {{ $account->chats_today }}</div>
+                        <div>Nb: {{ $account->notebooks_count }}</div>
+                        <div>Chats: {{ $account->chats_today }}</div>
                         <div>Reset: {{ $account->chats_reset_at?->format('Y-m-d H:i') ?? '—' }}</div>
                     </td>
                     <td class="px-4 py-4 text-slate-300">

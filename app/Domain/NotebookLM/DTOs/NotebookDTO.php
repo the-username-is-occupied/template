@@ -11,7 +11,7 @@ class NotebookDTO extends Data
     public function __construct(
         public string $id,
         public string $title,
-        public string $created_at,
+        public ?string $created_at = null,
         public int $sources_count = 0,
         public bool $is_owner = true,
     ) {}

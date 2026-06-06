@@ -6,6 +6,8 @@ namespace App\Domain\NotebookLM;
 
 use App\Domain\NotebookLM\DTOs\AskResultDTO;
 use App\Domain\NotebookLM\DTOs\NotebookDTO;
+use App\Domain\NotebookLM\DTOs\SharedUserDTO;
+use App\Domain\NotebookLM\DTOs\ShareStatusDTO;
 use App\Domain\NotebookLM\DTOs\SourceDTO;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Http;
@@ -178,6 +180,78 @@ class NotebookLMService
         $response = $this->get('/health/accounts');
 
         return $response;
+    }
+
+    /**
+     * Get sharing status of a notebook.
+     *
+     * @return array{response_time_ms: int, status: array}
+     */
+    public function getSharingStatus(string $accountId, string $notebookId): array
+    {
+        $response = $this->get("/accounts/{$accountId}/notebooks/{$notebookId}/sharing");
+
+        // Map shared_users to DTOs if present
+        $status = $response['status'];
+        if (! empty($status['shared_users'])) {
+            $status['shared_users'] = array_map(
+                fn (array $user) => SharedUserDTO::from($user)->toArray(),
+                $status['shared_users']
+            );
+        }
+
+        return [
+            'response_time_ms' => $response['response_time_ms'],
+            'status' => ShareStatusDTO::from($status)->toArray(),
+        ];
+    }
+
+    /**
+     * Set notebook as public.
+     *
+     * @return array{response_time_ms: int, status: array}
+     */
+    public function setPublic(string $accountId, string $notebookId): array
+    {
+        $response = $this->post("/accounts/{$accountId}/notebooks/{$notebookId}/sharing/public", []);
+
+        // Map shared_users to DTOs if present
+        $status = $response['status'];
+        if (! empty($status['shared_users'])) {
+            $status['shared_users'] = array_map(
+                fn (array $user) => SharedUserDTO::from($user)->toArray(),
+                $status['shared_users']
+            );
+        }
+
+        return [
+            'response_time_ms' => $response['response_time_ms'],
+            'status' => ShareStatusDTO::from($status)->toArray(),
+        ];
+    }
+
+    /**
+     * Set notebook as private.
+     *
+     * @return array{response_time_ms: int, status: array}
+     */
+    public function setPrivate(string $accountId, string $notebookId): array
+    {
+        $response = $this->post("/accounts/{$accountId}/notebooks/{$notebookId}/sharing/private", []);
+
+        // Map shared_users to DTOs if present
+        $status = $response['status'];
+        if (! empty($status['shared_users'])) {
+            $status['shared_users'] = array_map(
+                fn (array $user) => SharedUserDTO::from($user)->toArray(),
+                $status['shared_users']
+            );
+        }
+
+        return [
+            'response_time_ms' => $response['response_time_ms'],
+            'status' => ShareStatusDTO::from($status)->toArray(),
+        ];
     }
 
     /**
