@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Feature;
 
+use App\Domain\TechAccount\TechAccountService;
 use App\Models\TechAccounts;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
@@ -26,8 +27,8 @@ final class TechAccountsAdminTest extends TestCase
     {
         $this->withoutMiddleware();
 
-        $cookieBasePath = storage_path('framework/testing-tech-accounts');
-        config()->set('tech-accounts.cookie_base_path', $cookieBasePath);
+        // $cookieBasePath = storage_path('framework/testing-tech-accounts');
+        $cookieBasePath = config()->get('tech-accounts.cookie_base_path');
 
         $response = $this->post(route('admin.tech-accounts.store'), [
             'name' => 'Account One',
@@ -53,6 +54,15 @@ final class TechAccountsAdminTest extends TestCase
 
         $contents = File::get($account->cookie_path);
         $this->assertJson($contents);
+
+        // Delete the account via route (need to disable middleware again for DELETE)
+        // $deleteResponse = $this->delete(route('admin.tech-accounts.destroy', ['techAccount' => $account->id]));
+
+        // $deleteResponse->assertRedirect(route('admin.tech-accounts.index'));
+
+        app()->make(TechAccountService::class)->delete($account);
+        $this->assertNull(TechAccounts::find($account->id));
+        $this->assertFileDoesNotExist($account->cookie_path);
     }
 
     // public function test_it_updates_a_tech_account_without_reuploading_storage_state(): void

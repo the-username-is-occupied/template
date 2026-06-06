@@ -14,13 +14,15 @@ use RuntimeException;
 final class MercurePublisher
 {
     private const JWT_ALGORITHM = 'HS256';
+
     private const JWT_TYPE = 'JWT';
 
     /**
      * Publishes a message to the specified topic.
      *
-     * @param string $topic The topic to publish to.
-     * @param string $data The data to publish.
+     * @param  string  $topic  The topic to publish to.
+     * @param  string  $data  The data to publish.
+     *
      * @throws RuntimeException If publishing fails.
      */
     public function publish(string $topic, string $data): void
@@ -43,7 +45,7 @@ final class MercurePublisher
     /**
      * Creates a JWT for the publisher.
      *
-     * @param string $secret The secret used to sign the JWT.
+     * @param  string  $secret  The secret used to sign the JWT.
      * @return string The generated JWT.
      */
     private function createPublisherJwt(string $secret): string
@@ -62,13 +64,13 @@ final class MercurePublisher
 
         $signature = hash_hmac('sha256', "{$header}.{$payload}", $secret, true);
 
-        return "{$header}.{$payload}." . $this->base64UrlEncode($signature);
+        return "{$header}.{$payload}.".$this->base64UrlEncode($signature);
     }
 
     /**
      * Encodes a value using base64 URL encoding.
      *
-     * @param string $value The value to encode.
+     * @param  string  $value  The value to encode.
      * @return string The base64 URL encoded value.
      */
     private function base64UrlEncode(string $value): string
@@ -79,7 +81,7 @@ final class MercurePublisher
     /**
      * Retrieves configuration values.
      *
-     * @param string $key The configuration key.
+     * @param  string  $key  The configuration key.
      * @return string The configuration value.
      */
     private function getConfig(string $key): string

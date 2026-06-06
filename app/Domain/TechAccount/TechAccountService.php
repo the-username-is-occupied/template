@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Domain\TechAccount;
 
+use App\Domain\NotebookLM\NotebookLMService;
 use App\Enums\TechAccountStatus;
 use App\Http\Requests\Admin\StoreTechAccountRequest;
 use App\Http\Requests\Admin\UpdateTechAccountRequest;
@@ -15,6 +16,10 @@ use RuntimeException;
 
 class TechAccountService
 {
+    public function __construct(
+        private readonly NotebookLMService $notebookLMService
+    ) {}
+
     public function create(StoreTechAccountRequest $request): TechAccounts
     {
         $validated = $request->validated();
@@ -29,6 +34,8 @@ class TechAccountService
             'status' => $validated['status'],
             'cookie_path' => $this->cookiePath($account),
         ])->save();
+
+        // $this->notebookLMService->initializeAccount((string) $account->id);
 
         return $account;
     }
@@ -50,6 +57,8 @@ class TechAccountService
 
     public function delete(TechAccounts $account): void
     {
+        // $this->notebookLMService->removeAccount((string) $account->id);
+
         $directory = dirname($this->cookiePath($account));
 
         if (File::exists($directory)) {

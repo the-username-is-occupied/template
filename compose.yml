@@ -69,11 +69,22 @@ services:
     environment:
       NOTEBOOKLM_PROFILE: ${NOTEBOOKLM_PROFILE:-default}
       NOTEBOOKLM_AUTH_JSON: ${NOTEBOOKLM_AUTH_JSON:-}
+      COOKIES_PATH: /cookies
+      FASTAPI_PORT: 8000
     volumes:
       - notebooklm_data:/root/.notebooklm
+      - ./docker/notebooklm/:/app
+      - ./storage/app/cookies:/cookies
+    ports:
+      - "${NOTEBOOKLM_PORT:-8000}:8000"
     restart: unless-stopped
     networks:
       - notebooklm_net
+      - backend
+    depends_on:
+      - app
+      - redis
+      - db
 
 volumes:
   postgres_data:

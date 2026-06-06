@@ -9,10 +9,22 @@ RUN apt-get update \
     && apt-get install -y --no-install-recommends python3.10-venv \
     && rm -rf /var/lib/apt/lists/*
 
-RUN python -m pip install --no-cache-dir pipx \
-    && pipx install "notebooklm-py[browser]" \
-    && mkdir -p /root/.notebooklm /workspace
+# Install notebooklm-py and FastAPI dependencies with pip (not pipx)
+# This ensures they're in the same Python environment
+RUN python -m pip install --no-cache-dir \
+    "notebooklm-py[browser]" \
+    fastapi \
+    uvicorn \
+    httpx \
+    pydantic \
+    && mkdir -p /root/.notebooklm /workspace /app
 
-WORKDIR /workspace
+WORKDIR /app
 
-CMD ["tail", "-f", "/dev/null"]
+COPY docker/notebooklm/main.py /app/main.py
+COPY docker/notebooklm/api /app/api
+COPY docker/notebooklm/models.py /app/models.py
+
+HEALTHCHECK --interval=30s --timeout=5s --retries=3 CMD curl -f http://localhost:8000/health || exit 1
+
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "1"]

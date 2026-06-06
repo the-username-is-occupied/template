@@ -36,7 +36,6 @@ trait HasBaseEnum
 
     public static function except(array $cases): array
     {
-        return array_filter(static::cases(), fn ($enum): bool => !in_array($enum, $cases, true));
+        return array_filter(static::cases(), fn ($enum): bool => ! in_array($enum, $cases, true));
     }
-    
 }

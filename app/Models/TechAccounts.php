@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Domain\NotebookLM\NotebookLMService;
 use App\Enums\TechAccountPoolType;
 use App\Enums\TechAccountStatus;
 use Database\Factories\TechAccountsFactory;
@@ -55,5 +56,10 @@ class TechAccounts extends Model
     public function tierLimit(): BelongsTo
     {
         return $this->belongsTo(AccountTierLimit::class, 'pool_type', 'tier');
+    }
+
+    public function test(string $q = "Кто такая Сильвана? Ответь коротко")
+    {     return (new NotebookLMService)->getNotebook($this->id, "664040dd-5608-490a-b35f-92b06979f768");
+        return (new NotebookLMService)->askQuestion($this->id,"664040dd-5608-490a-b35f-92b06979f768", $q);
     }
 }
