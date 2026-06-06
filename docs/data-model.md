@@ -38,14 +38,6 @@ knowledge_bases
   created_at           timestamp
   updated_at           timestamp
 
--- Аккаунты, шарящие ноутбук (для распределения ask нагрузки)
-notebook_accounts
-  id                   uuid pk
-  knowledge_base_id    fk → knowledge_bases
-  account_id           fk → google_accounts
-  access_level         enum(owner, viewer)
-  created_at           timestamp
-
 -- ─────────────────────────────────────────
 -- Content Sources
 -- ─────────────────────────────────────────
@@ -82,17 +74,6 @@ md_bundles
   file_path                varchar
   uploaded_at              timestamp
   created_at               timestamp
-
--- ─────────────────────────────────────────
--- Technical Accounts
--- ─────────────────────────────────────────
-
-tec_accounts - TechAccounts Eloquent Model
-
-  created_at       timestamp
-
--- Лимиты по типу аккаунта (синхронизируются вручную)
-account_tier_limits - Eloquent Model
 
 -- ─────────────────────────────────────────
 -- Chat
@@ -132,11 +113,6 @@ CREATE INDEX ON md_bundles (notebooklm_source_id);
 -- chat_messages
 CREATE INDEX ON chat_messages (chat_session_id, created_at);
 
--- google_accounts (account selection)
-CREATE INDEX ON google_accounts (status, chats_today);
-
--- notebook_accounts (ask routing)
-CREATE INDEX ON notebook_accounts (knowledge_base_id, access_level);
 ```
 
 ---

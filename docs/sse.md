@@ -1,5 +1,5 @@
 # SSE Architecture & Implementation Guidelines
-**Stack:** Laravel 10/11 | Vue 3 (Composition API) | FrankenPHP (Native SSE via Mercure Hub)
+**Stack:** Laravel 12 | Vue 3 (Composition API) | FrankenPHP (Native SSE via Mercure Hub)
 
 ## 1. Core Philosophy: The Hybrid (Contextual) Approach
 We do not use a single "catch-all" SSE topic per user, nor do we create a micro-topic for every single component. We use a **Hybrid Contextual Strategy**. 
@@ -29,37 +29,6 @@ Mercure Hub handles connection multiplexing, so the frontend should only subscri
 
 ### Key Principle: Multi-Topic Publishing
 Mercure allows sending a single event to **multiple topics** simultaneously. The backend should not check "where the user is currently looking". It just publishes to all relevant topics, and Mercure delivers only to active subscribers.
-
-**Example: File Upload Finished**
-```php
-namespace App\Events;
-
-use Illuminate\Broadcasting\PrivateChannel;
-use Illuminate\Contracts\Broadcasting\ShouldBroadcast;
-
-class FileUploadFinished implements ShouldBroadcast
-{
-    public function __construct(public int $userId, public array $fileData) {}
-
-    public function broadcastOn()
-    {
-        // 1. Global topic (for toast notification)
-        // 2. Contextual topic (for UI table update, IF user is on the uploads page)
-        return [
-            new PrivateChannel("user.{$this->userId}.notifications"), 
-            new PrivateChannel("user.{$this->userId}.uploads"),       
-        ];
-    }
-
-    public function broadcastWith()
-    {
-        return [
-            'type' => 'file.uploaded',
-            'data' => $this->fileData,
-        ];
-    }
-}
-```
 
 ---
 
