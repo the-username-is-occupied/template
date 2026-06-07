@@ -9,6 +9,7 @@ use App\Domain\NotebookLM\DTOs\NotebookDTO;
 use App\Domain\NotebookLM\DTOs\SharedUserDTO;
 use App\Domain\NotebookLM\DTOs\ShareStatusDTO;
 use App\Domain\NotebookLM\DTOs\SourceDTO;
+use GuzzleHttp\Promise\PromiseInterface;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
@@ -44,110 +45,77 @@ class NotebookLMService
     /**
      * List all notebooks for an account.
      *
-     * @return array{response_time_ms: int, notebooks: NotebookDTO[]}
+     * @return NotebookDTO[]
      */
     public function listNotebooks(string $accountId): array
     {
         $response = $this->get("/accounts/{$accountId}/notebooks");
 
-        return [
-            'response_time_ms' => $response['response_time_ms'],
-            'notebooks' => array_map(
-                fn (array $notebook) => NotebookDTO::from($notebook)->toArray(),
-                $response['notebooks']
-            ),
-        ];
+        return NotebookDTO::collect($response['notebooks']);
     }
 
     /**
      * Create a new notebook for an account.
-     *
-     * @return array{response_time_ms: int, notebook: NotebookDTO}
      */
-    public function createNotebook(string $accountId, string $title): array
+    public function createNotebook(string $accountId, string $title): NotebookDTO
     {
         $response = $this->post("/accounts/{$accountId}/notebooks", [
             'title' => $title,
         ]);
 
-        return [
-            'response_time_ms' => $response['response_time_ms'],
-            'notebook' => NotebookDTO::from($response['notebook'])->toArray(),
-        ];
+        return NotebookDTO::from($response['notebook']);
     }
 
     /**
      * Get notebook details.
-     *
-     * @return array{response_time_ms: int, notebook: NotebookDTO}
      */
-    public function getNotebook(string $accountId, string $notebookId): array
+    public function getNotebook(string $accountId, string $notebookId): NotebookDTO
     {
         $response = $this->get("/accounts/{$accountId}/notebooks/{$notebookId}");
 
-        return [
-            'response_time_ms' => $response['response_time_ms'],
-            'notebook' => NotebookDTO::from($response['notebook'])->toArray(),
-        ];
+        return NotebookDTO::from($response['notebook']);
     }
 
     /**
      * Rename a notebook.
-     *
-     * @return array{response_time_ms: int, notebook: NotebookDTO}
      */
-    public function renameNotebook(string $accountId, string $notebookId, string $title): array
+    public function renameNotebook(string $accountId, string $notebookId, string $title): NotebookDTO
     {
         $response = $this->put("/accounts/{$accountId}/notebooks/{$notebookId}", [
             'title' => $title,
         ]);
 
-        return [
-            'response_time_ms' => $response['response_time_ms'],
-            'notebook' => NotebookDTO::from($response['notebook'])->toArray(),
-        ];
+        return NotebookDTO::from($response['notebook']);
     }
 
     /**
      * Delete a notebook.
-     *
-     * @return array{response_time_ms: int, success: bool}
      */
-    public function deleteNotebook(string $accountId, string $notebookId): array
+    public function deleteNotebook(string $accountId, string $notebookId): bool
     {
         $response = $this->delete("/accounts/{$accountId}/notebooks/{$notebookId}");
 
-        return [
-            'response_time_ms' => $response['response_time_ms'],
-            'success' => $response['success'],
-        ];
+        return $response['success'];
     }
 
     /**
      * List sources in a notebook.
      *
-     * @return array{response_time_ms: int, sources: SourceDTO[]}
+     * @return SourceDTO[]
      */
     public function listSources(string $accountId, string $notebookId): array
     {
         $response = $this->get("/accounts/{$accountId}/notebooks/{$notebookId}/sources");
 
-        return [
-            'response_time_ms' => $response['response_time_ms'],
-            'sources' => array_map(
-                fn (array $source) => SourceDTO::from($source)->toArray(),
-                $response['sources']
-            ),
-        ];
+        return SourceDTO::collect($response['sources']);
     }
 
     /**
      * Ask a question in a notebook.
      *
      * @param  array{source_ids?: string[], conversation_id?: string}  $options
-     * @return array{response_time_ms: int, result: AskResultDTO}
      */
-    public function askQuestion(string $accountId, string $notebookId, string $question, array $options = []): array
+    public function askQuestion(string $accountId, string $notebookId, string $question, array $options = []): AskResultDTO
     {
         $data = [
             'notebook_id' => $notebookId,
@@ -164,10 +132,7 @@ class NotebookLMService
 
         $response = $this->post("/accounts/{$accountId}/notebooks/ask", $data);
 
-        return [
-            'response_time_ms' => $response['response_time_ms'],
-            'result' => AskResultDTO::from($response['result'])->toArray(),
-        ];
+        return AskResultDTO::from($response['result']);
     }
 
     /**
@@ -184,74 +149,51 @@ class NotebookLMService
 
     /**
      * Get sharing status of a notebook.
-     *
-     * @return array{response_time_ms: int, status: array}
      */
-    public function getSharingStatus(string $accountId, string $notebookId): array
+    public function getSharingStatus(string $accountId, string $notebookId): ShareStatusDTO
     {
         $response = $this->get("/accounts/{$accountId}/notebooks/{$notebookId}/sharing");
 
         // Map shared_users to DTOs if present
         $status = $response['status'];
         if (! empty($status['shared_users'])) {
-            $status['shared_users'] = array_map(
-                fn (array $user) => SharedUserDTO::from($user)->toArray(),
-                $status['shared_users']
-            );
+            $status['shared_users'] = SharedUserDTO::collect($status['shared_users']);
         }
 
-        return [
-            'response_time_ms' => $response['response_time_ms'],
-            'status' => ShareStatusDTO::from($status)->toArray(),
-        ];
+        return ShareStatusDTO::from($status);
     }
 
     /**
      * Set notebook as public.
-     *
-     * @return array{response_time_ms: int, status: array}
      */
-    public function setPublic(string $accountId, string $notebookId): array
+    public function setPublic(string $accountId, string $notebookId): ShareStatusDTO
     {
         $response = $this->post("/accounts/{$accountId}/notebooks/{$notebookId}/sharing/public", []);
 
         // Map shared_users to DTOs if present
         $status = $response['status'];
         if (! empty($status['shared_users'])) {
-            $status['shared_users'] = array_map(
-                fn (array $user) => SharedUserDTO::from($user)->toArray(),
-                $status['shared_users']
-            );
+            $status['shared_users'] = SharedUserDTO::collect($status['shared_users']);
         }
 
-        return [
-            'response_time_ms' => $response['response_time_ms'],
-            'status' => ShareStatusDTO::from($status)->toArray(),
-        ];
+        return ShareStatusDTO::from($status);
     }
 
     /**
      * Set notebook as private.
-     *
-     * @return array{response_time_ms: int, status: array}
      */
-    public function setPrivate(string $accountId, string $notebookId): array
+    public function setPrivate(string $accountId, string $notebookId): ShareStatusDTO
     {
         $response = $this->post("/accounts/{$accountId}/notebooks/{$notebookId}/sharing/private", []);
 
         // Map shared_users to DTOs if present
         $status = $response['status'];
         if (! empty($status['shared_users'])) {
-            $status['shared_users'] = array_map(
-                fn (array $user) => SharedUserDTO::from($user)->toArray(),
-                $status['shared_users']
-            );
+            $status['shared_users'] = SharedUserDTO::collect($status['shared_users']);
+
         }
 
-        return [
-            'response_time_ms' => $response['response_time_ms'],
-            'status' => ShareStatusDTO::from($status)->toArray(),
-        ];
+        return ShareStatusDTO::from($status);
     }
 
     /**
@@ -284,7 +226,7 @@ class NotebookLMService
         $response = Http::timeout($this->timeout)
             ->get($this->baseUrl.$path);
 
-        $this->handleError($response, $path);
+        $this->postprocess($response, $path);
 
         return $response->json();
     }
@@ -300,7 +242,7 @@ class NotebookLMService
         $response = Http::timeout($this->timeout)
             ->post($this->baseUrl.$path, $data);
 
-        $this->handleError($response, $path);
+        $this->postprocess($response, $path);
 
         return $response->json();
     }
@@ -316,7 +258,7 @@ class NotebookLMService
         $response = Http::timeout($this->timeout)
             ->put($this->baseUrl.$path, $data);
 
-        $this->handleError($response, $path);
+        $this->postprocess($response, $path);
 
         return $response->json();
     }
@@ -331,9 +273,31 @@ class NotebookLMService
         $response = Http::timeout($this->timeout)
             ->delete($this->baseUrl.$path);
 
+        $this->postprocess($response, $path);
+
+        return $response->json();
+    }
+
+    protected function postprocess(Response|PromiseInterface $response, string $path): array
+    {
+        if ($response instanceof PromiseInterface) {
+            $response = $response->wait();
+        }
+
+        $this->handleResponseTime($response, $path);
+
         $this->handleError($response, $path);
 
         return $response->json();
+    }
+
+    protected function handleResponseTime(Response $response, string $path): void
+    {
+        Log::info('NotebookLM FastAPI Response', [
+            'status' => $response->status(),
+            'response_time_ms' => $response->header('X-Response-Time-Ms'),
+            'path' => $path,
+        ]);
     }
 
     /**
