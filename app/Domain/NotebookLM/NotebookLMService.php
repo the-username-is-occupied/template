@@ -9,7 +9,7 @@ use App\Domain\NotebookLM\DTOs\NotebookDTO;
 use App\Domain\NotebookLM\DTOs\SharedUserDTO;
 use App\Domain\NotebookLM\DTOs\ShareStatusDTO;
 use App\Domain\NotebookLM\DTOs\SourceDTO;
-use GuzzleHttp\Promise\PromiseInterface;
+use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
@@ -34,13 +34,14 @@ class NotebookLMService
         $this->timeout = config('notebook-lm.timeout', 180);
     }
 
-    /**
-     * Get the base URL for the FastAPI service.
-     */
     public function getBaseUrl(): string
     {
         return $this->baseUrl;
     }
+
+    // =========================================================================
+    // Notebooks
+    // =========================================================================
 
     /**
      * List all notebooks for an account.
@@ -59,9 +60,7 @@ class NotebookLMService
      */
     public function createNotebook(string $accountId, string $title): NotebookDTO
     {
-        $response = $this->post("/accounts/{$accountId}/notebooks", [
-            'title' => $title,
-        ]);
+        $response = $this->post("/accounts/{$accountId}/notebooks", ['title' => $title]);
 
         return NotebookDTO::from($response['notebook']);
     }
@@ -81,9 +80,7 @@ class NotebookLMService
      */
     public function renameNotebook(string $accountId, string $notebookId, string $title): NotebookDTO
     {
-        $response = $this->put("/accounts/{$accountId}/notebooks/{$notebookId}", [
-            'title' => $title,
-        ]);
+        $response = $this->put("/accounts/{$accountId}/notebooks/{$notebookId}", ['title' => $title]);
 
         return NotebookDTO::from($response['notebook']);
     }
@@ -98,6 +95,10 @@ class NotebookLMService
         return $response['success'];
     }
 
+    // =========================================================================
+    // Sources
+    // =========================================================================
+
     /**
      * List sources in a notebook.
      *
@@ -110,42 +111,36 @@ class NotebookLMService
         return SourceDTO::collect($response['sources']);
     }
 
+    // =========================================================================
+    // Q&A
+    // =========================================================================
+
     /**
      * Ask a question in a notebook.
      *
      * @param  array{source_ids?: string[], conversation_id?: string}  $options
      */
-    public function askQuestion(string $accountId, string $notebookId, string $question, array $options = []): AskResultDTO
-    {
-        $data = [
-            'notebook_id' => $notebookId,
-            'question' => $question,
-        ];
-
-        if (! empty($options['source_ids'])) {
-            $data['source_ids'] = $options['source_ids'];
-        }
-
-        if (! empty($options['conversation_id'])) {
-            $data['conversation_id'] = $options['conversation_id'];
-        }
+    public function askQuestion(
+        string $accountId,
+        string $notebookId,
+        string $question,
+        array $options = [],
+    ): AskResultDTO {
+        $data = array_filter([
+            'notebook_id'     => $notebookId,
+            'question'        => $question,
+            'source_ids'      => $options['source_ids'] ?? null,
+            'conversation_id' => $options['conversation_id'] ?? null,
+        ]);
 
         $response = $this->post("/accounts/{$accountId}/notebooks/ask", $data);
 
         return AskResultDTO::from($response['result']);
     }
 
-    /**
-     * Check health of all accounts.
-     *
-     * @return array<string, array{mtime_age_seconds?: int, mtime: string, is_connected: bool, status: string}>
-     */
-    public function healthAccounts(): array
-    {
-        $response = $this->get('/health/accounts');
-
-        return $response;
-    }
+    // =========================================================================
+    // Sharing
+    // =========================================================================
 
     /**
      * Get sharing status of a notebook.
@@ -154,13 +149,7 @@ class NotebookLMService
     {
         $response = $this->get("/accounts/{$accountId}/notebooks/{$notebookId}/sharing");
 
-        // Map shared_users to DTOs if present
-        $status = $response['status'];
-        if (! empty($status['shared_users'])) {
-            $status['shared_users'] = SharedUserDTO::collect($status['shared_users']);
-        }
-
-        return ShareStatusDTO::from($status);
+        return $this->makeShareStatusDTO($response['status']);
     }
 
     /**
@@ -168,15 +157,9 @@ class NotebookLMService
      */
     public function setPublic(string $accountId, string $notebookId): ShareStatusDTO
     {
-        $response = $this->post("/accounts/{$accountId}/notebooks/{$notebookId}/sharing/public", []);
+        $response = $this->post("/accounts/{$accountId}/notebooks/{$notebookId}/sharing/public");
 
-        // Map shared_users to DTOs if present
-        $status = $response['status'];
-        if (! empty($status['shared_users'])) {
-            $status['shared_users'] = SharedUserDTO::collect($status['shared_users']);
-        }
-
-        return ShareStatusDTO::from($status);
+        return $this->makeShareStatusDTO($response['status']);
     }
 
     /**
@@ -184,17 +167,14 @@ class NotebookLMService
      */
     public function setPrivate(string $accountId, string $notebookId): ShareStatusDTO
     {
-        $response = $this->post("/accounts/{$accountId}/notebooks/{$notebookId}/sharing/private", []);
+        $response = $this->post("/accounts/{$accountId}/notebooks/{$notebookId}/sharing/private");
 
-        // Map shared_users to DTOs if present
-        $status = $response['status'];
-        if (! empty($status['shared_users'])) {
-            $status['shared_users'] = SharedUserDTO::collect($status['shared_users']);
-
-        }
-
-        return ShareStatusDTO::from($status);
+        return $this->makeShareStatusDTO($response['status']);
     }
+
+    // =========================================================================
+    // Accounts
+    // =========================================================================
 
     /**
      * Initialize an account in FastAPI.
@@ -203,7 +183,7 @@ class NotebookLMService
      */
     public function initializeAccount(string $accountId): array
     {
-        return $this->post("/accounts/{$accountId}", []);
+        return $this->post("/accounts/{$accountId}");
     }
 
     /**
@@ -216,120 +196,143 @@ class NotebookLMService
         return $this->delete("/accounts/{$accountId}");
     }
 
+    // =========================================================================
+    // Health
+    // =========================================================================
+
     /**
-     * Make a GET request to FastAPI.
+     * Check health of all accounts.
      *
+     * @return array<string, array{mtime_age_seconds?: int, mtime: string, is_connected: bool, status: string}>
+     */
+    public function healthAccounts(): array
+    {
+        return $this->get('/health/accounts');
+    }
+
+    // =========================================================================
+    // HTTP layer
+    // =========================================================================
+
+    /**
      * @return array<string, mixed>
      */
     protected function get(string $path): array
     {
-        $response = Http::timeout($this->timeout)
-            ->get($this->baseUrl.$path);
-
-        $this->postprocess($response, $path);
-
-        return $response->json();
+        return $this->send('get', $path);
     }
 
     /**
-     * Make a POST request to FastAPI.
-     *
      * @param  array<string, mixed>  $data
      * @return array<string, mixed>
      */
-    protected function post(string $path, array $data): array
+    protected function post(string $path, array $data = []): array
     {
-        $response = Http::timeout($this->timeout)
-            ->post($this->baseUrl.$path, $data);
-
-        $this->postprocess($response, $path);
-
-        return $response->json();
+        return $this->send('post', $path, $data);
     }
 
     /**
-     * Make a PUT request to FastAPI.
-     *
      * @param  array<string, mixed>  $data
      * @return array<string, mixed>
      */
-    protected function put(string $path, array $data): array
+    protected function put(string $path, array $data = []): array
     {
-        $response = Http::timeout($this->timeout)
-            ->put($this->baseUrl.$path, $data);
-
-        $this->postprocess($response, $path);
-
-        return $response->json();
+        return $this->send('put', $path, $data);
     }
 
     /**
-     * Make a DELETE request to FastAPI.
-     *
      * @return array<string, mixed>
      */
     protected function delete(string $path): array
     {
-        $response = Http::timeout($this->timeout)
-            ->delete($this->baseUrl.$path);
-
-        $this->postprocess($response, $path);
-
-        return $response->json();
+        return $this->send('delete', $path);
     }
 
-    protected function postprocess(Response|PromiseInterface $response, string $path): array
+    /**
+     * Execute an HTTP request, log the response, throw on error.
+     *
+     * @param  array<string, mixed>  $data
+     * @return array<string, mixed>
+     */
+    protected function send(string $method, string $path, array $data = []): array
     {
-        if ($response instanceof PromiseInterface) {
-            $response = $response->wait();
-        }
+        /** @var Response $response */
+        $response = $this->client()->{$method}($this->baseUrl.$path, $data);
 
-        $this->handleResponseTime($response, $path);
-
+        $this->logResponse($response, $path);
         $this->handleError($response, $path);
 
         return $response->json();
     }
 
-    protected function handleResponseTime(Response $response, string $path): void
+    /**
+     * Build a pre-configured HTTP client instance.
+     */
+    protected function client(): PendingRequest
+    {
+        return Http::timeout($this->timeout);
+    }
+
+    // =========================================================================
+    // Response handling
+    // =========================================================================
+
+    /**
+     * Log basic metadata from an HTTP response.
+     */
+    protected function logResponse(Response $response, string $path): void
     {
         Log::info('NotebookLM FastAPI Response', [
-            'status' => $response->status(),
+            'path'             => $path,
+            'status'           => $response->status(),
             'response_time_ms' => $response->header('X-Response-Time-Ms'),
-            'path' => $path,
         ]);
     }
 
     /**
-     * Handle error responses from FastAPI.
-     *
-     * @param  Response  $response
+     * Throw a RuntimeException when the response is not successful.
      */
-    protected function handleError($response, string $path): void
+    protected function handleError(Response $response, string $path): void
     {
         if ($response->successful()) {
             return;
         }
 
-        $body = $response->json();
+        $body = $response->json() ?? [];
 
-        $error = $body['error'] ?? 'UnknownError';
+        $error   = $body['error']   ?? 'UnknownError';
         $message = $body['message'] ?? $response->body();
-        $accountId = $body['account_id'] ?? null;
-        $responseTimeMs = $body['response_time_ms'] ?? 0;
 
         Log::error('NotebookLM FastAPI Error', [
-            'path' => $path,
-            'error' => $error,
-            'message' => $message,
-            'account_id' => $accountId,
-            'response_time_ms' => $responseTimeMs,
-            'status' => $response->status(),
+            'path'             => $path,
+            'status'           => $response->status(),
+            'error'            => $error,
+            'message'          => $message,
+            'account_id'       => $body['account_id']       ?? null,
+            'response_time_ms' => $body['response_time_ms'] ?? 0,
         ]);
 
         throw new \RuntimeException(
-            "NotebookLM Error [{$error}]: {$message}",
-            $response->status()
+            sprintf('NotebookLM Error [%s]: %s', $error, $message),
+            $response->status(),
         );
+    }
+
+    // =========================================================================
+    // DTO helpers
+    // =========================================================================
+
+    /**
+     * Build a ShareStatusDTO, hydrating shared_users when present.
+     *
+     * @param  array<string, mixed>  $status
+     */
+    protected function makeShareStatusDTO(array $status): ShareStatusDTO
+    {
+        if (! empty($status['shared_users'])) {
+            $status['shared_users'] = SharedUserDTO::collect($status['shared_users']);
+        }
+
+        return ShareStatusDTO::from($status);
     }
 }
