@@ -20,7 +20,7 @@ use Illuminate\Support\Facades\Log;
  * This service wraps HTTP calls to the FastAPI service running in the notebooklm container.
  * The FastAPI service maintains a pool of initialized NotebookLMClient instances.
  *
- * @see https://github.com/your-repo/docs/notebook-py/python-api.md
+ * @see /docs/notebooklm/fastapi.md for API details and response formats.
  */
 class NotebookLMService
 {

@@ -1,135 +1,131 @@
 # Data Model
 
-## Entity Overview
+## Сущности
 
-```
-User
-  ├── ChatSession(s)
-  └── (владеет) KnowledgeBase(s)
-
-KnowledgeBase
-  ├── owner: GoogleAccount      (создал ноутбук)
-  ├── viewers: GoogleAccount[]  (могут делать ask)
-  ├── ContentSource(s)
-  │     └── OriginalItem(s)
-  │           └── MdBundle (после упаковки)
-  └── MdBundle(s) → NotebookLM sources
-
-ChatSession
-  └── ChatMessage(s)
-```
+### `users`
+| Поле | Тип | Описание |
+|---|---|---|
+| id | uuid | PK |
+| email | text | |
+| created_at | timestamptz | |
 
 ---
 
-## Full Schema
+### `content_sources`
+Источник, добавленный пользователем. Принадлежит пользователю, может быть переиспользован в нескольких ноутбуках.
 
-```sql
--- ─────────────────────────────────────────
--- Knowledge Bases
--- ─────────────────────────────────────────
+| Поле | Тип | Описание |
+|---|---|---|
+| id | uuid | PK |
+| user_id | uuid | FK → users |
+| type | enum | `website`, `youtube_video`, `youtube_channel`, `telegram_channel`, `pdf`, `text`, `audio`, `video` |
+| url | text | null для файловых типов (pdf, audio, video, text) |
+| file_ref | text | null для url-based типов |
+| title | text | |
+| extraction_status | enum | `pending`, `uploading`, `extracting`, `extracted`, `error` |
+| nlm_temp_source_id | text | Временный id источника в NLM во время извлечения. Обнуляется после удаления |
+| metadata | jsonb | Type-specific поля (channel_id, page_count, duration и т.п.) |
+| created_at | timestamptz | |
 
-knowledge_bases
-  id                   uuid pk
-  user_id              fk → users
-  title                varchar
-  notebook_id          varchar        -- NotebookLM notebook ID
-  owner_account_id     fk → google_accounts
-  status               enum(indexing, ready, updating, error)
-  created_at           timestamp
-  updated_at           timestamp
+**Поведение:**
+- Извлечение (`extraction_status`) происходит **один раз** — если источник добавляется в другой ноутбук, `original_items` уже есть
+- После извлечения источник удаляется из NLM, `nlm_temp_source_id` обнуляется
 
--- ─────────────────────────────────────────
--- Content Sources
--- ─────────────────────────────────────────
+---
 
-content_sources
-  id                   uuid pk
-  knowledge_base_id    fk → knowledge_bases
-  type                 enum(telegram, youtube)
-  external_id          varchar        -- @channel или URL
-  name                 varchar
-  last_fetched_id      varchar        -- последний tg post_id / yt video_id
-  last_fetched_at      timestamp
-  status               enum(active, paused, error)
+### `original_items`
+Единица извлечённого контента. Любой `content_source` может иметь несколько `original_items` (1:1 — частный случай).
+
+| Поле | Тип | Описание |
+|---|---|---|
+| id | uuid | PK |
+| content_source_id | uuid | FK → content_sources |
+| title | text | |
+| full_text | text | Полный текст, извлечённый через NLM API |
+| source_url | text | Permalink конкретного item (пост, видео, страница) |
+| published_at | timestamptz | |
+| token_count | int | |
+| metadata | jsonb | |
+| created_at | timestamptz | |
+
+**Примеры:**
+- TG-канал → по одному item на каждый пост
+- YouTube-канал → по одному item на каждое видео
+- Одиночный YouTube-видео / TG-пост → один item
+- PDF, аудио, видео → один item (или несколько при разбивке)
+
+---
+
+### `notebooks`
+Ноутбук пользователя, соответствует ноутбуку в NLM.
+
+| Поле | Тип | Описание |
+|---|---|---|
+| id | uuid | PK |
+| user_id | uuid | FK → users |
+| nlm_notebook_id | text | ID ноутбука в NLM |
+| title | text | |
+| status | enum | `active`, `archived`, `error` |
+| created_at | timestamptz | |
+
+---
+
+### `notebook_content_sources`
+Какие источники добавлены в какой ноутбук.
+
+| Поле | Тип | Описание |
+|---|---|---|
+| id | uuid | PK |
+| notebook_id | uuid | FK → notebooks |
+| content_source_id | uuid | FK → content_sources |
+| added_at | timestamptz | |
+
+---
+
+### `md_bundles`
+Упакованный MD-файл для загрузки в NLM. Создаётся под конкретный ноутбук.
+
+| Поле | Тип | Описание |
+|---|---|---|
+| id | uuid | PK |
+| notebook_id | uuid | FK → notebooks |
+| file_path | text | Путь к файлу на хранилище |
+| token_count | int | |
+| status | enum | `pending`, `uploading`, `uploaded`, `error` |
+| nlm_source_id | text | ID источника в NLM после загрузки бандла |
+| created_at | timestamptz | |
+
+---
+
+### `bundle_items`
+Какие `original_items` вошли в бандл и в каком порядке.
+
+| Поле | Тип | Описание |
+|---|---|---|
+| id | uuid | PK |
+| bundle_id | uuid | FK → md_bundles |
+| original_item_id | uuid | FK → original_items |
+| position | int | Порядок внутри бандла |
+
+---
+
+## Пайплайн
+
+```
+content_source (добавлен пользователем)
+  → загружаем в NLM (nlm_temp_source_id)
+  → NLM извлекает fulltext
+  → сохраняем как original_items
+  → удаляем источник из NLM, обнуляем nlm_temp_source_id
 
 original_items
-  id                   uuid pk
-  content_source_id    fk → content_sources
-  external_id          varchar        -- tg post_id / yt video_id
-  url                  varchar
-  text                 text
-  published_at         timestamp
-  md_bundle_id         uuid fk null   -- null = ещё не упакован в бандл
-  created_at           timestamp
-
-md_bundles
-  id                       uuid pk
-  knowledge_base_id        fk → knowledge_bases
-  notebooklm_source_id     varchar null  -- null до загрузки в NLM
-  type                     enum(full, delta)
-  status                   enum(pending, uploading, indexed, failed)
-  first_item_id            uuid fk → original_items
-  last_item_id             uuid fk → original_items
-  char_count               int
-  file_path                varchar
-  uploaded_at              timestamp
-  created_at               timestamp
-
--- ─────────────────────────────────────────
--- Chat
--- ─────────────────────────────────────────
-
-chat_sessions
-  id                   uuid pk
-  user_id              fk → users
-  knowledge_base_id    fk → knowledge_bases
-  created_at           timestamp
-  last_message_at      timestamp
-
-chat_messages
-  id                   uuid pk
-  chat_session_id      fk → chat_sessions
-  role                 enum(user, assistant)
-  content              text
-  raw_citations        jsonb     -- сырые ChatReference[] от notebooklm-py
-  resolved_citations   jsonb     -- после citation resolution
-  account_id           fk → google_accounts
-  created_at           timestamp
+  → упаковываем в md_bundles (под конкретный notebook)
+  → загружаем bundle в NLM (nlm_source_id)
 ```
 
----
+## Ключевые решения
 
-## Indexes
-
-```sql
--- original_items
-CREATE INDEX ON original_items (content_source_id, published_at);
-CREATE INDEX ON original_items (md_bundle_id) WHERE md_bundle_id IS NULL;
-
--- md_bundles
-CREATE INDEX ON md_bundles (knowledge_base_id, status);
-CREATE INDEX ON md_bundles (notebooklm_source_id);
-
--- chat_messages
-CREATE INDEX ON chat_messages (chat_session_id, created_at);
-
-```
-
----
-
-## resolved_citations JSON Structure
-
-```json
-[
-  {
-    "citation_number": 1,
-    "cited_text": "фрагмент из ответа NLM",
-    "source": {
-      "external_id": "tg_12345",
-      "url": "https://t.me/channel/12345",
-      "published_at": "2024-01-15T10:30:00Z",
-      "text_preview": "первые 200 символов поста..."
-    }
-  }
-]
-```
+- `content_source` принадлежит пользователю, не ноутбуку — один источник может быть в нескольких ноутбуках через `notebook_content_sources`
+- Извлечение происходит один раз на источник — `original_items` переиспользуются
+- Бандлы создаются под каждый ноутбук отдельно — разные ноутбуки могут включать разные подмножества `original_items`
+- Лимит NLM в 50 источников на ноутбук закрывается через бандлы для всех типов источников без исключения

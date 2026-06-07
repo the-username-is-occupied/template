@@ -59,7 +59,7 @@ Scheduler Laravel запускается каждые N минут:
 
 5. Триггер создания нового дельта-бандла:
    IF unbundled_chars >= 50_000
-   OR (последний бандл создан > 24h назад AND unbundled_chars > 0):
+   OR (последний дельта бандл обновлен > 24h назад AND unbundled_chars > 0):
        → компилируем md-файл
        → создаём md_bundle (status=PENDING)
        → ставим задачу в очередь на загрузку в NotebookLM
@@ -68,16 +68,6 @@ Scheduler Laravel запускается каждые N минут:
    → обновляем notebooklm_source_id, status=INDEXED
    → проставляем md_bundle_id у упакованных original_items
 ```
-
----
-
-### Source Slot Consumption
-
-Пример: Telegram канал, 10 постов/день по 500 символов = 5k символов/день.
-
-- Порог 50k символов → новый дельта-бандл каждые ~10 дней → ~36 бандлов/год
-- Free tier: 50 source slots, ~5 занято первичной индексацией → 45 дельта-слотов → **~1.2 года до апгрейда**
-- Апгрейд аккаунта вручную → 300-500 source slots → годы работы
 
 ---
 

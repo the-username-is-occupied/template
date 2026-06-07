@@ -59,18 +59,6 @@
 
 ---
 
-## SSE (Streaming)
-
-Ask-запросы возвращаются через SSE для отображения ответа по мере генерации:
-
-```
-POST /api/ask → {job_id}  (немедленно)
-Client: GET /sse/ask/{job_id}
-FastAPI стримит чанки ответа → Redis pub/sub → Mercure Hub → Client
-```
-
----
-
 ## Success Definition
 
 **Ask считается успешным = ответ возвращён**, независимо от качества содержания. Пользователь платит за запрос, не за правильность ответа NLM.
@@ -87,35 +75,6 @@ FastAPI стримит чанки ответа → Redis pub/sub → Mercure Hub
 | Ситуация | Поведение |
 |---|---|
 | Все аккаунты достигли дневного лимита | 503, показать пользователю "лимит на сегодня исчерпан" |
-| NLM timeout (> 60 сек) | Вернуть ошибку, **не** считать как успешный ask, **не** инкрементировать chats_today |
-| Сессия аккаунта деградировала | Пометить аккаунт unhealthy, retry с другим аккаунтом |
 | Citation resolution не нашла источник | Вернуть ответ без цитат (degraded, не failed) |
 
 ---
-
-## DB Tables
-
-```sql
-chat_sessions
-  id                  uuid pk
-  user_id             fk
-  knowledge_base_id   fk
-  created_at          timestamp
-  last_message_at     timestamp
-
-chat_messages
-  id                  uuid pk
-  chat_session_id     fk
-  role                enum(user, assistant)
-  content             text
-  raw_citations       jsonb    -- сырые ChatReference[] от notebooklm-py
-  resolved_citations  jsonb    -- после citation resolution
-  account_id          fk → google_accounts
-  created_at          timestamp
-```
-
-### Indexes
-
-```sql
-CREATE INDEX ON chat_messages (chat_session_id, created_at);
-```
