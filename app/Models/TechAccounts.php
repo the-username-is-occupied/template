@@ -61,11 +61,15 @@ class TechAccounts extends Model
     public function test(string $q = 'Кто такая Сильвана? Ответь коротко')
     {
         // sylvanas 664040dd-5608-490a-b35f-92b06979f768
-        //  return (new NotebookLMService)->listNotebooks($this->id);
+        return (new NotebookLMService)->listNotebooks($this->id);
         // return (new NotebookLMService)->getNotebook($this->id, "80be8d97-a00f-4ce1-a560-a424e65ee56d");
         return (new NotebookLMService)->setPublic($this->id, 'f05b4c43-97b7-4097-91b6-94c82226552b');
 
-        return (new NotebookLMService)->askQuestion($this->id, '80be8d97-a00f-4ce1-a560-a424e65ee56d', $q);
+    }
+
+    public function ask(string $q = 'Notebook')
+    {
+        return (new NotebookLMService)->askQuestion($this->id, '664040dd-5608-490a-b35f-92b06979f768', $q);
     }
 
     public function createnb(string $q = 'Notebook')
