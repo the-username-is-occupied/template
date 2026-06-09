@@ -191,6 +191,37 @@ Escape: CDP-attach к запущенному Chrome (L5) или CookieCloud (L6)
 
 ---
 
+## Управление источниками и загрузка MD-бандлов
+
+### Загрузка MD-бандлов через Shared Volume
+Чтобы избежать оверхеда на передачу файлов по HTTP, загрузка MD-бандлов в NLM реализована через Docker volume.
+
+1. В `docker-compose.yml` монтируется общий volume `bundles_data` для Laravel и FastAPI.
+2. Laravel компилирует MD-файл и сохраняет его на диск в этот volume (например, `/bundles/{bundle_id}.md`).
+3. Laravel вызывает FastAPI эндпоинт загрузки источника, передавая только `file_path` (путь внутри контейнера)
+4. FastAPI читает файл локально с диска и загружает его в NLM.
+
+### Пакетное извлечение транскриптов YouTube (Temporary Extraction Notebook)
+Для YouTube-источников мы используем NLM как "черный ящик" для извлечения текста. Чтобы не превышать лимит в 50 источников, используется выделенный временный блокнот и пакетная загрузка.
+
+1. Laravel вызывает `POST /internal/youtube/extract-batch`, передавая массив `video_urls` и `account_id`.
+2. FastAPI получает/создает Temporary Extraction Notebook.
+3. FastAPI пакетно добавляет URL во временный блокнот.
+4. FastAPI извлекает транскрипты и формирует мапу `{url: text}`.
+5. **Критически важно:** FastAPI немедленно удаляет эти URL из временного блокнота, освобождая слоты для следующих пачек.
+6. FastAPI возвращает мапу с транскриптами в Laravel.
+
+### Асинхронный парсинг Telegram (Batched Webhooks)
+Парсинг больших каналов занимает много времени, поэтому используется асинхронная модель с вебхуками.
+
+1. Laravel вызывает `POST /internal/telegram/parse/initiate`, передавая `channel_url` и `webhook_url`.
+2. FastAPI начинает парсинг и сразу возвращает `202 Accepted`.
+3. По мере парсинга FastAPI накапливает посты пачками (batch_size = 100-500).
+4. FastAPI отправляет `POST {webhook_url}` в Laravel с JSON-массивом постов.
+5. Laravel сохраняет пачку и отвечает `200 OK`.
+
+---
+
 ## Таблица Postgres: ключевые сущности
 
 | Таблица | Назначение |

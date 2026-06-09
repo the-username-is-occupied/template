@@ -1,14 +1,6 @@
 # Data Model
 
 ## Сущности
-
-### `users`
-| Поле | Тип | Описание |
-|---|---|---|
-| id | uuid | PK |
-| email | text | |
-| created_at | timestamptz | |
-
 ---
 
 ### `content_sources`
@@ -24,6 +16,9 @@
 | title | text | |
 | extraction_status | enum | `pending`, `uploading`, `extracting`, `extracted`, `error` |
 | nlm_temp_source_id | text | Временный id источника в NLM во время извлечения. Обнуляется после удаления |
+| parent_source_id | uuid | FK → content_sources (nullable). Ссылка на родительский источник, если этот был извлечен из ссылки внутри другого источника |
+| discovery_method | enum | `manual`, `auto_extracted`. Способ обнаружения источника (пользователем или парсером) |
+| review_status | enum | `pending_review`, `approved`, `rejected`. Статус подтверждения для авто-извлеченных ссылок (для manual всегда `approved`) |
 | metadata | jsonb | Type-specific поля (channel_id, page_count, duration и т.п.) |
 | created_at | timestamptz | |
 
@@ -43,6 +38,7 @@
 | title | text | |
 | full_text | text | Полный текст, извлечённый через NLM API |
 | source_url | text | Permalink конкретного item (пост, видео, страница) |
+| parent_item_id | uuid | FK → original_items (nullable). Ссылка на родительский original_item, чтобы знать, из какого именно поста/документа была взята эта ссылка |
 | published_at | timestamptz | |
 | token_count | int | |
 | metadata | jsonb | |
