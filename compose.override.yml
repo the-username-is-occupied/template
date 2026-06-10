@@ -25,6 +25,9 @@ services:
     ports:
       - "${DB_PORT:-5432}:5432"
 
+  yt_scrapper:
+    volumes:
+      - ./docker/youtube/app:/app/app
   redis:
     ports:
       - "${REDIS_PORT:-6379}:6379"

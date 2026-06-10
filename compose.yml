@@ -85,6 +85,16 @@ services:
       - app
       - redis
       - db
+ 
+  yt_scrapper:
+    build:
+      context: ./docker/youtube
+      dockerfile: Dockerfile
+    ports:
+      - "8010:8000"
+    networks:
+      - backend
+    restart: unless-stopped
 
 volumes:
   postgres_data:
