@@ -10,7 +10,7 @@ if (! function_exists('format_duration')) {
 }
 
 if (! function_exists('tech')) {
-    function tech() 
+    function tech()
     {
         return TechAccounts::query();
     }

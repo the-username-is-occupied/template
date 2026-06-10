@@ -5,12 +5,12 @@ declare(strict_types=1);
 namespace App\Domain\NotebookLM;
 
 use App\Domain\NotebookLM\DTOs\AskResultDTO;
+use App\Domain\NotebookLM\DTOs\NotebookDescriptionDTO;
 use App\Domain\NotebookLM\DTOs\NotebookDTO;
+use App\Domain\NotebookLM\DTOs\NotebookMetadataDTO;
 use App\Domain\NotebookLM\DTOs\ShareStatusDTO;
 use App\Domain\NotebookLM\DTOs\SourceDTO;
 use App\Domain\NotebookLM\DTOs\SourceFulltextDTO;
-use App\Domain\NotebookLM\DTOs\NotebookDescriptionDTO;
-use App\Domain\NotebookLM\DTOs\NotebookMetadataDTO;
 use App\Models\TechAccounts;
 
 /**
