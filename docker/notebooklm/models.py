@@ -72,8 +72,65 @@ class SourceResponse(BaseResponse):
 
 
 class SourceFulltextResponse(BaseResponse):
-    fulltext: str = Field(..., description="Source full text")
+    source_id: str = Field(..., description="Source ID")
+    title: str = Field(..., description="Source title")
+    content: str = Field(..., description="Full indexed text content")
+    url: Optional[str] = Field(None, description="Original URL if applicable")
+    char_count: int = Field(..., description="Character count")
     format: str = Field(default="markdown", description="Text format")
+
+
+class SourceGuideResponse(BaseResponse):
+    summary: str = Field(..., description="AI-generated summary")
+    keywords: List[str] = Field(..., description="AI-generated keywords")
+
+
+class SourceRenameResponse(BaseResponse):
+    source: Source = Field(..., description="Renamed source")
+
+
+class SourceAddUrlRequest(BaseModel):
+    url: str = Field(..., description="URL to add as source")
+
+
+class SourceAddUrlResponse(BaseResponse):
+    source: Source = Field(..., description="Added URL source")
+
+
+class SourceAddTextRequest(BaseModel):
+    text: str = Field(..., description="Text content to add")
+    title: str = Field(..., description="Title for the text source")
+
+
+class SourceAddTextResponse(BaseResponse):
+    source: Source = Field(..., description="Added text source")
+
+
+class SourceAddFileRequest(BaseModel):
+    file_path: str = Field(..., description="Path to file to upload")
+    title: Optional[str] = Field(None, description="Display title for the source")
+    wait: bool = Field(default=False, description="Wait for source to be ready")
+    wait_timeout: float = Field(default=120.0, description="Timeout for wait")
+
+
+class SourceAddFileResponse(BaseResponse):
+    source: Source = Field(..., description="Uploaded source")
+
+
+class SourceWaitRegisteredResponse(BaseResponse):
+    source: Source = Field(..., description="Registered source")
+
+
+class SourcesWaitMultipleResponse(BaseResponse):
+    sources: List[Source] = Field(..., description="List of ready sources")
+
+
+class SourceRefreshResponse(BaseResponse):
+    success: bool = Field(..., description="Whether refresh was successful")
+
+
+class SourceFreshnessResponse(BaseResponse):
+    is_fresh: bool = Field(..., description="Whether source needs refresh")
 
 
 # ---------------------------------------------------------------------------
@@ -180,3 +237,38 @@ class ErrorResponse(BaseModel):
     account_id: Optional[str] = Field(None, description="Account ID (if applicable)")
     response_time_ms: int = Field(..., description="Response time in milliseconds")
     retry_after: Optional[int] = Field(None, description="Retry-after seconds (RateLimitError only)")
+
+
+# ---------------------------------------------------------------------------
+# Notebook description / metadata
+# ---------------------------------------------------------------------------
+
+
+class SuggestedTopic(BaseModel):
+    question: str = Field(..., description="Suggested question for the notebook")
+    prompt: str = Field(..., description="Generated prompt text for the suggested question")
+
+
+class NotebookDescription(BaseModel):
+    summary: str = Field(..., description="AI-generated summary text")
+    suggested_topics: List[SuggestedTopic] = Field(default_factory=list, description="Suggested follow-up topics/questions")
+
+
+class NotebookDescriptionResponse(BaseResponse):
+    description: NotebookDescription = Field(..., description="Notebook description")
+
+
+class NotebookMetadataSource(BaseModel):
+    id: Optional[str] = Field(None, description="Optional source ID")
+    kind: Optional[str] = Field(None, description="Source kind, e.g., youtube, web_page")
+    title: Optional[str] = Field(None, description="Source title")
+    url: Optional[str] = Field(None, description="Source URL")
+
+
+class NotebookMetadata(BaseModel):
+    notebook: Notebook = Field(..., description="Notebook brief info")
+    sources: List[NotebookMetadataSource] = Field(default_factory=list, description="List of notebook sources")
+
+
+class NotebookMetadataResponse(BaseResponse):
+    metadata: NotebookMetadata = Field(..., description="Notebook metadata")

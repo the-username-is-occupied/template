@@ -31,6 +31,7 @@ async def add_account(account_id: str, storage_path: str) -> None:
         keepalive=keepalive,
         rate_limit_max_retries=3,
         server_error_max_retries=3,
+        chat_timeout=240
     )
     client = await ctx.__aenter__()
     _contexts[account_id] = ctx

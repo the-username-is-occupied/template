@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Models;
 
 use App\Domain\NotebookLM\NotebookLMService;
+use App\Domain\NotebookLM\NotebookLMServiceDecorator;
 use App\Enums\TechAccountPoolType;
 use App\Enums\TechAccountStatus;
 use Database\Factories\TechAccountsFactory;
@@ -62,9 +63,16 @@ class TechAccounts extends Model
     {
         // sylvanas 664040dd-5608-490a-b35f-92b06979f768
         return (new NotebookLMService)->listNotebooks($this->id);
-        // return (new NotebookLMService)->getNotebook($this->id, "80be8d97-a00f-4ce1-a560-a424e65ee56d");
+
+        return (new NotebookLMService)->getNotebook($this->id, '664040dd-5608-490a-b35f-92b06979f768');
+
         return (new NotebookLMService)->setPublic($this->id, 'f05b4c43-97b7-4097-91b6-94c82226552b');
 
+    }
+
+    public function listSources(?string $notebookId = null)
+    {
+        return (new NotebookLMService)->listSources($this->id, $notebookId ?? '664040dd-5608-490a-b35f-92b06979f768');
     }
 
     public function ask(string $q = 'Notebook')
@@ -75,5 +83,13 @@ class TechAccounts extends Model
     public function createnb(string $q = 'Notebook')
     {
         return (new NotebookLMService)->createNotebook($this->id, $q);
+    }
+
+    /**
+     * Get the NotebookLM service decorator for this account.
+     */
+    public function service(): NotebookLMServiceDecorator
+    {
+        return new NotebookLMServiceDecorator($this);
     }
 }
