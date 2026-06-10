@@ -475,11 +475,11 @@ class NotebookLMService
      */
     protected function logResponse(Response $response, string $path): void
     {
-        Log::info('NotebookLM FastAPI Response', [
-            'path' => $path,
-            'status' => $response->status(),
-            'response_time_ms' => $response->header('X-Response-Time-Ms'),
-        ]);
+        // Log::info('NotebookLM FastAPI Response', [
+        //     'path' => $path,
+        //     'status' => $response->status(),
+        //     'response_time_ms' => $response->header('X-Response-Time-Ms'),
+        // ]);
     }
 
     /**

@@ -96,6 +96,16 @@ services:
       - backend
     restart: unless-stopped
 
+  tg_scrapper:
+    build:
+      context: ./docker/tg
+      dockerfile: Dockerfile
+    ports:
+      - "8020:8000"
+    networks:
+      - backend
+    restart: unless-stopped
+
 volumes:
   postgres_data:
   redis_data:
