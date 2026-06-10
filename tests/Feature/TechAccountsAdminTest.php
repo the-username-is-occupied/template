@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Feature;
 
+use App\Domain\NotebookLM\NotebookLMService;
 use App\Domain\TechAccount\TechAccountService;
 use App\Models\TechAccounts;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -27,6 +28,13 @@ final class TechAccountsAdminTest extends TestCase
     {
         $this->withoutMiddleware();
 
+        $mock = $this->mock(NotebookLMService::class);
+
+        $mock->shouldReceive('initializeAccount')
+            ->andReturn(['status' => 'success', 'account_id' => '123']);
+
+        $mock->shouldReceive('removeAccount')
+            ->andReturn(['status' => 'success', 'account_id' => '123']);
         // $cookieBasePath = storage_path('framework/testing-tech-accounts');
         $cookieBasePath = config()->get('tech-accounts.cookie_base_path');
 
