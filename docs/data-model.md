@@ -14,6 +14,7 @@
 | url | text | null для файловых типов (pdf, audio, video, text) |
 | file_ref | text | null для url-based типов |
 | title | text | |
+| auto_update | boolean | nullable 
 | extraction_status | enum | `pending`, `uploading`, `extracting`, `extracted`, `error` |
 | nlm_temp_source_id | text | Временный id источника в NLM во время извлечения. Обнуляется после удаления |
 | parent_source_id | uuid | FK → content_sources (nullable). Ссылка на родительский источник, если этот был извлечен из ссылки внутри другого источника |
@@ -60,6 +61,7 @@
 | id | uuid | PK |
 | user_id | uuid | FK → users |
 | nlm_notebook_id | text | ID ноутбука в NLM |
+| system_prompt | text | nullable |
 | title | text | |
 | status | enum | `active`, `archived`, `error` |
 | created_at | timestamptz | |

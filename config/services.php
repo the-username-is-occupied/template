@@ -44,4 +44,7 @@ return [
         'topic_prefix' => env('MERCURE_TOPIC_PREFIX', env('APP_URL').'/debug/sse'),
     ],
 
+    'youtube' => [
+    'key' => env('YOUTUBE_API_KEY'),
+],
 ];

@@ -19,7 +19,7 @@ Mercure Hub handles connection multiplexing, so the frontend should only subscri
    - **Payload:** Heavy/Complete JSON state snapshots (file lists, progress bars, chat messages).
    - **State:** Handled by Local Component State or Page-specific Pinia Store.
 
-3. **Level 3: Public/Broadcast (Optional)**
+3. **Level 3: Public/Broadcast**
    - **Topic format:** `public-site-news`, `public-btc-price`
    - **Lifecycle:** Same as Level 2.
 
