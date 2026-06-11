@@ -12,24 +12,24 @@ class YouTubeService
 
     public function __construct()
     {
-        $client = new Client();
+        $client = new Client;
         $client->setDeveloperKey(config('services.youtube.key'));
         $this->youtube = new YouTube($client);
     }
 
     /**
      * 1. Получить базовые сведения о канале.
+     *
      * * @param string $identifier ID канала (UC...) или хэндл (например, @GoogleDevelopers)
-     * @return array|null
      */
     public function getChannelInfo(string $identifier): ?array
     {
         $params = [];
-        
+
         if (str_starts_with($identifier, 'UC')) {
             $params['id'] = $identifier;
         } else {
-            $params['forHandle'] = str_starts_with($identifier, '@') ? $identifier : '@' . $identifier;
+            $params['forHandle'] = str_starts_with($identifier, '@') ? $identifier : '@'.$identifier;
         }
 
         try {
@@ -56,15 +56,17 @@ class YouTubeService
                 'video_count' => (int) $statistics->getVideoCount(),
             ];
         } catch (\Exception $e) {
-            Log::error("YouTube API Error in getChannelInfo for '{$identifier}': " . $e->getMessage());
+            Log::error("YouTube API Error in getChannelInfo for '{$identifier}': ".$e->getMessage());
+
             return null;
         }
     }
 
     /**
      * 2. Получить URLs видео по каналу или плейлисту с фильтрацией по типам.
+     *
      * * @param string $id ID канала (UC...) или ID плейлиста (PL...)
-     * @param array $types Массив из возможных значений: 'video', 'shorts', 'streams'
+     * @param  array  $types  Массив из возможных значений: 'video', 'shorts', 'streams'
      * @return array Массив отсортированных URL-адресов контента
      */
     public function getVideoUrls(string $id, array $types = ['video', 'shorts', 'streams']): array
@@ -79,13 +81,13 @@ class YouTubeService
             $playlistsToFetch = [];
 
             if (in_array('video', $types)) {
-                $playlistsToFetch['video'] = 'UULF' . $channelSuffix; // Только стандартные видео
+                $playlistsToFetch['video'] = 'UULF'.$channelSuffix; // Только стандартные видео
             }
             if (in_array('shorts', $types)) {
-                $playlistsToFetch['shorts'] = 'UUSH' . $channelSuffix; // Только Shorts
+                $playlistsToFetch['shorts'] = 'UUSH'.$channelSuffix; // Только Shorts
             }
             if (in_array('streams', $types)) {
-                $playlistsToFetch['streams'] = 'UULV' . $channelSuffix; // Только трансляции / стримы
+                $playlistsToFetch['streams'] = 'UULV'.$channelSuffix; // Только трансляции / стримы
             }
 
             $allUrls = [];
@@ -118,7 +120,7 @@ class YouTubeService
                 $response = $this->youtube->playlistItems->listPlaylistItems('contentDetails', $params);
                 foreach ($response->getItems() as $item) {
                     $videoId = $item->getContentDetails()->getVideoId();
-                    
+
                     // Форматируем URL в зависимости от типа
                     if ($type === 'shorts') {
                         $urls[] = "https://www.youtube.com/shorts/{$videoId}";
@@ -128,7 +130,7 @@ class YouTubeService
                 }
                 $pageToken = $response->getNextPageToken();
             } catch (\Exception $e) {
-                Log::error("YouTube API Error fetching playlist {$playlistId}: " . $e->getMessage());
+                Log::error("YouTube API Error fetching playlist {$playlistId}: ".$e->getMessage());
                 break;
             }
         } while ($pageToken);
@@ -157,7 +159,7 @@ class YouTubeService
                 }
                 $pageToken = $response->getNextPageToken();
             } catch (\Exception $e) {
-                Log::error("YouTube API Error fetching custom playlist {$playlistId}: " . $e->getMessage());
+                Log::error("YouTube API Error fetching custom playlist {$playlistId}: ".$e->getMessage());
                 break;
             }
         } while ($pageToken);
@@ -171,7 +173,7 @@ class YouTubeService
         $allPossibleTypes = ['video', 'shorts', 'streams'];
         sort($allPossibleTypes);
         if ($types === $allPossibleTypes) {
-            return array_map(fn($id) => "https://www.youtube.com/watch?v={$id}", $videoIds);
+            return array_map(fn ($id) => "https://www.youtube.com/watch?v={$id}", $videoIds);
         }
 
         // Фильтруем метаданные видео пачками по 50 штук
@@ -191,11 +193,11 @@ class YouTubeService
                     $isStream = in_array($liveBroadcast, ['live', 'upcoming']);
                     $isShort = false;
 
-                    if (!$isStream && $duration) {
+                    if (! $isStream && $duration) {
                         $isShort = $this->isShortDuration($duration);
                     }
 
-                    $isRegularVideo = !$isStream && !$isShort;
+                    $isRegularVideo = ! $isStream && ! $isShort;
 
                     if ($isStream && in_array('streams', $types)) {
                         $filteredUrls[] = "https://www.youtube.com/watch?v={$videoId}";
@@ -206,7 +208,7 @@ class YouTubeService
                     }
                 }
             } catch (\Exception $e) {
-                Log::error("YouTube API Error filtering videos for custom playlist: " . $e->getMessage());
+                Log::error('YouTube API Error filtering videos for custom playlist: '.$e->getMessage());
             }
         }
 
@@ -221,17 +223,18 @@ class YouTubeService
         try {
             $interval = new \DateInterval($duration);
             $seconds = ($interval->h * 3600) + ($interval->i * 60) + $interval->s;
+
             return $interval->y === 0 && $interval->m === 0 && $interval->d === 0 && $seconds <= 60;
         } catch (\Exception $e) {
             return false;
         }
     }
 
-/**
+    /**
      * 3. Resolve каналов по URL видео (Пакетный режим).
      * Принимает пачку URL-адресов видео (разных типов), возвращает маппинг: [url_видео => @channel_name]
+     *
      * * @param array $urls Массив ссылок на видео (watch, shorts, live, youtu.be)
-     * @return array
      */
     public function resolveChannelUrls(array $urls): array
     {
@@ -277,12 +280,12 @@ class YouTubeService
                 foreach ($response->getItems() as $video) {
                     $vId = $video->getId();
                     $cId = $video->getSnippet()->getChannelId();
-                    
+
                     $videoIdToChannelId[$vId] = $cId;
                     $channelIds[] = $cId;
                 }
             } catch (\Exception $e) {
-                Log::error("YouTube API Error batch fetching video details: " . $e->getMessage());
+                Log::error('YouTube API Error batch fetching video details: '.$e->getMessage());
             }
         }
 
@@ -306,15 +309,15 @@ class YouTubeService
 
                     if ($customUrl) {
                         // Убеждаемся, что хэндл начинается с @
-                        $channelIdToHandle[$cId] = str_starts_with($customUrl, '@') ? $customUrl : '@' . $customUrl;
+                        $channelIdToHandle[$cId] = str_starts_with($customUrl, '@') ? $customUrl : '@'.$customUrl;
                     } else {
                         // На случай, если у старого/пустого канала нет хэндла, создаем подобие из названия
                         $title = $channel->getSnippet()->getTitle();
-                        $channelIdToHandle[$cId] = '@' . preg_replace('/[^a-zA-Z0-9]/', '', $title);
+                        $channelIdToHandle[$cId] = '@'.preg_replace('/[^a-zA-Z0-9]/', '', $title);
                     }
                 }
             } catch (\Exception $e) {
-                Log::error("YouTube API Error batch fetching channel handles: " . $e->getMessage());
+                Log::error('YouTube API Error batch fetching channel handles: '.$e->getMessage());
             }
         }
 
