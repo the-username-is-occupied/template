@@ -26,10 +26,31 @@
         <div class="rounded border border-gray-300 p-3">
             <h2 class="mb-2 font-medium">Events</h2>
             <ul class="space-y-2 text-sm">
-                <li v-for="(event, index) in events" :key="index" class="rounded bg-gray-100 p-2">
-                    {{ event }}
-                </li>
-                <li v-if="events.length === 0" class="text-gray-500">Нет сообщений</li>
+               <li v-for="(event, index) in events" :key="index" class="rounded bg-gray-100 p-2">
+
+                
+                 <a class="block text-blue-500 hover:underline pb-2" v-if="event.url"  :href="event.url" target="_blank">
+            {{ event.url }}
+                 </a>
+
+        <div v-if="event.text" class="whitespace-pre-wrap">
+            {{ event.text }}
+        </div>
+        <div v-else-if="typeof event === 'string'" class="whitespace-pre-wrap">
+            {{ event }}
+        </div>
+        <pre v-else class="text-xs">{{ JSON.stringify(event, null, 2) }}</pre>
+        
+        <!-- Ссылки если есть -->
+        <div v-if="event.links && event.links.length" class="mt-2 text-sm">
+            <strong>Ссылки:</strong>
+            <a v-for="(link, i) in event.links" :key="i" 
+               :href="link" target="_blank" 
+               class="block text-blue-500 hover:underline">
+                {{ link }}
+            </a>
+        </div>
+    </li>
             </ul>
         </div>
     </main>
@@ -48,7 +69,13 @@ let eventSource = null
 let publishUrl = ''
 
 const addEvent = (message) => {
-    events.value.unshift(message)
+    let msg = null
+    try {
+        msg = JSON.parse(message)
+    } catch {
+        msg = message
+    }
+    events.value.unshift(msg)
     events.value = events.value.slice(0, 30)
 }
 
@@ -118,3 +145,8 @@ onBeforeUnmount(() => {
     eventSource?.close()
 })
 </script>
+<style scoped>
+.whitespace-pre-wrap {
+    white-space: pre-wrap;
+}
+</style>

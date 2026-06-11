@@ -95,6 +95,9 @@ services:
     networks:
       - backend
     restart: unless-stopped
+    dns:
+      - 8.8.8.8
+      - 1.1.1.1      
 
   tg_scrapper:
     build:
@@ -105,6 +108,9 @@ services:
     networks:
       - backend
     restart: unless-stopped
+    dns:
+      - 8.8.8.8
+      - 1.1.1.1    
 
 volumes:
   postgres_data:
