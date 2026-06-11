@@ -1,12 +1,15 @@
 <?php
 
-namespace App\Services\TG;
+declare(strict_types=1);
 
-use App\Domain\DTOs\TG\ChannelInfoResponse;
-use App\Domain\DTOs\TG\PostResponse;
-use App\Domain\DTOs\TG\ScrapeResponse;
-use App\Domain\DTOs\TG\StatusResponse;
+namespace App\Domain\Telegram;
+
+use App\Domain\Telegram\DTOs\ChannelInfoResponse;
+use App\Domain\Telegram\DTOs\PostResponse;
+use App\Domain\Telegram\DTOs\ScrapeResponse;
+use App\Domain\Telegram\DTOs\StatusResponse;
 use Illuminate\Support\Facades\Http;
+use RuntimeException;
 
 class TGScraperService
 {
@@ -17,19 +20,22 @@ class TGScraperService
         $this->baseUrl = config('tg-scraper.tg_scraper.base_url') ?? 'http://tg:8000';
     }
 
-    /**
-     * Get the current status of the scraper
-     */
+    public function getBaseUrl(): string
+    {
+        return $this->baseUrl;
+    }
+
     public function getStatus(): StatusResponse
     {
         $response = Http::get("{$this->baseUrl}/status");
 
+        if ($response->failed()) {
+            throw new RuntimeException('Failed to fetch TG scraper status.');
+        }
+
         return new StatusResponse(...$response->json());
     }
 
-    /**
-     * Start scraping a Telegram channel
-     */
     public function scrape(
         string $contentSourceId,
         string $channel,
@@ -69,12 +75,13 @@ class TGScraperService
 
         $response = Http::post("{$this->baseUrl}/scrape", $data);
 
+        if ($response->failed()) {
+            throw new RuntimeException('Failed to start TG scrape.');
+        }
+
         return new ScrapeResponse(...$response->json());
     }
 
-    /**
-     * Get information about a Telegram channel
-     */
     public function getChannelInfo(string $channel, ?string $contentSourceId = null): ChannelInfoResponse
     {
         $url = "{$this->baseUrl}/channel/{$channel}";
@@ -85,15 +92,20 @@ class TGScraperService
 
         $response = Http::get($url);
 
+        if ($response->failed()) {
+            throw new RuntimeException("Failed to fetch TG channel info for: {$channel}");
+        }
+
         return new ChannelInfoResponse(...$response->json());
     }
 
-    /**
-     * Get a specific post from a Telegram channel
-     */
     public function getPost(string $channel, int $postId): PostResponse
     {
         $response = Http::get("{$this->baseUrl}/post/{$channel}/{$postId}");
+
+        if ($response->failed()) {
+            throw new RuntimeException("Failed to fetch TG post {$postId} from channel: {$channel}");
+        }
 
         return new PostResponse(...$response->json());
     }

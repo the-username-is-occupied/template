@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace App\Providers;
 
 use App\Domain\NotebookLM\Jobs\CheckAccountHealth;
-use App\Services\TG\TGScraperService;
+use App\Domain\Telegram\TGScraperService;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Resources\Json\JsonResource;
 use Illuminate\Support\Facades\Schedule;

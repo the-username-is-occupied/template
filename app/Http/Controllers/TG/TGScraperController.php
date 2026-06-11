@@ -2,8 +2,8 @@
 
 namespace App\Http\Controllers\TG;
 
+use App\Domain\Telegram\TGScraperService;
 use App\Http\Controllers\Controller;
-use App\Services\TG\TGScraperService;
 use Illuminate\Http\Request;
 
 class TGScraperController extends Controller
