@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Admin\TechAccountController;
+use App\Http\Controllers\TG\TGScraperController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
@@ -16,4 +17,11 @@ Route::prefix('admin/tech-accounts')->name('admin.tech-accounts.')->group(functi
     Route::get('/{techAccount}/edit', [TechAccountController::class, 'edit'])->name('edit');
     Route::put('/{techAccount}', [TechAccountController::class, 'update'])->name('update');
     Route::delete('/{techAccount}', [TechAccountController::class, 'destroy'])->name('destroy');
+});
+
+Route::prefix('tg')->group(function () {
+    Route::get('status', [TGScraperController::class, 'status']);
+    Route::post('scrape', [TGScraperController::class, 'scrape']);
+    Route::get('channel/{channel}', [TGScraperController::class, 'channelInfo']);
+    Route::get('post/{channel}/{postId}', [TGScraperController::class, 'post']);
 });

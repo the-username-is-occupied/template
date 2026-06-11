@@ -86,7 +86,7 @@ services:
       - redis
       - db
  
-  yt_scrapper:
+  youtube:
     build:
       context: ./docker/youtube
       dockerfile: Dockerfile
@@ -99,7 +99,7 @@ services:
       - 8.8.8.8
       - 1.1.1.1      
 
-  tg_scrapper:
+  telegramm:
     build:
       context: ./docker/tg
       dockerfile: Dockerfile
