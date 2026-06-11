@@ -6,6 +6,17 @@ Laravel · Redis · Postgres · FastAPI · Docker Compose
 
 ---
 
+## FastAPI сервисы
+
+Документация эндпоинтов: [docs/api/](api/)
+
+| Сервис | Описание | Docker | Порт |
+|---|---|---|---|
+| **TG Scraper** | Парсинг Telegram-каналов | `docker/tg/` | 8020 |
+| **YT Scraper** | Извлечение метаданных YouTube | `docker/youtube/` | 8010 |
+
+---
+
 ## Общая схема
 
 Сервис управляет пулом технических Google-аккаунтов и предоставляет
