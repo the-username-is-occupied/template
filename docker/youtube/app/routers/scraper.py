@@ -20,17 +20,68 @@ YDL_OPTS = {
 }
 
 
+def _is_youtube_domain(host: str) -> bool:
+    """Check if the host is a known YouTube domain variant."""
+    host = host.lower()
+    return (
+        "youtube.com" in host
+        or host == "youtu.be"
+        or host.endswith(".youtu.be")
+    )
+
+
 def _normalize_url(url: str) -> str:
     """
-    watch?v=XXX&list=YYY  →  playlist?list=YYY
+    Normalize YouTube URLs for consistent processing by yt-dlp.
+
+    Handles all YouTube domain variants and converts them to
+    canonical www.youtube.com URLs:
+      - youtube.com, www.youtube.com, m.youtube.com, music.youtube.com
+      - youtu.be, youtube-nocookie.com, youtubeeducation.com
+
+    If the input is not a URL (no scheme/dot), it's treated as a
+    channel name — e.g. "@BlackCabinet" or "BlackCabinet" becomes
+    "https://www.youtube.com/@BlackCabinet".
+
+    Transformations:
+      - watch?v=XXX&list=YYY       →  playlist?list=YYY
+      - youtu.be/XXX?list=YYY      →  playlist?list=YYY
+      - youtu.be/XXX               →  https://www.youtube.com/watch?v=XXX
+      - music.youtube.com/…        →  https://www.youtube.com/…
+      - youtube-nocookie.com/…     →  https://www.youtube.com/…
     """
+    # If it looks like a bare channel name (not a URL), prepend domain
+    if not url.startswith("http"):
+        maybe_channel = url.strip().lstrip("@")
+        if "/" not in maybe_channel and not maybe_channel.startswith("www."):
+            return f"https://www.youtube.com/@{maybe_channel}"
+
     parsed = urlparse(url)
-    if "youtube.com" in parsed.netloc:
-        params = parse_qs(parsed.query)
-        if "list" in params:
-            playlist_id = params["list"][0]
-            return f"https://www.youtube.com/playlist?list={playlist_id}"
-    return url
+    if not _is_youtube_domain(parsed.netloc):
+        return url
+
+    params = parse_qs(parsed.query)
+
+    # If the URL has a list param, extract the canonical playlist URL
+    if "list" in params:
+        playlist_id = params["list"][0]
+        return f"https://www.youtube.com/playlist?list={playlist_id}"
+
+    # Normalise domain to www.youtube.com
+    path = parsed.path.rstrip("/")
+    host_lower = parsed.netloc.lower()
+
+    # youtu.be/<video_id>  →  /watch?v=<video_id>
+    if host_lower in ("youtu.be",) or host_lower.endswith(".youtu.be"):
+        video_id = path.lstrip("/")
+        if video_id and "/" not in video_id and not video_id.startswith("@"):
+            return f"https://www.youtube.com/watch?v={video_id}"
+
+    # Rebuild with www.youtube.com, preserving path and original query params
+    result = f"https://www.youtube.com{path}"
+    if parsed.query:
+        result += f"?{parsed.query}"
+    return result
 
 
 def _run_extract(url: str) -> dict:
