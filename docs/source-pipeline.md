@@ -46,6 +46,8 @@ graph TD
     N -->|20. confirm| V
 ```
 
+> ⚠️ **Примечание к диаграмме:** Поток упрощён. Для YouTube `SourceService` и `ProcessSourceJob` вызываются не сразу после `awaiting_confirm`, а после `awaiting_index` (на шаге `indexing`), чтобы позволить пользователю подтвердить список видео перед запуском извлечения транскриптов. См. разделы "YouTube Flow" и "Ключевые классы и интерфейсы".
+
 ---
 
 ## Smart URL Detection
@@ -88,6 +90,9 @@ processing ──(action=done от TG / видео загружены у YT)─�
 - Черновик удаляется, когда `content_source.extraction_status = extracted` для основного источника. Approved-ссылки (`pending_review`) продолжают обрабатываться независимо
 - `abandoned`-черновики удаляются по TTL (7 дней)
 
+**Очистка сиротских `content_sources`:**
+Для TG `content_source` создаётся на этапе `awaiting_confirm` → `processing`. Если пользователь abandons визард на этапе `awaiting_index` (не нажав «Индексировать»), `source_draft` будет удалён по TTL, но `content_source` останется в БД со статусом `pending` или `extracted` (посты уже могут быть сохранены). Чтобы избежать накопления таких сирот, рекомендуется добавить фоновый job (например, `CleanupOrphanedSourcesJob`), который раз в сутки находит `content_sources`, созданные более N дней назад, не имеющие связанных `source_drafts` и не добавленные ни в один ноутбук (`notebook_content_sources`), и удаляет их вместе с их `original_items`.
+
 ---
 
 ## SSE Events
@@ -112,6 +117,7 @@ data: {json}
 
 ```json
 {
+  "draft_id": "uuid-1234",
   "channel_meta": {
     "title": "Хабр",
     "description": "Лучшие статьи",
@@ -126,6 +132,7 @@ data: {json}
 
 ```json
 {
+  "draft_id": "uuid-1234",
   "posts_parsed": 1234,
   "links_discovered": 45
 }
@@ -136,12 +143,21 @@ data: {json}
 
 ```json
 {
+  "draft_id": "uuid-1234",
   "links": [
     {
       "url": "https://youtu.be/dQw4w9WgXcQ",
       "type": "youtube_video",
       "domain": "youtube.com",
       "title": "Never Gonna Give You Up",
+      "source_post_url": "https://t.me/habr_com/12345",
+      "source_post_id": 12345
+    },
+    {
+      "url": "https://t.me/target_channel/101",
+      "type": "telegram_post",
+      "domain": "t.me",
+      "channel": "@target_channel",
       "source_post_url": "https://t.me/habr_com/12345",
       "source_post_id": 12345
     }
@@ -154,6 +170,7 @@ data: {json}
 
 ```json
 {
+  "draft_id": "uuid-1234",
   "total_posts": 5678,
   "total_links": 89
 }
@@ -164,6 +181,7 @@ data: {json}
 
 ```json
 {
+  "draft_id": "uuid-1234",
   "videos": [
     {
       "id": "dQw4w9WgXcQ",
@@ -181,6 +199,7 @@ data: {json}
 
 ```json
 {
+  "draft_id": "uuid-1234",
   "content_source_id": "uuid",
   "items_count": 5678
 }
@@ -191,6 +210,7 @@ data: {json}
 
 ```json
 {
+  "draft_id": "uuid-1234",
   "code": "channel_not_found",
   "message": "Канал не найден или недоступен"
 }
@@ -218,7 +238,7 @@ data: {json}
 
 5. Парсер присылает webhook-пачки (action=upload):
    a. Сохраняем посты в original_items
-   b. tg-scrapper самостоятельно извлекает ссылки из постов и присылает их в поле `links` webhook-пачки. Backend (LinkProcessorService) обрабатывает их:
+   b. tg-scrapper самостоятельно извлекает ссылки из текста каждого поста и присылает их в поле `links` этого поста в webhook-пачке. Backend (LinkProcessorService) обрабатывает их:
       - Проверяет дубликаты по content_sources.url
       - Создаёт content_sources с:
           discovery_method = auto_extracted
@@ -263,13 +283,19 @@ data: {json}
 3. [Визард] Пользователь подтверждает, что канал выбран верно.
    UI предоставляет выбор типа контента для индексации: videos / shorts / streams.
    (По умолчанию opt-in на videos и shorts).
-
-4. Пользователь нажимает «Индексировать» / «Начать извлечение»
-   draft.status = indexing
+   Пользователь нажимает «Далее» / «Загрузить список видео».
+   draft.status = processing
    YouTubeService::getVideoUrls(id, types) → получаем список URL видео согласно выбранному фильтру
-   SSE: videos_loaded (полный список видео)
+   (content_source ещё не создаётся, чтобы избежать сирот при отказе пользователя)
 
-5. Extraction job запускается:
+4. SSE: videos_loaded (полный список видео)
+   draft.status = awaiting_index
+   [Визард] Пользователь видит список видео, может снять галочки с ненужных.
+
+5. Пользователь нажимает «Индексировать»
+   draft.status = indexing
+   SourceService создаёт content_source и диспатчит ProcessSourceJob.
+   Extraction job запускается:
    a. Получаем/создаём Temporary Extraction Notebook (один технический на сервис)
    b. Разбиваем URL на пачки (batch_size = свободные слоты в ноутбуке)
    c. Для каждой пачки:
@@ -303,9 +329,10 @@ data: {json}
 ## Linked Content Extraction Flow
 
 ### 1. Извлечение и классификация (tg-scrapper + Backend)
-`tg-scrapper` самостоятельно извлекает ссылки из постов и присылает их в поле `links` webhook-пачки. Backend (`LinkProcessorService`) принимает эти ссылки:
+`tg-scrapper` самостоятельно извлекает ссылки из текста каждого поста и присылает их в поле `links` этого поста в webhook-пачке. Backend (`LinkProcessorService`) принимает эти ссылки:
 
-- **Фильтрация:** только поддерживаемые типы (YouTube, известные статьи, PDF)
+- **Фильтрация вложенных каналов:** Ссылки на Telegram-каналы без ID поста (например, `t.me/channel_username`) **игнорируются и отбрасываются**. Система не поддерживает рекурсивную индексацию вложенных каналов.
+- **Фильтрация типов:** принимаются только ссылки на посты из других каналов (например, `t.me/channel_username/123`), а также поддерживаемые внешние типы (YouTube, известные статьи, PDF).
 - **Дедупликация:** проверка по `content_sources.url` — уже существующие ссылки игнорируются
 - **Создание кандидатов:** уникальные ссылки сохраняются в `content_sources`:
   - `discovery_method = auto_extracted`
@@ -314,13 +341,16 @@ data: {json}
   - `parent_item_id` = ID `original_item` конкретного поста (используется для отображения «ссылка найдена в посте X» на фронте)
 
 ### 2. Агрегация и группировка (API)
-Бэкенд группирует `pending_review`-источники. Для YouTube-ссылок группировка происходит **по каналам** с использованием `YouTubeService::resolveChannelUrls` (метод пачками разрешает имя канала по URL видео). Для остальных — по домену/типу:
+Бэкенд группирует `pending_review`-источники:
+- **YouTube-ссылки:** группировка происходит **по каналам** с использованием `YouTubeService::resolveChannelUrls` (метод пачками разрешает имя канала по URL видео).
+- **Telegram-ссылки:** группировка происходит **по исходному каналу** (а не по домену `t.me`). Это позволяет пользователю видеть «Канал @news_channel (3 поста)» и осознанно снимать галочки с целых каналов-источников.
+- **Остальные типы:** группировка по домену/типу.
 
 ```json
 [
-  { "domain": "youtube.com", "type": "youtube_video", "count": 45, "items": [...] },
-  { "domain": "habr.com",    "type": "website",       "count": 12, "items": [...] },
-  { "domain": "t.me",        "type": "telegram_channel", "count": 3, "items": [...] }
+  { "domain": "youtube.com", "type": "youtube_video", "channel": "@some_channel", "count": 45, "items": [...] },
+  { "domain": "t.me",        "type": "telegram_post", "channel": "@target_channel_1", "count": 3, "items": [...] },
+  { "domain": "habr.com",    "type": "website",       "count": 12, "items": [...] }
 ]
 ```
 
@@ -416,15 +446,18 @@ Freeze навсегда
 - **`SourceDraftService`**: Создаёт и управляет `source_drafts`. Оркестрирует переходы статусов. Вызывает `SmartUrlDetector` и отправляет SSE-события через `SseService`.
 - **`SmartUrlDetector`**: Определяет тип источника по URL (правила в разделе Smart URL Detection).
 - **`SseService`**: Отправляет события на SSE-канал `/api/sse/source-drafts/{draft_id}`.
-- **`SourceService`** (Оркестратор): Главный фасад. Валидирует данные, создаёт `content_source`, диспатчит `ProcessSourceJob`. Вызывается из `SourceDraftService` после подтверждения пользователем.
-- **`ProcessSourceJob`**: Laravel Job (`ShouldBeUnique`). Вызывает `ExtractorFactory`, сохраняет результат, обновляет `source_draft.status`.
+- **`SourceService`** (Оркестратор): Главный фасад. Валидирует данные, создаёт `content_source`, диспатчит `ProcessSourceJob`.
+  - Для TG: вызывается при подтверждении канала (`awaiting_confirm` → `processing`). Запускает внешний парсер через `TelegramExtractor`.
+  - Для YT: вызывается после загрузки и подтверждения списка видео (`awaiting_index` → `indexing`). Запускает извлечение транскриптов через `YouTubeExtractor`.
+- **`ProcessSourceJob`**: Laravel Job (`ShouldBeUnique`). Является «тонким» диспетчером: не содержит бизнес-логики, а лишь разрешает зависимости и делегирует выполнение бизнес-сервису `SourceIndexingService::process($draftId)`.
+- **`SourceIndexingService`**: Инкапсулирует всю бизнес-логику индексации: сбор данных для MD Bundle, вызов NotebookLM API, обработку ответов, сохранение результатов в БД, обновление статусов и отправку финальных SSE-событий.
 - **`ExtractorFactory`**: Возвращает нужный экстрактор по типу источника.
 - **`SourceExtractorInterface`**: Контракт `extract(ContentSource $source): void`.
   - `TextExtractor`: Сохраняет готовый текст.
   - `YouTubeExtractor`: Работает с `NlmClient` для пакетного извлечения транскриптов через временный ноутбук.
   - `TelegramExtractor`: Инициирует асинхронный парсинг через FastAPI. Возвращает управление сразу (202); результаты приходят через webhook.
 - **`TelegramWebhookController`**: Принимает webhook-пачки от TG Scraper. Сохраняет `original_items`, вызывает `LinkProcessorService`, отправляет SSE-события.
-- **`LinkProcessorService`**: Принимает ссылки из webhook-пачек `tg-scrapper` (поле `links`), дедуплицирует их и создаёт `content_sources` со статусом `pending_review`.
+- **`LinkProcessorService`**: Принимает ссылки из поля `links` каждого поста в webhook-пачках `tg-scrapper`, фильтрует вложенные каналы (игнорируя ссылки без ID поста), дедуплицирует их и создаёт `content_sources` со статусом `pending_review`.
 - **`BundleService`**: Управляет созданием дельта-бандлов. Вызывается по крону.
 - **`BundleBuilder`**: Инкапсулирует логику накопления текста до лимита ~490k символов и рендеринга MD-файла.
 
@@ -462,7 +495,7 @@ source_drafts
   user_id             fk
   knowledge_base_id   fk null
   content_source_id   fk null
-  type                enum(telegram_channel, youtube_channel, youtube_video, website, pdf, ...)
+  type                enum(telegram_channel, telegram_post, youtube_channel, youtube_video, website, pdf, ...)
   raw_input           text
   channel_meta        jsonb
   scrape_config       jsonb
@@ -474,7 +507,7 @@ source_drafts
 content_sources
   id                  uuid pk
   user_id             fk
-  type                enum(telegram_channel, youtube_channel, youtube_video, website, ...)
+  type                enum(telegram_channel, telegram_post, youtube_channel, youtube_video, website, ...)
   url                 varchar
   auto_update         boolean default false
   extraction_status   enum(pending, uploading, extracting, extracted, error)

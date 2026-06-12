@@ -25,7 +25,7 @@
 |---|---|---|
 | id | uuid | PK |
 | user_id | uuid | FK → users |
-| type | enum | `website`, `youtube_video`, `youtube_channel`, `telegram_channel`, `pdf`, `text`, `audio`, `video` |
+| type | enum | `website`, `youtube_video`, `youtube_channel`, `telegram_channel`, `telegram_post`, `pdf`, `text`, `audio`, `video` |
 | url | text | null для файловых типов (pdf, audio, video, text) |
 | file_ref | text | null для url-based типов |
 | title | text | |
@@ -44,6 +44,7 @@
 | Тип | Структура |
 |---|---|
 | `telegram_channel` | `{ channel_id, title, members, avatar_url, scrape_config: { limit, from_date, to_date, from_id, to_id } }` |
+| `telegram_post` | `{ channel_username, post_id }` |
 | `youtube_channel` | `{ channel_id, title, description, handle, avatar_url, subscribers_count, view_count, video_count }` |
 | `youtube_video` | `{ video_id, duration, upload_date, channel_id }` |
 | `website` | `{ domain }` |
@@ -95,8 +96,8 @@
 |---|---|
 | `fetching_meta` | Идёт загрузка мета-информации об источнике (канале, URL) |
 | `awaiting_confirm` | Карточка источника показана, ожидаем действий пользователя |
-| `processing` | Пользователь подтвердил; идёт парсинг/извлечение. Для TG: посты приходят пачками, ссылки обнаруживаются и отображаются в реальном времени |
-| `awaiting_index` | Парсинг/извлечение завершено; пользователь просматривает обнаруженные ссылки перед индексацией |
+| `processing` | Пользователь подтвердил; идёт парсинг/извлечение. Для TG: посты приходят пачками, ссылки обнаруживаются и отображаются в реальном времени. Для YT: идёт загрузка списка видео через YouTubeService |
+| `awaiting_index` | Парсинг/извлечение завершено; пользователь просматривает обнаруженные ссылки (TG) или список видео (YT) перед индексацией |
 | `indexing` | Пользователь нажал «Индексировать»; задачи поставлены в очередь |
 | `done` | Извлечение завершено; черновик ожидает удаления |
 | `abandoned` | Визард закрыт без завершения |
@@ -183,12 +184,13 @@
   → пользователь вводит URL → разрешение типа источника
   → загрузка метаданных канала/URL
   → пользователь задаёт фильтры и подтверждает
-  → создаётся content_source (draft.content_source_id проставляется)
-  → запускается extraction job
+  → для TG: создаётся content_source, запускается парсинг (draft.status = processing)
+  → для YT: загружается список видео (draft.status = processing), пользователь подтверждает список (draft.status = awaiting_index)
+  → для TG/YT: при нажатии «Индексировать» (draft.status = indexing) создаётся content_source (если ещё не создан) и запускается extraction job
 
 content_source (extraction)
   → TG: async webhook парсинг → original_items + обнаруженные ссылки (pending_review)
-  → YT: YouTubeService получает список видео → транскрипты через NLM → original_items
+  → YT: транскрипты через NLM → original_items
   → Другие: загрузка в NLM → fulltext → original_items
   → extraction_status = extracted → source_draft удаляется
 
