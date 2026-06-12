@@ -1,6 +1,6 @@
 # YT Scraper API (FastAPI)
 
-> На данный момент сервис отключет. Вмесот него работает App\Services\YouTubeService.php
+> ⚠️ **DEPRECATED:** На данный момент сервис отключён. Вместо него работает `App\Services\YouTubeService` (обёртка над Google YouTube Data API v3). Документация оставлена для справки.
 
 Извлечение метаданных и списка видео с YouTube-каналов и плейлистов через `yt-dlp`.
 

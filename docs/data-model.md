@@ -44,7 +44,7 @@
 | Тип | Структура |
 |---|---|
 | `telegram_channel` | `{ channel_id, title, members, avatar_url, scrape_config: { limit, from_date, to_date, from_id, to_id } }` |
-| `youtube_channel` | `{ channel_id, uploader, uploader_url, video_count }` |
+| `youtube_channel` | `{ channel_id, title, description, handle, avatar_url, subscribers_count, view_count, video_count }` |
 | `youtube_video` | `{ video_id, duration, upload_date, channel_id }` |
 | `website` | `{ domain }` |
 | `pdf` | `{ page_count, file_size }` |
@@ -57,7 +57,7 @@
 | Статус | TG Channel | YouTube Channel | Другие |
 |---|---|---|---|
 | `pending` | В очереди | В очереди | В очереди |
-| `uploading` | Идёт парсинг (webhook chunks) | Извлечение списка видео через yt-dlp | Загрузка в NLM |
+| `uploading` | Идёт парсинг (webhook chunks) | Извлечение списка видео через YouTubeService | Загрузка в NLM |
 | `extracting` | — | Получение транскриптов через NLM | Ожидание NLM |
 | `extracted` | Все посты сохранены | Все транскрипты сохранены | Текст сохранён |
 | `error` | Ошибка | Ошибка | Ошибка |
@@ -102,7 +102,7 @@
 | `abandoned` | Визард закрыт без завершения |
 
 **Замечания:**
-- Для TG-каналов кнопка «Индексировать» доступна как во время `processing` (парсинг ещё идёт), так и в `awaiting_index`; нажатие в обоих случаях переводит черновик в `indexing`
+- Кнопка «Индексировать» становится доступна только после перехода черновика в статус `awaiting_index` (завершение предварительной обработки). Во время `processing` кнопка не показывается — пользователь должен дождаться окончания парсинга/извлечения метаданных.
 - При вводе нескольких URL (разделённых пробелом или переносом строки) для каждого создаётся отдельный `source_draft`
 - Если обнаруженный URL является TG-каналом или YouTube-каналом/плейлистом, тип черновика автоматически разрешается в `telegram_channel` или `youtube_channel`
 
@@ -188,7 +188,7 @@
 
 content_source (extraction)
   → TG: async webhook парсинг → original_items + обнаруженные ссылки (pending_review)
-  → YT: yt-dlp список видео → транскрипты через NLM → original_items
+  → YT: YouTubeService получает список видео → транскрипты через NLM → original_items
   → Другие: загрузка в NLM → fulltext → original_items
   → extraction_status = extracted → source_draft удаляется
 

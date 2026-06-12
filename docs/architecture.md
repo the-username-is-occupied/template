@@ -7,7 +7,7 @@
 | Backend API | Laravel 12 |
 | NotebookLM executor | FastAPI (notebooklm-py) |
 | TG scraper | FastAPI (custom Python) |
-| YouTube metadata | FastAPI (yt-dlp) |
+| YouTube metadata | YouTubeService (Google YouTube Data API v3) |
 | Frontend | Vue 3 + Quasar |
 | Realtime / SSE | FrankenPHP (Laravel Octane + Mercure Hub) |
 | Queue / cache / locks | Redis |
@@ -42,7 +42,7 @@
 
 **TG Scraper** — принимает `{channel_id, last_post_id}`, возвращает новые посты.
 
-** YTservice** — Описание в docs/services. Видео затем добавляются в NotebookLM как YouTube-источники.
+**YouTubeService** — обёртка над Google YouTube Data API v3. Описание в docs/services. Видео затем добавляются в NotebookLM как YouTube-источники.
 
 ---
 
@@ -68,7 +68,7 @@
 | 1 | One knowledge base = one NotebookLM notebook | Простота MVP; cross-notebook ask не реализован |
 | 2 | Ask capacity = сумма лимитов аккаунтов, шарящих ноутбук | Все ноутбуки создаются как public viewer shared |
 | 3 | Chat history управляет Eolithic, не NLM | История инжектируется в каждый ask как текстовый префикс |
-| 4 | MD bundles — write-once | Исключает переиндексации больших бандлов; новый контент = новый бандл |
+| 4 | Full MD bundles — write-once; Delta bundles — overwrite until ~490k | Full бандлы не переиндексируются. Живые обновления и остатки накапливаются в delta_bundle, который перезаписывается в NLM до достижения лимита ~490k символов, после чего freeze'ится и создаётся новый delta_bundle. |
 | 5 | Account selection for ask — MIN(chats_today) | Равномерное распределение нагрузки по аккаунтам |
 
 ---

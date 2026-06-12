@@ -73,8 +73,35 @@
 
 В процессе парсинга на `hook_url` отправляются POST-запросы:
 
-- `action=upload` — очередная пачка постов (по `chunk_limit` штук)
+- `action=upload` — очередная пачка постов и извлечённых ссылок
 - `action=done` — парсинг завершён, содержит `response_time` в мс
+
+**Формат payload для `action=upload`:**
+
+```json
+{
+  "action": "upload",
+  "content_source_id": "source_42",
+  "posts": [
+    {
+      "id": 12345,
+      "url": "https://t.me/habr_com/12345",
+      "date": "2026-06-01T12:00:00",
+      "text": "Текст поста...",
+      "text_html": "<b>Текст</b> поста...",
+      "links": ["https://example.com"],
+      "views": "15K",
+      "type": "text",
+      "forwarded_from": null,
+      "poll": null,
+      "reactions": [
+        {"emoji": "👍", "count": "42"}
+      ]
+    }
+  ]
+}
+```
+> ⚠️ **Важно:** `tg-scrapper` самостоятельно извлекает ссылки из текста постов и присылает их в поле `links`. Backend не занимается извлечением ссылок из текста, а только обрабатывает (дедуплицирует и сохраняет) уже извлечённые ссылки.
 
 ---
 

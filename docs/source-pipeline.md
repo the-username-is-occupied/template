@@ -10,7 +10,7 @@ graph TD
     B -->|2. создать draft| DB1[(DB: source_drafts)]
     B -->|3. определить тип URL| C{Smart URL Detection}
     C -->|TG| D[TG Meta fetch]
-    C -->|YT| E[YT Meta fetch]
+    C -->|YT| E[YouTubeService::getChannelInfo]
     C -->|URL/file| F[Generic fetch]
     D & E & F -->|4. channel_meta| B
     B -->|5. draft awaiting_confirm| DB1
@@ -30,7 +30,7 @@ graph TD
     M -->|11d. HTTP call| O[TG Parser FastAPI]
     O -->|webhook chunks| P[TelegramWebhookController]
     P -->|save posts| DB3[(DB: original_items)]
-    P -->|extract links| Q[LinkExtractorService]
+    P -->|process extracted links| Q[LinkProcessorService]
     Q -->|pending_review sources| DB2
     Q -->|SSE event| R[SseService]
 
@@ -80,17 +80,11 @@ fetching_meta ──(ошибка)──► abandoned
 awaiting_confirm ──(закрыл визард)──► abandoned
     │ (подтвердил)
     ▼
-processing ──────────────────────────────────────────► indexing ──► done ──► [удалён]
-    │                                                      ▲
-    │ (action=done от TG / видео загружены у YT)           │
-    ▼                                                      │
-awaiting_index ────────────────────────────────────────────┘
-                    (нажал «Индексировать»)
+processing ──(action=done от TG / видео загружены у YT)──► awaiting_index ──(нажал «Индексировать»)──► indexing ──► done ──► [удалён]
 ```
 
 **Замечания по переходам:**
-- Для TG-каналов кнопка «Индексировать» показывается с момента перехода в `processing` — пользователь не обязан ждать окончания парсинга
-- Переход `processing → indexing` (без `awaiting_index`) происходит, если пользователь нажал кнопку до получения `action=done`
+- Кнопка «Индексировать» **не показывается** во время `processing`. Пользователь должен дождаться предварительной обработки и перехода в `awaiting_index`, и только после этого может нажать кнопку «Индексировать».
 - Черновик удаляется, когда `content_source.extraction_status = extracted` для основного источника. Approved-ссылки (`pending_review`) продолжают обрабатываться независимо
 - `abandoned`-черновики удаляются по TTL (7 дней)
 
@@ -98,12 +92,11 @@ awaiting_index ─────────────────────�
 
 ## SSE Events
 
-Клиент подписывается на события черновика:
+Клиент подписывается на события черновика через Mercure Hub (согласно архитектуре SSE):
 
-```
-GET /api/sse/source-drafts/{draft_id}
-Accept: text/event-stream
-```
+**Топик:** `user.{userId}.source-drafts`
+
+> ⚠️ **Важно:** Payload каждого события содержит `draft_id`, чтобы фронтенд мог фильтровать события для текущего визарда, так как топик является контекстным для всех визардов пользователя.
 
 ### Формат события
 
@@ -210,7 +203,7 @@ data: {json}
 | Тип | Сервис | Примечание |
 |---|---|---|
 | Telegram channel | TG Scraper FastAPI | Поллинг новых постов по `last_id` |
-| YouTube channel / playlist | yt-dlp FastAPI | Извлекает список video URL; видео добавляются в NLM как YouTube-источники |
+| YouTube channel / playlist | YouTubeService | Извлекает список video URL через Google YouTube Data API; видео добавляются в NLM как YouTube-источники |
 
 ### TG Channel Flow
 
@@ -225,7 +218,7 @@ data: {json}
 
 5. Парсер присылает webhook-пачки (action=upload):
    a. Сохраняем посты в original_items
-   b. LinkExtractorService извлекает ссылки из текстов постов:
+   b. tg-scrapper самостоятельно извлекает ссылки из постов и присылает их в поле `links` webhook-пачки. Backend (LinkProcessorService) обрабатывает их:
       - Проверяет дубликаты по content_sources.url
       - Создаёт content_sources с:
           discovery_method = auto_extracted
@@ -240,12 +233,12 @@ data: {json}
    SSE: parsing_done
 
 7. [Визард] Пользователь просматривает сгруппированные ссылки:
-   - Группировка по domain/type на уровне API
+   - Группировка по домену/типу на уровне API. **Для YouTube-ссылок группировка происходит по каналам** с помощью `YouTubeService::resolveChannelUrls` (метод пачками разрешает имя канала по URL видео).
    - Каждая ссылка отображается с source_post_url (из parent_item_id → original_item.source_url)
    - По умолчанию все группы отмечены (opt-in)
    - Пользователь снимает галочки с нежелательных групп или отдельных ссылок
 
-8. Пользователь нажимает «Индексировать»:
+8. Пользователь нажимает «Индексировать» (кнопка доступна только после перехода в `awaiting_index`):
    - Отмеченные ссылки → review_status = approved → ProcessSourceJob
    - Снятые ссылки → review_status = rejected
    - draft.status = indexing
@@ -254,29 +247,27 @@ data: {json}
    (approved linked sources обрабатываются независимо)
 ```
 
-**Нажатие «Индексировать» во время парсинга (шаг 5):**
-- Ссылки, поступившие до нажатия, обрабатываются согласно выборке пользователя
-- Ссылки, поступившие после нажатия, авто-апрувятся / отклоняются на основе группового правила «все выбраны / все сняты»
-
 ---
 
 ### YouTube Flow (Batched Extraction via Temporary Notebook)
 
-yt-dlp сервис извлекает URL видео из канала/плейлиста.
-Для YouTube мы используем NLM как «чёрный ящик» для извлечения транскриптов.
+Для получения метаданных и списка видео используется `YouTubeService` (Google YouTube Data API v3).
+Для извлечения транскриптов мы используем NLM как «чёрный ящик».
 
 ```
 1. [Визард] Пользователь вставляет URL канала/плейлиста
-2. POST /api/v1/extract → channel_meta + video list
-   SSE: meta_loaded (с video_count)
+2. YouTubeService::getChannelInfo → получаем инфо о канале
+   SSE: meta_loaded (с channel_meta)
    draft.status = awaiting_confirm
 
-3. Пользователь подтверждает → создаётся content_source
-   SSE: videos_loaded (полный список видео)
-   draft.status = awaiting_index
+3. [Визард] Пользователь подтверждает, что канал выбран верно.
+   UI предоставляет выбор типа контента для индексации: videos / shorts / streams.
+   (По умолчанию opt-in на videos и shorts).
 
-4. Пользователь нажимает «Индексировать»
+4. Пользователь нажимает «Индексировать» / «Начать извлечение»
    draft.status = indexing
+   YouTubeService::getVideoUrls(id, types) → получаем список URL видео согласно выбранному фильтру
+   SSE: videos_loaded (полный список видео)
 
 5. Extraction job запускается:
    a. Получаем/создаём Temporary Extraction Notebook (один технический на сервис)
@@ -311,8 +302,8 @@ yt-dlp сервис извлекает URL видео из канала/плей
 
 ## Linked Content Extraction Flow
 
-### 1. Парсинг и классификация (Backend)
-Во время работы `TelegramExtractor` текст каждого поста прогоняется через `LinkExtractorService`:
+### 1. Извлечение и классификация (tg-scrapper + Backend)
+`tg-scrapper` самостоятельно извлекает ссылки из постов и присылает их в поле `links` webhook-пачки. Backend (`LinkProcessorService`) принимает эти ссылки:
 
 - **Фильтрация:** только поддерживаемые типы (YouTube, известные статьи, PDF)
 - **Дедупликация:** проверка по `content_sources.url` — уже существующие ссылки игнорируются
@@ -323,7 +314,7 @@ yt-dlp сервис извлекает URL видео из канала/плей
   - `parent_item_id` = ID `original_item` конкретного поста (используется для отображения «ссылка найдена в посте X» на фронте)
 
 ### 2. Агрегация и группировка (API)
-Бэкенд группирует `pending_review`-источники по домену/типу:
+Бэкенд группирует `pending_review`-источники. Для YouTube-ссылок группировка происходит **по каналам** с использованием `YouTubeService::resolveChannelUrls` (метод пачками разрешает имя канала по URL видео). Для остальных — по домену/типу:
 
 ```json
 [
@@ -347,9 +338,9 @@ yt-dlp сервис извлекает URL видео из канала/плей
 
 ## MD Bundle Strategy
 
-### Принцип: write-once
+### Принцип: write-once для первичной индексации
 
-Бандл создаётся один раз, загружается в NotebookLM и **никогда не изменяется**. Новый контент → новый бандл. Ноль переиндексаций.
+**Full бандлы** (первичная индексация) создаются один раз, загружаются в NotebookLM и **никогда не изменяются**. Новый контент → новый бандл. Ноль переиндексаций.
 
 ### Первичная индексация
 
@@ -365,25 +356,23 @@ yt-dlp сервис извлекает URL видео из канала/плей
 Freeze навсегда
 ```
 
-### Живые обновления (auto_update = true)
+### Живые обновления и delta_bundle
 
-Scheduler запускается каждые N минут. Job уникальный (`->unique()`).
+Живые обновления (auto_update = true), а также остаточные данные от первичной индексации (которые не поместились в последний full бандл из-за лимита ~490k символов), обрабатываются через **`delta_bundle`**.
 
-```
-1. Для каждого content_source WHERE auto_update = true:
+В отличие от full бандлов, `delta_bundle` **может перезаписываться** в NotebookLM по мере поступления новых данных для индексации. Это позволяет не плодить множество мелких бандлов для частых обновлений.
+
+**Логика работы `delta_bundle`:**
+1. Scheduler запускается каждые N минут. Job уникальный (`->unique()`).
+2. Для каждого `content_source` WHERE `auto_update = true`:
    — TG: GET /scrape?from_id=last_fetched_id → новые посты via webhook
-   — YT: POST /api/v1/extract → сравниваем video list с known video_ids → новые видео в очередь
-   
-2. Сохраняем новые original_items (md_bundle_id = null)
-3. Обновляем last_fetched_id / last_fetched_at
-
-4. BuildDeltaBundlesJob:
-   unbundled_chars = SUM(LENGTH(text)) WHERE md_bundle_id IS NULL
-
-   IF unbundled_chars >= 50_000
-   OR (последний бандл > 24h назад AND unbundled_chars > 0):
-       → компилируем md-файл → md_bundle (status=PENDING) → очередь на загрузку
-```
+   — YT: YouTubeService::getVideoUrls → сравниваем video list с known video_ids → новые видео в очередь
+3. Сохраняем новые `original_items` (md_bundle_id = null)
+4. `BuildDeltaBundlesJob`:
+   - Находим активный `delta_bundle` для ноутбука (если есть и его размер < 490k символов).
+   - Добавляем новые unbundled items в этот `delta_bundle`.
+   - Перезаписываем содержимое источника в NotebookLM (обновляем md-файл).
+   - **Если размер `delta_bundle` достигает ~490k символов**, он становится неизменяемым (freeze, write-once), и для последующих обновлений создаётся **новый `delta_bundle`**.
 
 ---
 
@@ -434,8 +423,8 @@ Scheduler запускается каждые N минут. Job уникальн
   - `TextExtractor`: Сохраняет готовый текст.
   - `YouTubeExtractor`: Работает с `NlmClient` для пакетного извлечения транскриптов через временный ноутбук.
   - `TelegramExtractor`: Инициирует асинхронный парсинг через FastAPI. Возвращает управление сразу (202); результаты приходят через webhook.
-- **`TelegramWebhookController`**: Принимает webhook-пачки от TG Scraper. Сохраняет `original_items`, вызывает `LinkExtractorService`, отправляет SSE-события.
-- **`LinkExtractorService`**: Извлекает и дедуплицирует ссылки из текста постов. Создаёт `content_sources` с `pending_review`.
+- **`TelegramWebhookController`**: Принимает webhook-пачки от TG Scraper. Сохраняет `original_items`, вызывает `LinkProcessorService`, отправляет SSE-события.
+- **`LinkProcessorService`**: Принимает ссылки из webhook-пачек `tg-scrapper` (поле `links`), дедуплицирует их и создаёт `content_sources` со статусом `pending_review`.
 - **`BundleService`**: Управляет созданием дельта-бандлов. Вызывается по крону.
 - **`BundleBuilder`**: Инкапсулирует логику накопления текста до лимита ~490k символов и рендеринга MD-файла.
 
