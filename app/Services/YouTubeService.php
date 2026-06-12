@@ -12,7 +12,7 @@ use Spatie\LaravelData\DataCollection;
 
 class YouTubeService
 {
-    protected $youtube;
+    protected YouTube $youtube;
 
     public function __construct()
     {
@@ -71,7 +71,6 @@ class YouTubeService
      *
      * * @param string $id ID канала (UC...) или ID плейлиста (PL...)
      * @param  array  $types  Массив из возможных значений: 'video', 'shorts', 'streams'
-     * @return array Массив отсортированных URL-адресов контента
      */
     public function getVideoUrls(string $id, array $types = ['video', 'shorts', 'streams']): VideoUrlsData
     {
@@ -267,7 +266,7 @@ class YouTubeService
         }
 
         if (empty($videoIds)) {
-            return ChannelUrlMappingData::collection($mappings);
+            return ChannelUrlMappingData::collect($mappings);
         }
 
         // 2. Получаем Channel ID для каждого Video ID (пачками по 50 штук)
@@ -293,7 +292,7 @@ class YouTubeService
         }
 
         if (empty($channelIds)) {
-            return ChannelUrlMappingData::collection($mappings);
+            return ChannelUrlMappingData::collect($mappings);
         }
 
         // 3. Получаем Handle (@channel_name) для каждого уникального Channel ID (пачками по 50 штук)
@@ -334,6 +333,6 @@ class YouTubeService
             }
         }
 
-        return ChannelUrlMappingData::collection($mappings);
+        return ChannelUrlMappingData::collect($mappings);
     }
 }
