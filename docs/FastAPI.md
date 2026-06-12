@@ -13,7 +13,6 @@ Laravel · Redis · Postgres · FastAPI · Docker Compose
 | Сервис | Описание | Docker | Порт |
 |---|---|---|---|
 | **TG Scraper** | Парсинг Telegram-каналов | `docker/tg/` | 8020 |
-| **YT Scraper** | Извлечение метаданных YouTube | `docker/youtube/` | 8010 |
 
 ---
 
