@@ -36,6 +36,7 @@
 | parent_item_id | uuid | FK → original_items (nullable). Ссылка на конкретный пост/элемент, в котором была найдена ссылка на этот источник. Используется совместно с `parent_source_id` для источников с `discovery_method = auto_extracted` |
 | discovery_method | enum | `manual`, `auto_extracted`. Способ обнаружения источника (пользователем или парсером) |
 | review_status | enum | `pending_review`, `approved`, `rejected`. Статус подтверждения для авто-извлечённых ссылок (для `manual` всегда `approved`) |
+| last_fetched_id | varchar | ID последнего полученного поста/элемента при auto_update. Обновляется до максимального ID после успешного выполнения автообновления |
 | metadata | jsonb | Type-specific поля. Структура описана ниже |
 | created_at | timestamptz | |
 
@@ -79,7 +80,7 @@
 |---|---|---|
 | id | uuid | PK |
 | user_id | uuid | FK → users |
-| knowledge_base_id | uuid | FK → notebooks (nullable — если база знаний ещё не создана в момент открытия визарда) |
+| knowledge_base_id | uuid | FK → notebooks. NOT NULL. Передаётся при создании черновика |
 | content_source_id | uuid | FK → content_sources (nullable — проставляется после подтверждения пользователем) |
 | type | enum | Тип источника (совпадает с `content_sources.type`). Null до разрешения URL |
 | raw_input | text | Исходный ввод пользователя (одна ссылка или несколько через пробел/перенос строки) |
@@ -121,7 +122,7 @@
 | source_url | text | Permalink конкретного item (пост, видео, страница) |
 | parent_item_id | uuid | FK → original_items (nullable). Ссылка на родительский original_item — из какого поста/документа была взята эта ссылка |
 | published_at | timestamptz | |
-| token_count | int | |
+| char_count | int | Строгий подсчёт символов (без токенизации) |
 | metadata | jsonb | |
 | created_at | timestamptz | |
 
@@ -158,7 +159,7 @@
 | id | uuid | PK |
 | notebook_id | uuid | FK → notebooks |
 | file_path | text | Путь к файлу на хранилище |
-| token_count | int | |
+| char_count | int | Строгий подсчёт символов (без токенизации) |
 | status | enum | `pending`, `uploading`, `uploaded`, `error` |
 | nlm_source_id | text | ID источника в NLM после загрузки бандла |
 | created_at | timestamptz | |

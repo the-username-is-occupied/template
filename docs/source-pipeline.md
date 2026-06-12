@@ -91,7 +91,7 @@ processing ──(action=done от TG / видео загружены у YT)─�
 - `abandoned`-черновики удаляются по TTL (7 дней)
 
 **Очистка сиротских `content_sources`:**
-Для TG `content_source` создаётся на этапе `awaiting_confirm` → `processing`. Если пользователь abandons визард на этапе `awaiting_index` (не нажав «Индексировать»), `source_draft` будет удалён по TTL, но `content_source` останется в БД со статусом `pending` или `extracted` (посты уже могут быть сохранены). Чтобы избежать накопления таких сирот, рекомендуется добавить фоновый job (например, `CleanupOrphanedSourcesJob`), который раз в сутки находит `content_sources`, созданные более N дней назад, не имеющие связанных `source_drafts` и не добавленные ни в один ноутбук (`notebook_content_sources`), и удаляет их вместе с их `original_items`.
+Для TG `content_source` создаётся на этапе `awaiting_confirm` → `processing`. Если пользователь abandons визард на этапе `awaiting_index` (не нажав «Индексировать»), `source_draft` будет удалён по TTL, но `content_source` останется в БД со статусом `pending` или `extracted` (посты уже могут быть сохранены). Чтобы избежать накопления таких сирот, **требуется** внедрить фоновый job (`CleanupOrphanedSourcesJob`), который раз в сутки находит `content_sources`, созданные более N дней назад, не имеющие связанных `source_drafts` и не добавленные ни в один ноутбук (`notebook_content_sources`), и удаляет их вместе с их `original_items`.
 
 ---
 
@@ -332,7 +332,7 @@ data: {json}
 `tg-scrapper` самостоятельно извлекает ссылки из текста каждого поста и присылает их в поле `links` этого поста в webhook-пачке. Backend (`LinkProcessorService`) принимает эти ссылки:
 
 - **Фильтрация вложенных каналов:** Ссылки на Telegram-каналы без ID поста (например, `t.me/channel_username`) **игнорируются и отбрасываются**. Система не поддерживает рекурсивную индексацию вложенных каналов.
-- **Фильтрация типов:** принимаются только ссылки на посты из других каналов (например, `t.me/channel_username/123`), а также поддерживаемые внешние типы (YouTube, известные статьи, PDF).
+- **Фильтрация типов:** принимаются только ссылки на посты из других каналов (например, `t.me/channel_username/123`)
 - **Дедупликация:** проверка по `content_sources.url` — уже существующие ссылки игнорируются
 - **Создание кандидатов:** уникальные ссылки сохраняются в `content_sources`:
   - `discovery_method = auto_extracted`
@@ -393,12 +393,13 @@ Freeze навсегда
 В отличие от full бандлов, `delta_bundle` **может перезаписываться** в NotebookLM по мере поступления новых данных для индексации. Это позволяет не плодить множество мелких бандлов для частых обновлений.
 
 **Логика работы `delta_bundle`:**
-1. Scheduler запускается каждые N минут. Job уникальный (`->unique()`).
+1. Scheduler запускается каждые N минут. Job уникальный по `notebook_id` (`->unique($this->notebook_id)`), чтобы блокировка одного ноутбука не останавливала сборку дельт для остальных.
 2. Для каждого `content_source` WHERE `auto_update = true`:
-   — TG: GET /scrape?from_id=last_fetched_id → новые посты via webhook
+   — TG: GET /scrape?from_id=last_fetched_id → новые посты via webhook. Если Scraper занят (409), job падает с транзитной ошибкой и ретраится. Поскольку дельта (постов с последнего обновления) обычно мала, парсинг занимает секунды, и конкуренция за скрапер минимальна.
    — YT: YouTubeService::getVideoUrls → сравниваем video list с known video_ids → новые видео в очередь
 3. Сохраняем новые `original_items` (md_bundle_id = null)
-4. `BuildDeltaBundlesJob`:
+4. После успешного завершения автообновления (получения `action=done` от скрапера) `content_source.last_fetched_id` обновляется до максимального ID среди только что полученных постов.
+5. `BuildDeltaBundlesJob`:
    - Находим активный `delta_bundle` для ноутбука (если есть и его размер < 490k символов).
    - Добавляем новые unbundled items в этот `delta_bundle`.
    - Перезаписываем содержимое источника в NotebookLM (обновляем md-файл).
@@ -409,18 +410,18 @@ Freeze навсегда
 ## Bundle File Format
 
 ```markdown
-<!-- SOURCE_ID: tg_12345 | URL: https://t.me/channel/12345 | TS: 2024-01-15T10:30:00 -->
+>VQ6EAOKbQdSnFkRmVUQAAA
 Текст поста 12345. Может быть многострочным.
 Продолжение текста того же поста.
 
-<!-- SOURCE_ID: tg_12346 | URL: https://t.me/channel/12346 | TS: 2024-01-15T11:00:00 -->
+>8x9BpLqR2mN5vK3jW7tYzA
 Текст поста 12346.
 
-<!-- SOURCE_ID: yt_dQw4w9WgXcQ | URL: https://youtube.com/watch?v=dQw4w9WgXcQ | TS: 2024-01-10T00:00:00 -->
+>kL3mN5vK3jW7tYzAVQ6EAA
 Транскрипция видео или описание.
 ```
 
-**Формат SOURCE_ID:** `{type}_{external_id}`, например `tg_12345`, `yt_dQw4w9WgXcQ`.
+**Формат заголовка:** `>` + 22 символа Base64URL-кодированного UUID (`original_items.id`). Это даёт фиксированный overhead ~24 байта на пост вместо 88+ байт у HTML-комментариев. URL, timestamp и прочие метаданные доизвлекаются из БД по UUID при резолвинге цитат.
 
 ---
 
@@ -430,14 +431,15 @@ Freeze навсегда
 1. По notebooklm_source_id находим md_bundle
 2. Читаем bundle file
 3. Ищем cited_text substring в файле
-4. Сканируем назад от позиции совпадения до первого <!-- SOURCE_ID: -->
-5. Извлекаем external_id из метаданных
-6. Достаём original_item WHERE external_id = extracted_id
-7. Возвращаем: { url, text, published_at }
+4. Сканируем назад от позиции совпадения до первого вхождения `>` в начале строки
+5. Считываем следующие 22 символа, валидируем регулярным выражением `^[A-Za-z0-9_-]{22}$`
+6. Декодируем Base64URL обратно в UUID
+7. Достаём original_item WHERE id = decoded_uuid
+8. Возвращаем: { url, text, published_at }
 ```
 
 **Edge case: cited_text пересекает границу двух постов.**  
-Алгоритм вернёт пост, где цитата начинается (ближайший SOURCE_ID выше). Для MVP приемлемо. Пустая строка-разделитель снижает вероятность склейки (заложено в формат).
+Алгоритм вернёт пост, где цитата начинается (ближайший заголовок выше). Для MVP приемлемо. Пустая строка-разделитель снижает вероятность склейки (заложено в формат).
 
 ---
 
@@ -449,17 +451,25 @@ Freeze навсегда
 - **`SourceService`** (Оркестратор): Главный фасад. Валидирует данные, создаёт `content_source`, диспатчит `ProcessSourceJob`.
   - Для TG: вызывается при подтверждении канала (`awaiting_confirm` → `processing`). Запускает внешний парсер через `TelegramExtractor`.
   - Для YT: вызывается после загрузки и подтверждения списка видео (`awaiting_index` → `indexing`). Запускает извлечение транскриптов через `YouTubeExtractor`.
-- **`ProcessSourceJob`**: Laravel Job (`ShouldBeUnique`). Является «тонким» диспетчером: не содержит бизнес-логики, а лишь разрешает зависимости и делегирует выполнение бизнес-сервису `SourceIndexingService::process($draftId)`.
+- **`ProcessSourceJob`**: Laravel Job (`ShouldBeUnique`, уникальный по `content_source_id`). Является «тонким» диспетчером: не содержит бизнес-логики, а лишь разрешает зависимости и делегирует выполнение бизнес-сервису `SourceIndexingService::process($draftId)`.
 - **`SourceIndexingService`**: Инкапсулирует всю бизнес-логику индексации: сбор данных для MD Bundle, вызов NotebookLM API, обработку ответов, сохранение результатов в БД, обновление статусов и отправку финальных SSE-событий.
 - **`ExtractorFactory`**: Возвращает нужный экстрактор по типу источника.
 - **`SourceExtractorInterface`**: Контракт `extract(ContentSource $source): void`.
   - `TextExtractor`: Сохраняет готовый текст.
   - `YouTubeExtractor`: Работает с `NlmClient` для пакетного извлечения транскриптов через временный ноутбук.
-  - `TelegramExtractor`: Инициирует асинхронный парсинг через FastAPI. Возвращает управление сразу (202); результаты приходят через webhook.
+  - `TelegramExtractor`: Инициирует парсинг через FastAPI. Job блокируется на время парсинга (через удержание `ShouldBeUnique` локи по `content_source_id`), что предотвращает дублирование запросов к скраперу. Результаты приходят через webhook.
 - **`TelegramWebhookController`**: Принимает webhook-пачки от TG Scraper. Сохраняет `original_items`, вызывает `LinkProcessorService`, отправляет SSE-события.
 - **`LinkProcessorService`**: Принимает ссылки из поля `links` каждого поста в webhook-пачках `tg-scrapper`, фильтрует вложенные каналы (игнорируя ссылки без ID поста), дедуплицирует их и создаёт `content_sources` со статусом `pending_review`.
 - **`BundleService`**: Управляет созданием дельта-бандлов. Вызывается по крону.
 - **`BundleBuilder`**: Инкапсулирует логику накопления текста до лимита ~490k символов и рендеринга MD-файла.
+
+---
+
+## Восстановление после сбоя TG-парсинга
+
+Если Scraper прислал часть чанков и упал (или `action=done` не пришёл), `content_source` остаётся в статусе `uploading` бесконечно. Для production-готовности реализуются следующие механизмы:
+
+1. **Timeout + Retry:** Scheduler раз в N минут проверяет `content_sources` WHERE `extraction_status = 'uploading'` AND `updated_at < now() - interval '30 minutes'`. Если находит — сбрасывает статус в `pending` и повторно диспатчит `ProcessSourceJob`. Скрапер возобновляет парсинг с `last_fetched_id` (или `from_id`), чтобы не дублировать уже сохранённые посты
 
 ---
 
@@ -555,3 +565,13 @@ CREATE INDEX ON original_items (md_bundle_id) WHERE md_bundle_id IS NULL;
 CREATE INDEX ON md_bundles (notebook_id, status);
 CREATE INDEX ON md_bundles (notebooklm_source_id);
 ```
+
+---
+
+## TODO: Future Improvements (Post-MVP)
+
+Следующие улучшения отложены до выхода за рамки MVP, но должны быть учтены при масштабировании:
+
+- **Безопасность webhook от TG Scraper:** Добавить HMAC-подпись в заголовки webhook-запросов. `TelegramWebhookController` должен верифицировать подпись перед обработкой данных, чтобы исключить отправку фейковых постов.
+- **Temporary Extraction Notebook:** Реализовать distributed lock по ноутбуку и механизм принудительной очистки слотов при падении extraction job, чтобы NLM-источники не оставались висеть в временном ноутбуке.
+- **YouTube API квоты:** При большом количестве каналов с `auto_update` может потребоваться кеширование результатов `resolveChannelUrls` или переход на более экономные методы API.
