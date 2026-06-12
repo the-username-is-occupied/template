@@ -2,9 +2,13 @@
 
 namespace App\Services;
 
+use App\Domain\YouTube\DTOs\ChannelInfoData;
+use App\Domain\YouTube\DTOs\ChannelUrlMappingData;
+use App\Domain\YouTube\DTOs\VideoUrlsData;
 use Google\Client;
 use Google\Service\YouTube;
 use Illuminate\Support\Facades\Log;
+use Spatie\LaravelData\DataCollection;
 
 class YouTubeService
 {
@@ -22,7 +26,7 @@ class YouTubeService
      *
      * * @param string $identifier ID канала (UC...) или хэндл (например, @GoogleDevelopers)
      */
-    public function getChannelInfo(string $identifier): ?array
+    public function getChannelInfo(string $identifier): ?ChannelInfoData
     {
         $params = [];
 
@@ -44,17 +48,17 @@ class YouTubeService
             $snippet = $channel->getSnippet();
             $statistics = $channel->getStatistics();
 
-            return [
-                'id' => $channel->getId(),
-                'title' => $snippet->getTitle(),
-                'description' => $snippet->getDescription(),
-                'handle' => $snippet->getCustomUrl(), // Возвращает строку вида @handle
-                'avatar_url' => $snippet->getThumbnails()->getHigh()?->getUrl() ?? $snippet->getThumbnails()->getDefault()?->getUrl(),
-                'published_at' => $snippet->getPublishedAt(),
-                'subscribers_count' => (int) $statistics->getSubscriberCount(),
-                'view_count' => (int) $statistics->getViewCount(),
-                'video_count' => (int) $statistics->getVideoCount(),
-            ];
+            return new ChannelInfoData(
+                id: $channel->getId(),
+                title: $snippet->getTitle(),
+                description: $snippet->getDescription(),
+                handle: $snippet->getCustomUrl(),
+                avatar_url: $snippet->getThumbnails()->getHigh()?->getUrl() ?? $snippet->getThumbnails()->getDefault()?->getUrl(),
+                published_at: $snippet->getPublishedAt(),
+                subscribers_count: (int) $statistics->getSubscriberCount(),
+                view_count: (int) $statistics->getViewCount(),
+                video_count: (int) $statistics->getVideoCount(),
+            );
         } catch (\Exception $e) {
             Log::error("YouTube API Error in getChannelInfo for '{$identifier}': ".$e->getMessage());
 
@@ -69,10 +73,10 @@ class YouTubeService
      * @param  array  $types  Массив из возможных значений: 'video', 'shorts', 'streams'
      * @return array Массив отсортированных URL-адресов контента
      */
-    public function getVideoUrls(string $id, array $types = ['video', 'shorts', 'streams']): array
+    public function getVideoUrls(string $id, array $types = ['video', 'shorts', 'streams']): VideoUrlsData
     {
         if (empty($types)) {
-            return [];
+            return new VideoUrlsData(urls: []);
         }
 
         // Оптимизация для КАНАЛА: YouTube генерирует скрытые системные плейлисты для разных типов контента
@@ -95,11 +99,11 @@ class YouTubeService
                 $allUrls = array_merge($allUrls, $this->getUrlsFromPlaylist($playlistId, $type));
             }
 
-            return array_values(array_unique($allUrls));
+            return new VideoUrlsData(urls: array_values(array_unique($allUrls)));
         }
 
         // Если передан ID обычного ПЛЕЙЛИСТА (смешанный контент)
-        return $this->getUrlsFromCustomPlaylist($id, $types);
+        return new VideoUrlsData(urls: $this->getUrlsFromCustomPlaylist($id, $types));
     }
 
     /**
@@ -236,16 +240,16 @@ class YouTubeService
      *
      * * @param array $urls Массив ссылок на видео (watch, shorts, live, youtu.be)
      */
-    public function resolveChannelUrls(array $urls): array
+    public function resolveChannelUrls(array $urls): DataCollection
     {
-        $mapping = [];
+        $mappings = [];
         $urlToVideoId = [];
         $videoIds = [];
 
         // 1. Извлекаем ID видео из различных форматов URL
         foreach ($urls as $url) {
             $trimmedUrl = trim($url);
-            $mapping[$url] = null; // По умолчанию ставим null, если видео не найдется
+            $mappings[] = new ChannelUrlMappingData(url: $url, handle: null);
 
             $videoId = null;
             if (preg_match('/v=([a-zA-Z0-9_\-]{11})/', $trimmedUrl, $matches)) {
@@ -263,7 +267,7 @@ class YouTubeService
         }
 
         if (empty($videoIds)) {
-            return $mapping;
+            return ChannelUrlMappingData::collection($mappings);
         }
 
         // 2. Получаем Channel ID для каждого Video ID (пачками по 50 штук)
@@ -274,7 +278,6 @@ class YouTubeService
         foreach ($videoChunks as $chunk) {
             try {
                 $idsString = implode(',', $chunk);
-                // Запрос стоит всего 1 единицу квоты за 50 видео
                 $response = $this->youtube->videos->listVideos('snippet', ['id' => $idsString]);
 
                 foreach ($response->getItems() as $video) {
@@ -290,7 +293,7 @@ class YouTubeService
         }
 
         if (empty($channelIds)) {
-            return $mapping;
+            return ChannelUrlMappingData::collection($mappings);
         }
 
         // 3. Получаем Handle (@channel_name) для каждого уникального Channel ID (пачками по 50 штук)
@@ -300,7 +303,6 @@ class YouTubeService
         foreach ($channelChunks as $chunk) {
             try {
                 $idsString = implode(',', $chunk);
-                // Запрос стоит всего 1 единицу квоты за 50 каналов
                 $response = $this->youtube->channels->listChannels('snippet', ['id' => $idsString]);
 
                 foreach ($response->getItems() as $channel) {
@@ -308,10 +310,8 @@ class YouTubeService
                     $customUrl = $channel->getSnippet()->getCustomUrl();
 
                     if ($customUrl) {
-                        // Убеждаемся, что хэндл начинается с @
                         $channelIdToHandle[$cId] = str_starts_with($customUrl, '@') ? $customUrl : '@'.$customUrl;
                     } else {
-                        // На случай, если у старого/пустого канала нет хэндла, создаем подобие из названия
                         $title = $channel->getSnippet()->getTitle();
                         $channelIdToHandle[$cId] = '@'.preg_replace('/[^a-zA-Z0-9]/', '', $title);
                     }
@@ -322,18 +322,18 @@ class YouTubeService
         }
 
         // 4. Склеиваем финальный маппинг: Исходный URL -> ID Видео -> ID Канала -> Хэндл (@)
-        foreach ($urls as $url) {
-            if (isset($urlToVideoId[$url])) {
-                $vId = $urlToVideoId[$url];
+        foreach ($mappings as $mapping) {
+            if (isset($urlToVideoId[$mapping->url])) {
+                $vId = $urlToVideoId[$mapping->url];
                 if (isset($videoIdToChannelId[$vId])) {
                     $cId = $videoIdToChannelId[$vId];
                     if (isset($channelIdToHandle[$cId])) {
-                        $mapping[$url] = $channelIdToHandle[$cId];
+                        $mapping->handle = $channelIdToHandle[$cId];
                     }
                 }
             }
         }
 
-        return $mapping;
+        return ChannelUrlMappingData::collection($mappings);
     }
 }
