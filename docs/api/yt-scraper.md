@@ -1,5 +1,7 @@
 # YT Scraper API (FastAPI)
 
+> На данный момент сервис отключет. Вмесот него работает App\Services\YouTubeService.php
+
 Извлечение метаданных и списка видео с YouTube-каналов и плейлистов через `yt-dlp`.
 
 - **Хост внутри сети:** `http://youtube:8000`
