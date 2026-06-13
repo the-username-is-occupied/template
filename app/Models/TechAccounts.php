@@ -59,32 +59,6 @@ class TechAccounts extends Model
         return $this->belongsTo(AccountTierLimit::class, 'pool_type', 'tier');
     }
 
-    public function test(string $q = 'Кто такая Сильвана? Ответь коротко')
-    {
-        // sylvanas 664040dd-5608-490a-b35f-92b06979f768
-        return (new NotebookLMService)->listNotebooks($this->id);
-
-        return (new NotebookLMService)->getNotebook($this->id, '664040dd-5608-490a-b35f-92b06979f768');
-
-        return (new NotebookLMService)->setPublic($this->id, 'f05b4c43-97b7-4097-91b6-94c82226552b');
-
-    }
-
-    public function listSources(?string $notebookId = null)
-    {
-        return (new NotebookLMService)->listSources($this->id, $notebookId ?? '664040dd-5608-490a-b35f-92b06979f768');
-    }
-
-    public function ask(string $q = 'Notebook')
-    {
-        return (new NotebookLMService)->askQuestion($this->id, '664040dd-5608-490a-b35f-92b06979f768', $q);
-    }
-
-    public function createnb(string $q = 'Notebook')
-    {
-        return (new NotebookLMService)->createNotebook($this->id, $q);
-    }
-
     /**
      * Get the NotebookLM service decorator for this account.
      */
