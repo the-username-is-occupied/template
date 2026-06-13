@@ -66,10 +66,6 @@ httpx читает эти переменные автоматически — в
 Все ноутбуки создаются как **shared (public viewer)**. Любой аккаунт может делать ask на любом ноутбуке. Это позволяет распределять нагрузку:
 
 ```
-Notebook X
-  Owner:  Account A
-  Viewer: Account B, C, D, ...
-
 Ask request → выбрать аккаунт с MIN(chats_today) → chat.ask(notebook_id, ...)
 ```
 
@@ -94,6 +90,107 @@ EXPIRE ask_count:{account_id}:{YYYY-MM-DD} 86400
 
 ---
 
+## Tech Notebooks Management
+
+`AccountService` является **единым шлюзом** для всех операций с техническими ноутбуками (таблица `tech_notebooks`). Это исключает race conditions и дублирование логики.
+
+### Псевдокод AccountService для тех. ноутбуков
+
+```php
+class AccountService
+{
+    /**
+     * Находит тех. ноутбук с максимальным количеством свободных слотов.
+     * Если свободных слотов нет ни в одном существующем, пытается создать новый (Burst-режим).
+     * 
+     * @return array|null ['notebook' => TechNotebook, 'available_slots' => int]
+     */
+    public function selectTechNotebookWithCapacity(string $type): ?array
+    {
+        // Ищем idle или busy ноутбук, у которого есть хотя бы 1 свободный слот
+        // Сортируем по убыванию свободных слотов, чтобы брать максимально возможные батчи
+
+        
+            // Если все существующие ноутбуки заполнены (full), пытаемся создать новый
+            
+    }
+
+    /**
+     * Создает новый тех. ноутбук на свободном аккаунте.
+     */
+    public function createTechNotebook(string $type, ?TechAccount $preferredAccount = null): ?TechNotebook
+    {
+        $account = $preferredAccount ?? $this->selectAccountForNotebookCreation();
+        
+        
+    }
+
+    /**
+     * Захватывает distributed lock на тех. ноутбук.
+     * Предотвращает множественный доступ (два job не могут одновременно загружать видео).
+     */
+    public function acquireTechNotebookLock(string $notebookId, string $lockedBy, int $ttlSeconds = 600): bool
+    {
+        // UPDATE tech_notebooks 
+        // SET locked_at = NOW(), locked_by = $lockedBy, status = 'busy'
+        // WHERE id = $notebookId AND locked_at IS NULL
+        // RETURNING id
+    }
+
+    /**
+     * Освобождает lock после успешного завершения задачи.
+     */
+    public function releaseTechNotebookLock(string $notebookId, string $lockedBy): void
+    {
+        // UPDATE tech_notebooks 
+        // SET locked_at = NULL, locked_by = NULL, status = 'idle'
+        // WHERE id = $notebookId AND locked_by = $lockedBy
+    }
+
+    /**
+     * Атомарное обновление счетчика источников.
+     */
+    public function updateTechNotebookSourcesCount(string $notebookId, int $delta): void
+    {
+        // UPDATE tech_notebooks 
+        // SET sources_count = sources_count + $delta,
+        //     status = CASE 
+        //         WHEN (sources_count + $delta) >= max_sources THEN 'full'
+        //         ELSE 'idle'
+        //     END
+        // WHERE id = $notebookId
+    }
+
+    /**
+     * Помечает ноутбук как деградировавший (например, при сбое очистки).
+     */
+    public function markNotebookDegraded(string $notebookId): void
+    {
+        TechNotebook::where('id', $notebookId)
+            ->update([
+                'status' => 'degraded',
+                'locked_at' => null,
+                'locked_by' => null
+            ]);
+    }
+}
+```
+
+### Фоновые джобы для тех. ноутбуков
+
+**`MaintainTechNotebooksPoolJob`** (запускается по крону каждые 5 минут):
+- Проверяет количество тех. ноутбуков каждого типа.
+- Если меньше базового пула (5 source_extractor, 1 summary_aggregator, 1 global_search) — создаёт недостающие.
+- Если есть ноутбуки со статусом `degraded` — пытается пересоздать их.
+
+**`CleanupStaleTechNotebooksJob`** (запускается по крону каждые 15 минут):
+- Находит ноутбуки со статусом `busy` и `locked_at < now() - 15 minutes` (зависшие после краша job).
+- Пытается очистить их через NLM API (`deleteAllSources`).
+- Если очистка успешна — сбрасывает статус в `idle`, `sources_count = 0`.
+- Если очистка не удалась (сессия протухла) — помечает как `degraded`.
+
+---
+
 ## Health Monitoring
 
 FastAPI предоставляет `/health/accounts`. Laravel поллит и помечает деградировавшие аккаунты.
@@ -102,7 +199,7 @@ FastAPI предоставляет `/health/accounts`. Laravel поллит и �
 
 ---
 
-## DB: google_accounts
+## DB: tech_accounts
 
 ```sql
 id               uuid pk

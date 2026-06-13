@@ -139,6 +139,40 @@
 
 ---
 
+### `tech_notebooks`
+Технические ноутбуки для служебных задач: извлечение транскриптов из YouTube, агрегация саммари для глобального поиска и т.д. Не принадлежат пользователям.
+
+| Поле | Тип | Описание |
+|---|---|---|
+| id | uuid | PK |
+| tech_account_id | uuid | FK → tech_accounts |
+| type | enum | `source_extractor`, `summary_aggregator`, `global_search` |
+| nlm_notebook_id | text | ID ноутбука в NLM |
+| title | text | Название для удобства (напр., "Extractor #1") |
+| status | enum | `idle`, `busy`, `full`, `degraded` |
+| sources_count | int | Текущее кол-во источников в NLM. Default: 0 |
+| max_sources | int | Лимит из account_tier_limits.sources_per_notebook (для быстрого доступа) |
+| locked_at | timestamptz | Время захвата distributed lock. NULL если свободен |
+| locked_by | varchar | ID задачи/процесса, который держит лок (напр., 'extract_job_{source_id}') |
+| last_used_at | timestamptz | |
+| created_at | timestamptz | |
+| updated_at | timestamptz | |
+
+**Статусы:**
+- `idle`: Свободен, готов к использованию
+- `busy`: Временно занят (идёт извлечение), но есть свободные слоты
+- `full`: Достигнут лимит max_sources, нельзя добавлять новые источники
+- `degraded`: Проблемы с сессией или сбой очистки (CleanupStaleTechNotebooksJob пытается спасти)
+
+**Базовый пул:** система поддерживает минимальный пул тех. ноутбуков через `MaintainTechNotebooksPoolJob`:
+- 5 ноутбуков типа `source_extractor`
+- 1 ноутбук типа `summary_aggregator`
+- 1 ноутбук типа `global_search`
+
+Если ноутбук помечается как `degraded`, джоб создаёт новый взамен утерянного.
+
+---
+
 ### `notebook_content_sources`
 Какие источники добавлены в какой ноутбук.
 
