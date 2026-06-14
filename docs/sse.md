@@ -30,6 +30,41 @@ Mercure Hub handles connection multiplexing, so the frontend should only subscri
 ### Key Principle: Multi-Topic Publishing
 Mercure allows sending a single event to **multiple topics** simultaneously. The backend should not check "where the user is currently looking". It just publishes to all relevant topics, and Mercure delivers only to active subscribers.
 
+### Events + Listeners Architecture
+Для публикации SSE-обновлений используется связка **Events + Listeners** для разделения бизнес-логики и механизма отправки.
+
+1. **Firing Events:** В месте, где нужно отправить обновление (Service, Controller, Job), генерируется (fire) соответствующее событие с payload:
+   ```php
+   event(new FileUploaded($user, $file));
+   ```
+
+2. **MercurePublisher Listener:** Слушатель (Listener) обрабатывает это событие. Внутри метода `handle()` он использует сервис `App\Support\MercurePublisher` для пуша обновлений в Mercure Hub:
+   ```php
+   class SendFileUploadedNotification
+   {
+       public function __construct(
+           protected MercurePublisher $publisher
+       ) {}
+
+       public function handle(FileUploaded $event): void
+       {
+           $this->publisher->publish(
+               topics: ["user.{$event->user->id}.uploads", "user.{$event->user->id}.notifications"],
+               data: ['type' => 'file.uploaded', 'file' => $event->file->toArray()]
+           );
+       }
+   }
+   ```
+
+3. **Testing:** При написании тестов бизнес-логики, которая вызывает события, **мокать слушателя** (или сам `MercurePublisher` / Event facade), чтобы избежать реальных HTTP-запросов к Mercure Hub и ускорить тесты:
+   ```php
+   // Mock the listener
+   $this->mock(SendFileUploadedNotification::class);
+   
+   // OR mock the MercurePublisher directly
+   $this->mock(MercurePublisher::class);
+   ```
+
 ---
 
 ## 3. Frontend Implementation (Vue 3)
@@ -67,6 +102,8 @@ When generating, modifying, or reviewing code for this project, you **MUST STRIC
    - Public: `public.{context_name}`
 3. **Payload Structure:** Keep the JSON payload flat and predictable. Always include an event `type` or `action` key (e.g., `'type' => 'file.uploaded'`) so the frontend can switch on it easily.
 4. **DO NOT** add logic in Laravel to check "if the user is currently on the uploads page" before broadcasting. Broadcast to the topic blindly; Mercure and the frontend handle the rest.
+5. **Events & Listeners:** ALWAYS use Laravel Events and Listeners for SSE publishing. Fire an event with a payload where the update occurs, and let the Listener use `App\Support\MercurePublisher` to push to Mercure.
+6. **Testing:** When testing business logic that fires events, ALWAYS mock the Listener (or `MercurePublisher`) to prevent actual SSE broadcasts during tests.
 
 ### Infrastructure / Config Rules
 1. **HTTP/2:** Ensure that any configuration or environment variables related to the Mercure Hub URL enforce or expect HTTP/2 (e.g., `https://mercure.domain.com`).

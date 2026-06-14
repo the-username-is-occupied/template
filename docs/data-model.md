@@ -122,7 +122,7 @@
 | source_url | text | Permalink конкретного item (пост, видео, страница) |
 | parent_item_id | uuid | FK → original_items (nullable). Ссылка на родительский original_item — из какого поста/документа была взята эта ссылка |
 | published_at | timestamptz | |
-| char_count | int | Строгий подсчёт символов (без токенизации) |
+| word_count | int | Количество слов (word count). Подсчитывается регулярным выражением для корректной работы с кириллицей и латиницей |
 | metadata | jsonb | |
 | created_at | timestamptz | |
 
@@ -193,7 +193,7 @@
 | id | uuid | PK |
 | notebook_id | uuid | FK → notebooks |
 | file_path | text | Путь к файлу на хранилище |
-| char_count | int | Строгий подсчёт символов (без токенизации) |
+| word_count | int | Количество слов (word count) |
 | status | enum | `pending`, `uploading`, `uploaded`, `error` |
 | nlm_source_id | text | ID источника в NLM после загрузки бандла |
 | created_at | timestamptz | |

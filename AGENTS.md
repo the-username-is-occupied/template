@@ -146,11 +146,16 @@ This project has domain-specific skills available in `**/skills/**`. You MUST ac
 
 - When generating links to other pages, prefer named routes and the `route()` function.
 
+## SSE 
+-  ALWAYS use Laravel Events and Listeners for SSE publishing. Fire an event with a payload where the update occurs, and let the Listener use `App\Support\MercurePublisher` to push to Mercure.
+
+
 ## Testing
 
 - When creating models for tests, use the factories for the models. Check if the factory has custom states that can be used before manually setting up the model.
 - Faker: Use methods such as `$this->faker->word()` or `fake()->randomDigit()`. Follow existing conventions whether to use `$this->faker` or `fake()`.
 - When creating tests, make use of `php artisan make:test [options] {name}` to create a feature test, and pass `--unit` to create a unit test. Most tests should be feature tests.
+- When testing business logic that fires events, ALWAYS mock the Listener (or `MercurePublisher`) to prevent actual SSE broadcasts during tests.
 
 ## Vite Error
 

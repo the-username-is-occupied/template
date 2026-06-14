@@ -39,7 +39,7 @@ graph TD
     S[Cron] -->|13. unique job| T[BuildDeltaBundlesJob]
     T -->|14. fetch unbundled| U[OriginalItemRepository]
     U -->|15. items| V(BundleService)
-    V -->|16. group by ~490k chars| W[BundleBuilder]
+    V -->|16. group by ~495k words| W[BundleBuilder]
     W -->|17. write .md| X[(Shared Volume: /bundles_data)]
     W -->|18. update DB| DB3
     V -->|19. upload| N
@@ -88,7 +88,7 @@ processing ──(action=done от TG / видео загружены у YT)─�
 **Замечания по переходам:**
 - Кнопка «Индексировать» **не показывается** во время `processing`. Пользователь должен дождаться предварительной обработки и перехода в `awaiting_index`, и только после этого может нажать кнопку «Индексировать».
 - Черновик удаляется, когда `content_source.extraction_status = extracted` для основного источника. Approved-ссылки (`pending_review`) продолжают обрабатываться независимо
-- `abandoned`-черновики удаляются по TTL (7 дней)
+- `abandoned`-черновики удаляются по TTL (7 дней).
 
 **Очистка сиротских `content_sources`:**
 Для TG `content_source` создаётся на этапе `awaiting_confirm` → `processing`. Если пользователь abandons визард на этапе `awaiting_index` (не нажав «Индексировать»), `source_draft` будет удалён по TTL, но `content_source` останется в БД со статусом `pending` или `extracted` (посты уже могут быть сохранены). Чтобы избежать накопления таких сирот, **требуется** внедрить фоновый job (`CleanupOrphanedSourcesJob`), который раз в сутки находит `content_sources`, созданные более N дней назад, не имеющие связанных `source_drafts` и не добавленные ни в один ноутбук (`notebook_content_sources`), и удаляет их вместе с их `original_items`.
@@ -246,7 +246,6 @@ data: {json}
           parent_source_id = <TG channel source id>
           parent_item_id = <original_item id конкретного поста>
    c. SSE: parsing_progress, links_batch
-   
 6. Парсер присылает webhook (action=done)
    content_source.extraction_status = extracted
    draft.status = awaiting_index
@@ -307,13 +306,13 @@ data: {json}
       — сохраняем транскрипты в original_items
       — освобождаем lock
    f. Если в массиве URL остались необработанные элементы, повторяем цикл с шага (a) для следующей пачки
-   
+
 6. content_source.extraction_status = extracted
    SSE: extraction_done
    draft удаляется
+```
 
 **Crash Recovery:** если extraction job упадёт до вызова deleteSources, источники останутся в тех. ноутбуке. Фоновый `CleanupStaleTechNotebooksJob` раз в 15 минут находит ноутбуки со статусом `busy` и `locked_at < now() - 15 minutes`, принудительно очищает их через NLM API и сбрасывает статус в `idle`. Если очистка не удалась (сессия протухла), ноутбук помечается как `degraded`, и `MaintainTechNotebooksPoolJob` создаст новый взамен.
-```
 
 ---
 
@@ -385,16 +384,18 @@ data: {json}
     ↓
 Сортировка по published_at
     ↓
-Пакуем в FULL бандлы (макс. 490k символов, запас 10k)
+Пакуем в FULL бандлы (макс. 495k слов, запас 5k)
     ↓
 Загружаем в NotebookLM → ждём индексации
     ↓
 Freeze навсегда
 ```
 
+> ⚠️ **Атомарность original_item:** Один элемент (видео, пост, статья) **никогда не разрезается** между бандлами. Если `original_item` не влезает в текущий бандл целиком (даже если там есть свободные 10k слов места), текущий бандл закрывается как есть, а item целиком переносится в следующий. Это сохраняет целостность контекста для нейросети.
+
 ### Живые обновления и delta_bundle
 
-Живые обновления (auto_update = true), а также остаточные данные от первичной индексации (которые не поместились в последний full бандл из-за лимита ~490k символов), обрабатываются через **`delta_bundle`**.
+Живые обновления (auto_update = true), а также остаточные данные от первичной индексации (которые не поместились в последний full бандл из-за лимита ~450k слов), обрабатываются через **`delta_bundle`**.
 
 В отличие от full бандлов, `delta_bundle` **может перезаписываться** в NotebookLM по мере поступления новых данных для индексации. Это позволяет не плодить множество мелких бандлов для частых обновлений.
 
@@ -406,28 +407,29 @@ Freeze навсегда
 3. Сохраняем новые `original_items` (md_bundle_id = null)
 4. После успешного завершения автообновления (получения `action=done` от скрапера) `content_source.last_fetched_id` обновляется до максимального ID среди только что полученных постов.
 5. `BuildDeltaBundlesJob`:
-   - Находим активный `delta_bundle` для ноутбука (если есть и его размер < 490k символов).
-   - Добавляем новые unbundled items в этот `delta_bundle`.
+   - Находим активный `delta_bundle` для ноутбука (если есть и его размер < 495k слов).
+   - Добавляем новые unbundled items в этот `delta_bundle` (с соблюдением правила атомарности original_item).
    - Перезаписываем содержимое источника в NotebookLM (обновляем md-файл).
-   - **Если размер `delta_bundle` достигает ~490k символов**, он становится неизменяемым (freeze, write-once), и для последующих обновлений создаётся **новый `delta_bundle`**.
+   - **Если размер `delta_bundle` достигает ~495k слов**, он становится неизменяемым (freeze, write-once), и для последующих обновлений создаётся **новый `delta_bundle`**.
 
 ---
 
 ## Bundle File Format
 
 ```markdown
->VQ6EAOKbQdSnFkRmVUQAAA
+>VQ6EAOKbQdSnFkRmVUQAAA {"title":"Название видео или поста","date":"2024-05-12T14:30:00Z"}
 Текст поста 12345. Может быть многострочным.
 Продолжение текста того же поста.
 
->8x9BpLqR2mN5vK3jW7tYzA
+>8x9BpLqR2mN5vK3jW7tYzA {"title":"Дудь: Интервью с X","date":"2023-11-01T12:00:00Z"}
 Текст поста 12346.
 
->kL3mN5vK3jW7tYzAVQ6EAA
+>kL3mN5vK3jW7tYzAVQ6EAA {"title":"Транскрипция видео","date":"2024-01-15T09:00:00Z"}
 Транскрипция видео или описание.
 ```
 
-**Формат заголовка:** `>` + 22 символа Base64URL-кодированного UUID (`original_items.id`). Это даёт фиксированный overhead ~24 байта на пост вместо 88+ байт у HTML-комментариев. URL, timestamp и прочие метаданные доизвлекаются из БД по UUID при резолвинге цитат.
+**Формат заголовка:** `>` + 22 символа Base64URL-кодированного UUID (`original_items.id`) + пробел + JSON-объект с метаданными (`title` и `date` в формате ISO 8601).  
+Это даёт NotebookLM явный контекст для временной ориентации (chronological awareness) внутри источника, при этом мы сохраняем возможность точного резолвинга. URL и прочие метаданные доизвлекаются из БД по UUID при резолвинге цитат. Если у `original_item` нет названия, поле `title` может быть пустой строкой или содержать дефолтное значение (например, ID поста).
 
 ---
 
@@ -438,7 +440,7 @@ Freeze навсегда
 2. Читаем bundle file
 3. Ищем cited_text substring в файле
 4. Сканируем назад от позиции совпадения до первого вхождения `>` в начале строки
-5. Считываем следующие 22 символа, валидируем регулярным выражением `^[A-Za-z0-9_-]{22}$`
+5. Считываем следующие 22 символа (до первого пробела), валидируем регулярным выражением `^[A-Za-z0-9_-]{22}$`
 6. Декодируем Base64URL обратно в UUID
 7. Достаём original_item WHERE id = decoded_uuid
 8. Возвращаем: { url, text, published_at }
@@ -467,7 +469,7 @@ Freeze навсегда
 - **`TelegramWebhookController`**: Принимает webhook-пачки от TG Scraper. Сохраняет `original_items`, вызывает `LinkProcessorService`, отправляет SSE-события.
 - **`LinkProcessorService`**: Принимает ссылки из поля `links` каждого поста в webhook-пачках `tg-scrapper`, фильтрует вложенные каналы (игнорируя ссылки без ID поста), дедуплицирует их и создаёт `content_sources` со статусом `pending_review`.
 - **`BundleService`**: Управляет созданием дельта-бандлов. Вызывается по крону.
-- **`BundleBuilder`**: Инкапсулирует логику накопления текста до лимита ~490k символов и рендеринга MD-файла.
+- **`BundleBuilder`**: Инкапсулирует логику накопления текста до лимита ~495k слов, обеспечивает атомарность `original_item` (не режет один item между бандлами) и рендеринга MD-файла с инъекцией метаданных (title, date).
 
 ---
 
@@ -500,9 +502,9 @@ Freeze навсегда
 
 ## Метрики и Лимиты Бандлов
 
-- **Подсчёт размера:** строгий подсчёт символов, токенизация не требуется
-- **Лимит бандла:** ~490 000 символов (запас 10k до жёсткого лимита NLM в 500k)
-- **Стратегия:** write-once. Бандлы не редактируются и не удаляются при изменении оригинальных постов
+- **Подсчёт размера:** Подсчёт слов (word count). Для PHP (Laravel) используется регулярное выражение `preg_match_all('/[\p{L}\p{N}]+/u', $text)`. Для Python (FastAPI) — `len(re.findall(r'[\w]+', text, re.UNICODE))` или `len(text.split())`. Лимит NLM задан в словах, а не в символах.
+- **Лимит бандла:** ~495 000 слов (запас 5k до жёсткого лимита NLM в 500k слов). 495k слов — это примерно 3.5–5.5 МБ текста в UTF-8, что с огромным запасом укладывается в жёсткое ограничение NLM на размер загружаемого файла (200 МБ).
+- **Стратегия:** write-once. Бандлы не редактируются и не удаляются при изменении оригинальных постов.
 
 ---
 
@@ -557,7 +559,7 @@ md_bundles
   notebooklm_source_id    varchar null
   type                    enum(full, delta)
   status                  enum(pending, uploading, uploaded, error)
-  char_count              int
+  word_count              int
   file_path               varchar
   uploaded_at             timestamp
   created_at              timestamp
