@@ -13,27 +13,19 @@
 
 ## Что нужно сделать
 
-### 1. TgScraperClient (расширение)
-
-В `Task 02` был создан `TgScraperClient::getChannelMeta()`. Добавь методы:
-- `scrape(string $contentSourceId, string $channel, string $hookUrl, array $config = []): void` — POST `/scrape`. Параметры конфига (`limit`, `from_id`, `to_id`, `from_date`, `to_date`) берутся из `config` и передаются только если заданы.
-- `getStatus(): ScraperStatusData` — GET `/status`
-
-Все DTO через `spatie/laravel-data`.
-
-### 2. TelegramExtractor
+### 1. TelegramExtractor (использует TGScraperService)
 
 Создай `App\Services\Extractors\TelegramExtractor` реализующий `SourceExtractorInterface`.
 
 Логика `extract(ContentSource $source)`:
 1. Устанавливает `content_source.extraction_status = uploading`
 2. Формирует `hook_url` — внутренний URL Laravel-приложения для приёма webhook (`/api/webhooks/telegram-scraper`)
-3. Вызывает `TgScraperClient::scrape()` с параметрами из `source.metadata.scrape_config`
+3. Вызывает `TGScraperService::scrape()` с параметрами из `source.metadata.scrape_config` (используй существующий сервис из `App\Domain\Telegram\TGScraperService`, модифицировать его нельзя)
 4. Возвращает управление (парсинг асинхронный — результаты придут через webhook)
 
 > Важно: Job не "ждёт" окончания парсинга. `ShouldBeUnique` лок на `content_source_id` удерживается пока job жив — это нормально, т.к. job завершается сразу после запуска парсинга. Завершение отслеживается через webhook `action=done`.
 
-### 3. TelegramWebhookController
+### 2. TelegramWebhookController
 
 Создай `App\Http\Controllers\Api\TelegramWebhookController` с методом `handle(Request $request)`.
 
@@ -45,7 +37,7 @@
 
 Webhook-контроллер должен быть максимально тонким — только валидация и dispatch.
 
-### 4. ProcessTelegramChunkJob
+### 3. ProcessTelegramChunkJob
 
 Создай `App\Jobs\ProcessTelegramChunkJob`.
 
@@ -62,7 +54,7 @@ Webhook-контроллер должен быть максимально тон
 4. Передаёт ссылки из каждого поста в `LinkProcessorService::processLinks()`
 5. Публикует SSE `parsing_progress` и `links_batch` (если есть новые ссылки)
 
-### 5. TelegramScrapingDoneJob
+### 4. TelegramScrapingDoneJob
 
 Создай `App\Jobs\TelegramScrapingDoneJob`.
 
@@ -72,7 +64,7 @@ Webhook-контроллер должен быть максимально тон
 3. Устанавливает `draft.status = awaiting_index`
 4. Публикует SSE `parsing_done` с `total_posts` и `total_links`
 
-### 6. LinkProcessorService
+### 5. LinkProcessorService
 
 Создай `App\Services\LinkProcessorService` с методом `processLinks(ContentSource $parentSource, OriginalItem $parentItem, array $links): void`.
 
@@ -91,7 +83,7 @@ Webhook-контроллер должен быть максимально тон
 
 Метод должен быть идемпотентным (повторный вызов с теми же ссылками не создаёт дубликатов).
 
-### 7. API: Просмотр обнаруженных ссылок
+### 6. API: Просмотр обнаруженных ссылок
 
 Добавь endpoint для получения сгруппированных ссылок черновика:
 
@@ -103,7 +95,7 @@ Webhook-контроллер должен быть максимально тон
 
 Каждый item включает `source_post_url` (через `parent_item_id → original_item.source_url`).
 
-### 8. Восстановление после сбоя
+### 7. Восстановление после сбоя
 
 Создай `App\Console\Commands\RetryStaleUploadsCommand` (или добавь в scheduler):
 
@@ -111,7 +103,7 @@ Webhook-контроллер должен быть максимально тон
 
 Добавь задачу в `routes/console.php`.
 
-### 9. SSE Events
+### 8. SSE Events
 
 Добавь Events + Listeners для:
 - `TelegramParsingProgress` → публикует `parsing_progress` (`draft_id`, `posts_parsed`, `links_discovered`)
@@ -122,10 +114,10 @@ Webhook-контроллер должен быть максимально тон
 
 ## Критерии готовности
 
-- Подтверждение TG черновика → `TelegramExtractor` вызывает `TgScraperClient::scrape()` → webhook URL корректный
+- Подтверждение TG черновика → `TelegramExtractor` вызывает `TGScraperService::scrape()` → webhook URL корректный
 - `POST /api/webhooks/telegram-scraper` с `action=upload` → посты сохраняются в `original_items`, ссылки в `content_sources (pending_review)`
 - `POST /api/webhooks/telegram-scraper` с `action=done` → `extraction_status = extracted`, `draft.status = awaiting_index`
 - `LinkProcessorService` не создаёт дубликаты, фильтрует ссылки на TG-каналы без поста
 - `GET /api/source-drafts/{draft}/links` возвращает корректно сгруппированные ссылки
 - Stale upload recovery: `content_source` старше 30 минут в статусе `uploading` → retry
-- Все внешние вызовы (TgScraperClient, YouTubeService, MercurePublisher) мокируются в тестах
+- Все внешние вызовы (TGScraperService, YouTubeService, MercurePublisher) мокируются в тестах
