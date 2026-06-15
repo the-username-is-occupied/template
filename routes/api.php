@@ -24,4 +24,6 @@ Route::middleware('auth')->prefix('source-drafts')->group(function () {
     Route::post('/', [SourceDraftController::class, 'store']);
     Route::get('/{draft}', [SourceDraftController::class, 'show']);
     Route::delete('/{draft}', [SourceDraftController::class, 'destroy']);
+    Route::post('/{draft}/confirm', [SourceDraftController::class, 'confirm']);
+    Route::post('/{draft}/index', [SourceDraftController::class, 'index']);
 });

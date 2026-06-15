@@ -10,6 +10,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Notebook;
 use App\Models\SourceDraft;
 use App\Services\SourceDraftService;
+use App\Services\SourceService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -18,6 +19,7 @@ class SourceDraftController extends Controller
 {
     public function __construct(
         private readonly SourceDraftService $draftService,
+        private readonly SourceService $sourceService,
     ) {}
 
     /**
@@ -60,6 +62,39 @@ class SourceDraftController extends Controller
         $this->draftService->abandon($draft);
 
         return response()->json(['message' => 'Draft abandoned.']);
+    }
+
+    /**
+     * Confirm a source draft and start processing.
+     */
+    public function confirm(Request $request, SourceDraft $draft): JsonResponse
+    {
+        $this->authorizeDraft($draft);
+
+        $scrapeConfig = $request->input('scrape_config');
+
+        $source = $this->sourceService->confirmAndProcess($draft, $scrapeConfig);
+
+        return response()->json([
+            'message' => 'Draft confirmed. Processing started.',
+            'content_source_id' => $source->id,
+        ]);
+    }
+
+    /**
+     * Start indexing approved links.
+     */
+    public function index(Request $request, SourceDraft $draft): JsonResponse
+    {
+        $this->authorizeDraft($draft);
+
+        $approvedUrls = $request->input('approved_urls', []);
+
+        $this->sourceService->startIndexing($draft, $approvedUrls);
+
+        return response()->json([
+            'message' => 'Indexing started.',
+        ]);
     }
 
     private function authorizeDraft(SourceDraft $draft): void
