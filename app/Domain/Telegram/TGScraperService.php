@@ -17,7 +17,7 @@ class TGScraperService
 
     public function __construct()
     {
-        $this->baseUrl = config('tg-scraper.tg_scraper.base_url') ?? 'http://tg:8000';
+        $this->baseUrl = config('tg-scraper.base_url') ?? 'http://telegramm:8000';
     }
 
     public function getBaseUrl(): string

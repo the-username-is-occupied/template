@@ -25,10 +25,10 @@
 3. Установить `is_consolidating = true` на оба исходных бандла
 4. Прочитать оба MD-файла с диска, объединить через разделитель `\n\n---\n\n`
 5. Создать запись нового бандла в БД со статусом `uploading`
-6. **Загрузить новый бандл в NLM** (`NlmClient::uploadSource()`) — в этот момент оба старых бандла ещё существуют в NLM, чат пользователя не прерывается
+6. **Загрузить новый бандл в NLM** (`NotebookLMService::addSourceFile()`) — в этот момент оба старых бандла ещё существуют в NLM, чат пользователя не прерывается
 7. Обновить запись нового бандла: `nlm_source_id`, `status = uploaded`
 8. Перенести записи `bundle_items` со старых бандлов на новый
-9. **Только теперь** удалить старые бандлы из NLM (`NlmClient::deleteSource()`)
+9. **Только теперь** удалить старые бандлы из NLM (`NotebookLMService::deleteSource()`)
 10. Удалить старые MD-файлы с диска
 11. Удалить старые записи из `md_bundles`
 
@@ -86,7 +86,7 @@ Schedule::job(new ScanForConsolidationJob)->dailyAt('03:00');
 
 Создай `App\Jobs\AutoUpdateSourceJob`:
 - Принимает `content_source_id`
-- Для `telegram_channel`: вызывает `TgScraperClient::scrape()` с параметром `from_id = last_fetched_id`
+- Для `telegram_channel`: вызывает `TGScraperService::scrape()` с параметром `from_id = last_fetched_id`
 - Для `youtube_channel`: вызывает `YouTubeService::getVideoUrls()`, сравнивает с уже существующими `original_items` по URL, диспатчит `ProcessSourceJob` для новых видео
 
 Создай `App\Jobs\ScheduleAutoUpdatesJob`:
@@ -128,5 +128,5 @@ Schedule::job(new ScanForConsolidationJob)->dailyAt('03:00');
 - `CleanupOrphanedSourcesJob`: не удаляет источники, добавленные хотя бы в один ноутбук
 - `AutoUpdateSourceJob` для TG использует `last_fetched_id`
 - `AskService` при `is_consolidating = true` возвращает SSE `consolidating`, не вызывает NLM
-- Все NlmClient вызовы мокированы в тестах
+- Все NotebookLMService вызовы мокированы в тестах
 - Feature-тест `ConsolidateBundlesJob`: проверить порядок операций (upload → delete)

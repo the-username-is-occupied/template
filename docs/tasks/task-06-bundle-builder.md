@@ -65,7 +65,7 @@
 2. Для каждого нового item:
    - Если `active_delta.word_count + item.word_count > ACTIVE_DELTA_MAX_WORDS`: вызвать `flushDeltaToQuarter()`
    - Добавить item в `active_delta`, инкрементировать `word_count`
-3. Сохранить обновлённый MD-файл на диск, вызвать `NlmClient::updateSource()`
+3. Сохранить обновлённый MD-файл на диск, вызвать `NotebookLMService::addSourceFile()` или `NotebookLMService::addSourceText()`
 
 #### `flushDeltaToQuarter(MdBundle $delta, Notebook $notebook)`:
 
@@ -74,9 +74,9 @@
    - Заморозить `active_quarter` → `frozen_quarter`
    - Создать новый `active_quarter`
 3. Дописать содержимое `delta` в конец `active_quarter`
-4. Обновить `active_quarter` в NLM (`NlmClient::updateSource()`)
+4. Обновить `active_quarter` в NLM (удалить старый источник и загрузить обновлённый файл через `NotebookLMService`)
 5. Обнулить `active_delta` (очистить файл, `word_count = 0`)
-6. Обновить `active_delta` в NLM (загрузить пустой или удалить источник — на усмотрение)
+6. Обновить `active_delta` в NLM (удалить источник через `NotebookLMService::deleteSource()` и создать заново при необходимости)
 7. Если появилось 2 `frozen_quarter` → диспатчить `ConsolidateBundlesJob`
 
 ### 4. Хранение файлов
@@ -136,4 +136,4 @@ app/
 - `frozen_quarter` накопилось 2 → `ConsolidateBundlesJob` задиспатчен
 - Unit-тесты `BundleBuilder`: пороги, атомарность item, flush логика
 - Unit-тест `BundleRenderer`: формат заголовка, пустая строка-разделитель, корректный Base64URL
-- NlmClient мокируется во всех тестах
+- NotebookLMService мокируется во всех тестах
