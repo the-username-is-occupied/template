@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Http\Controllers\Api\SourceDraftController;
 use App\Http\Controllers\DebugSseController;
 use App\Http\Controllers\TelegramHookController;
 use App\Http\Controllers\TG\TGScraperController;
@@ -17,4 +18,10 @@ Route::prefix('tg')->group(function () {
     Route::post('scrape', [TGScraperController::class, 'scrape']);
     Route::get('channel/{channel}', [TGScraperController::class, 'channelInfo']);
     Route::get('post/{channel}/{postId}', [TGScraperController::class, 'post']);
+});
+
+Route::middleware('auth')->prefix('source-drafts')->group(function () {
+    Route::post('/', [SourceDraftController::class, 'store']);
+    Route::get('/{draft}', [SourceDraftController::class, 'show']);
+    Route::delete('/{draft}', [SourceDraftController::class, 'destroy']);
 });

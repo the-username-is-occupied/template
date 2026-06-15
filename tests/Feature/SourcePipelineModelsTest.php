@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Tests\Feature;
 
 use App\Enums\ReviewStatus;
-use App\Models\BundleItem;
 use App\Models\ContentSource;
 use App\Models\MdBundle;
 use App\Models\Notebook;

@@ -7,7 +7,6 @@
 
 Изучи перед началом: `docs/source-pipeline.md` (разделы "Smart URL Detection", "Source Draft Lifecycle", "SSE Events"), `docs/sse.md`.
 
-Убедись, что `Task 01` выполнен (модели и миграции существуют).
 
 ---
 
@@ -40,7 +39,7 @@
 - После успеха вызывает `SourceDraftService::handleMetaLoaded()`
 - При ошибке вызывает `SourceDraftService::handleMetaError()`
 
-Для вызовов TG Scraper создай HTTP-клиент `App\Http\Clients\TgScraperClient` с методом `getChannelMeta(string $channel): ChannelMetaData`. Базовый URL берётся из конфига `config/tg-scraper.php`.
+Для вызовов TG Scraper есть app/Domain/Telegram/TGScraperService.php.
 
 ### 4. API Endpoints
 
@@ -79,7 +78,7 @@ Payload описан в разделе "SSE Events" в `docs/source-pipeline.md`
 
 ## Критерии готовности
 
-- POST `/api/source-drafts` с TG URL создаёт черновик, запускает `FetchSourceMetaJob`, который через `TgScraperClient` (мок в тестах) получает мета и публикует SSE `meta_loaded`
+- POST `/api/source-drafts` с TG URL создаёт черновик, запускает `FetchSourceMetaJob`, который через `TGScraperService` (мок в тестах) получает мета и публикует SSE `meta_loaded`
 - POST с несколькими URL создаёт несколько черновиков
 - `SmartUrlDetector` корректно определяет все типы из таблицы в документации
 - Feature-тесты покрывают: создание черновика, определение типа URL, обработку ошибки загрузки мета, abandon

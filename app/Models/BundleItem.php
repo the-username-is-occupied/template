@@ -14,6 +14,7 @@ class BundleItem extends Model
 {
     /** @use HasFactory<BundleItemFactory> */
     use HasFactory;
+
     use HasUuids;
 
     protected $table = 'bundle_items';

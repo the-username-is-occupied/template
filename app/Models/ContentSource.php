@@ -19,6 +19,7 @@ class ContentSource extends Model
 {
     /** @use HasFactory<ContentSourceFactory> */
     use HasFactory;
+
     use HasUuids;
 
     protected $table = 'content_sources';

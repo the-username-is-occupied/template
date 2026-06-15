@@ -6,7 +6,6 @@ namespace Database\Factories;
 
 use App\Enums\SourceDraftStatus;
 use App\Enums\SourceType;
-use App\Models\ContentSource;
 use App\Models\Notebook;
 use App\Models\SourceDraft;
 use App\Models\User;

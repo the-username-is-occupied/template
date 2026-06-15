@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Models;
 
-use App\Domain\NotebookLM\NotebookLMService;
 use App\Domain\NotebookLM\NotebookLMServiceDecorator;
 use App\Enums\TechAccountPoolType;
 use App\Enums\TechAccountStatus;

@@ -16,6 +16,7 @@ class SourceDraft extends Model
 {
     /** @use HasFactory<SourceDraftFactory> */
     use HasFactory;
+
     use HasUuids;
 
     protected $table = 'source_drafts';

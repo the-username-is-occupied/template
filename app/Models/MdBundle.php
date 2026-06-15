@@ -17,6 +17,7 @@ class MdBundle extends Model
 {
     /** @use HasFactory<MdBundleFactory> */
     use HasFactory;
+
     use HasUuids;
 
     protected $table = 'md_bundles';

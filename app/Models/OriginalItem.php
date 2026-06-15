@@ -15,6 +15,7 @@ class OriginalItem extends Model
 {
     /** @use HasFactory<OriginalItemFactory> */
     use HasFactory;
+
     use HasUuids;
 
     protected $table = 'original_items';
