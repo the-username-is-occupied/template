@@ -5,7 +5,9 @@
 Реализуем каркас для обработки источников после подтверждения пользователем:
 `SourceService` → `ProcessSourceJob` → `ExtractorFactory` → конкретный экстрактор.
 
-Также реализуем простейший `TextExtractor` для website/pdf/text источников.
+Также реализуем экстракторы для двух типов источников, которые Laravel может обработать самостоятельно: `website` (HTTP-скрейпинг) и `text` (простые текстовые файлы .txt / .md).
+
+> ⚠️ **Важно про файловые форматы:** NLM принимает множество форматов (pdf, docx, pptx, csv, epub, аудио, видео, изображения и др.), но Laravel **не может** самостоятельно извлечь из них текст. Такие форматы обрабатываются через загрузку в технический NLM ноутбук — аналогично YouTube. Этот экстрактор (`NlmFileExtractor`) реализуется в **Task 05**. В данной задаче только закладываем интерфейс и маппинг.
 
 Изучи перед началом: `docs/source-pipeline.md` (раздел "Ключевые классы и интерфейсы", "Обработка ошибок"), `docs/architecture.md` (Thin Jobs Pattern).
 
@@ -49,9 +51,16 @@ interface SourceExtractorInterface
 Создай `App\Services\ExtractorFactory` с методом `make(ContentSource $source): SourceExtractorInterface`.
 
 Маппинг типов на экстракторы:
-- `telegram_channel`, `telegram_post` → `TelegramExtractor`
-- `youtube_channel`, `youtube_video` → `YouTubeExtractor`
-- `website`, `pdf`, `text`, `audio`, `video` → `TextExtractor`
+
+| Тип источника | Экстрактор | Где реализован |
+|---|---|---|
+| `telegram_channel`, `telegram_post` | `TelegramExtractor` | Task 04 |
+| `youtube_channel`, `youtube_video` | `YouTubeExtractor` | Task 05 |
+| `text` | `TextExtractor` | Task 03 (эта задача) |
+| `website` | `WebsiteExtractor` | Task 03 (эта задача) |
+| `pdf`, `docx`, `csv`, `pptx`, `epub`, `audio`, `video`, изображения | `NlmFileExtractor` | Task 05 |
+
+Фабрика должна уметь разрешать экстракторы из IoC-контейнера, чтобы тесты могли подменять их через `$this->mock()`.
 
 ### 5. SourceIndexingService
 
@@ -69,12 +78,27 @@ interface SourceExtractorInterface
 
 Создай `App\Services\Extractors\TextExtractor` реализующий `SourceExtractorInterface`.
 
-Упрощённая логика для MVP:
-- `website`: HTTP GET страницы, извлечение текста (strip_tags или простой парсер), создание одного `OriginalItem`
-- `pdf`, `audio`, `video`, `text`: создание `OriginalItem` из уже имеющихся данных (файл или текст уже есть в source)
-- После успеха: `content_source.extraction_status = extracted`, публикует SSE `extraction_done`
+Обрабатывает только тип `text` — файлы форматов `.txt` и `.md`, которые Laravel может прочитать напрямую.
 
-Для HTTP-запросов к сайтам использовать Laravel HTTP Client (`Http::get()`).
+Логика:
+- Читает содержимое файла из Storage по `source.file_ref`
+- Создаёт один `OriginalItem` с `full_text` = содержимое файла
+- Подсчитывает `word_count`
+- Устанавливает `extraction_status = extracted`, публикует SSE `extraction_done`
+
+### 7. WebsiteExtractor
+
+Создай `App\Services\Extractors\WebsiteExtractor` реализующий `SourceExtractorInterface`.
+
+Обрабатывает тип `website` — произвольный HTTP URL.
+
+Логика:
+- HTTP GET страницы через Laravel HTTP Client
+- Извлечение читаемого текста (strip_tags, или получение текста из `<main>` / `<article>` / `<body>`)
+- Создаёт один `OriginalItem` с `title` из `<title>` тега, `full_text` = извлечённый текст, `source_url` = URL
+- Устанавливает `extraction_status = extracted`, публикует SSE `extraction_done`
+
+Фатальная ошибка (4xx, недоступный хост) — не retry, сразу `extraction_status = error`.
 
 ### 7. API Endpoints
 
@@ -102,7 +126,9 @@ interface SourceExtractorInterface
 
 - `POST /api/source-drafts/{draft}/confirm` создаёт `ContentSource` и диспатчит `ProcessSourceJob`
 - `ProcessSourceJob` делегирует в `SourceIndexingService`, который вызывает нужный экстрактор
+- `ExtractorFactory` корректно маппит все типы источников на экстракторы (для ещё не реализованных — выбрасывает `UnsupportedSourceTypeException`)
 - Фатальная ошибка (например, недоступный URL) → `extraction_status = error`, SSE `error`
 - Транзитная ошибка (таймаут) → исключение пробрасывается, Laravel делает retry
+- `TextExtractor` unit-тест: txt-файл → один `OriginalItem` с корректным `word_count`
+- `WebsiteExtractor` unit-тест: HTTP-ответ (мок) → один `OriginalItem` с title и текстом
 - Feature-тесты: подтверждение черновика, обработка ошибок, dispatch job
-- `TextExtractor` unit-тест: website URL → один `OriginalItem` в БД
