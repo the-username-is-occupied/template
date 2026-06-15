@@ -17,10 +17,10 @@ final class TelegramExtractorTest extends TestCase
 
     public function test_extract_sets_status_to_uploading(): void
     {
-        $source = ContentSource::factory()->create([
-            'url' => 'https://t.me/test_channel',
-            'extraction_status' => ExtractionStatus::Pending,
-        ]);
+        $source = ContentSource::factory()
+            ->withTelegramUrl('test_channel')
+            ->pending()
+            ->create();
 
         $mockScraper = $this->mock(TGScraperService::class);
         $mockScraper->shouldReceive('scrape')->once();
@@ -33,16 +33,14 @@ final class TelegramExtractorTest extends TestCase
 
     public function test_extract_calls_scraper_with_correct_parameters(): void
     {
-        $source = ContentSource::factory()->create([
-            'url' => 'https://t.me/test_channel',
-            'metadata' => [
-                'scrape_config' => [
-                    'limit' => 100,
-                    'from_id' => 1000,
-                    'workers' => 5,
-                ],
-            ],
-        ]);
+        $source = ContentSource::factory()
+            ->withTelegramUrl('test_channel')
+            ->withScrapeConfig([
+                'limit' => 100,
+                'from_id' => 1000,
+                'workers' => 5,
+            ])
+            ->create();
 
         $mockScraper = $this->mock(TGScraperService::class);
         $mockScraper->shouldReceive('scrape')
@@ -60,9 +58,9 @@ final class TelegramExtractorTest extends TestCase
 
     public function test_extract_handles_missing_channel(): void
     {
-        $source = ContentSource::factory()->create([
-            'url' => 'https://invalid-url.com',
-        ]);
+        $source = ContentSource::factory()
+            ->withUrl('https://invalid-url.com')
+            ->create();
 
         $mockScraper = $this->mock(TGScraperService::class);
         $mockScraper->shouldNotReceive('scrape');

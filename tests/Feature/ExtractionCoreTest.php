@@ -45,12 +45,11 @@ final class ExtractionCoreTest extends TestCase
         $filePath = 'test-file.txt';
         Storage::disk('local')->put($filePath, 'This is a test content with several words for word count.');
 
-        $source = ContentSource::factory()->create([
-            'user_id' => $this->user->id,
-            'type' => SourceType::Text,
-            'file_ref' => $filePath,
-            'extraction_status' => ExtractionStatus::Pending,
-        ]);
+        $source = ContentSource::factory()
+            ->for($this->user)
+            ->withType(SourceType::Text)
+            ->pending()
+            ->create(['file_ref' => $filePath]);
 
         $extractor = new TextExtractor;
         $extractor->extract($source);
@@ -68,12 +67,11 @@ final class ExtractionCoreTest extends TestCase
 
     public function test_text_extractor_handles_missing_file(): void
     {
-        $source = ContentSource::factory()->create([
-            'user_id' => $this->user->id,
-            'type' => SourceType::Text,
-            'file_ref' => 'non-existent.txt',
-            'extraction_status' => ExtractionStatus::Pending,
-        ]);
+        $source = ContentSource::factory()
+            ->for($this->user)
+            ->withType(SourceType::Text)
+            ->pending()
+            ->create(['file_ref' => 'non-existent.txt']);
 
         $extractor = new TextExtractor;
         $extractor->extract($source);
@@ -86,10 +84,10 @@ final class ExtractionCoreTest extends TestCase
 
     public function test_extractor_factory_resolves_text_type(): void
     {
-        $source = ContentSource::factory()->create([
-            'user_id' => $this->user->id,
-            'type' => SourceType::Text,
-        ]);
+        $source = ContentSource::factory()
+            ->for($this->user)
+            ->withType(SourceType::Text)
+            ->create();
 
         $factory = new ExtractorFactory;
         $extractor = $factory->make($source);
@@ -100,10 +98,10 @@ final class ExtractionCoreTest extends TestCase
 
     public function test_extractor_factory_throws_for_unsupported_type(): void
     {
-        $source = ContentSource::factory()->create([
-            'user_id' => $this->user->id,
-            'type' => SourceType::TelegramChannel,
-        ]);
+        $source = ContentSource::factory()
+            ->for($this->user)
+            ->withType(SourceType::TelegramChannel)
+            ->create();
 
         $factory = new ExtractorFactory;
 
@@ -115,12 +113,11 @@ final class ExtractionCoreTest extends TestCase
     {
         Storage::disk('local')->put('test.txt', 'Test content');
 
-        $source = ContentSource::factory()->create([
-            'user_id' => $this->user->id,
-            'type' => SourceType::Text,
-            'file_ref' => 'test.txt',
-            'extraction_status' => ExtractionStatus::Pending,
-        ]);
+        $source = ContentSource::factory()
+            ->for($this->user)
+            ->withType(SourceType::Text)
+            ->pending()
+            ->create(['file_ref' => 'test.txt']);
 
         $service = new SourceIndexingService(new ExtractorFactory);
         $service->process($source->id);

@@ -22,16 +22,10 @@ final class RetryStaleUploadsCommandTest extends TestCase
         Bus::fake();
 
         // Create a stale upload (more than 30 minutes old)
-        $staleSource = ContentSource::factory()->create([
-            'extraction_status' => ExtractionStatus::Uploading,
-            'updated_at' => now()->subMinutes(31),
-        ]);
+        $staleSource = ContentSource::factory()->uploading()->stale(31)->create();
 
         // Create a fresh upload (less than 30 minutes old)
-        $freshSource = ContentSource::factory()->create([
-            'extraction_status' => ExtractionStatus::Uploading,
-            'updated_at' => now()->subMinutes(10),
-        ]);
+        $freshSource = ContentSource::factory()->uploading()->stale(10)->create();
 
         $this->artisan(RetryStaleUploadsCommand::class)
             ->assertExitCode(0);
@@ -52,10 +46,7 @@ final class RetryStaleUploadsCommandTest extends TestCase
         // Mock the job dispatch
         Bus::fake();
 
-        $staleSource = ContentSource::factory()->create([
-            'extraction_status' => ExtractionStatus::Uploading,
-            'updated_at' => now()->subMinutes(31),
-        ]);
+        $staleSource = ContentSource::factory()->uploading()->stale(31)->create();
 
         $this->artisan(RetryStaleUploadsCommand::class)
             ->assertExitCode(0);

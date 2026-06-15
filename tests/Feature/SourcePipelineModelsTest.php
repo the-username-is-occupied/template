@@ -69,12 +69,12 @@ final class SourcePipelineModelsTest extends TestCase
         $notebook = Notebook::factory()->create(['user_id' => $user->id]);
         $contentSource = ContentSource::factory()->create(['user_id' => $user->id]);
 
-        $draft = SourceDraft::factory()->create([
-            'user_id' => $user->id,
-            'knowledge_base_id' => $notebook->id,
-            'content_source_id' => $contentSource->id,
-            'status' => 'awaiting_confirm',
-        ]);
+        $draft = SourceDraft::factory()
+            ->for($user)
+            ->for($notebook, 'knowledgeBase')
+            ->for($contentSource, 'contentSource')
+            ->awaitingConfirm()
+            ->create();
 
         $this->assertSame($user->id, $draft->user->id);
         $this->assertSame($notebook->id, $draft->knowledgeBase->id);

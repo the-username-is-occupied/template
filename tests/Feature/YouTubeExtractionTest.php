@@ -39,20 +39,22 @@ test('YouTube channel extraction with 3 videos in 2 batches', function () {
     ]);
 
     // Create content source with video URLs
-    $source = ContentSource::create([
-        'user_id' => $user->id,
-        'type' => 'youtube_channel',
-        'url' => 'https://youtube.com/@testchannel',
-        'title' => 'Test Channel',
-        'extraction_status' => 'pending',
-        'metadata' => [
-            'video_urls' => [
-                'https://youtube.com/watch?v=video1',
-                'https://youtube.com/watch?v=video2',
-                'https://youtube.com/watch?v=video3',
+    $source = ContentSource::factory()
+        ->for($user)
+        ->youtube()
+        ->withUrl('https://youtube.com/@testchannel')
+        ->pending()
+        ->create([
+            'title' => 'Test Channel',
+            'metadata' => [
+                'video_urls' => [
+                    'https://youtube.com/watch?v=video1',
+                    'https://youtube.com/watch?v=video2',
+                    'https://youtube.com/watch?v=video3',
+                ],
             ],
-        ],
-    ]);
+        ]);
+
 
     // Mock NotebookLMService
     $notebookLMService = Mockery::mock(NotebookLMService::class);

@@ -88,4 +88,83 @@ class ContentSourceFactory extends Factory
         return $this->state(fn () => [
             'review_status' => ReviewStatus::PendingReview]);
     }
+
+    public function pending(): static
+    {
+        return $this->state(fn () => [
+            'extraction_status' => ExtractionStatus::Pending,
+        ]);
+    }
+
+    public function uploading(): static
+    {
+        return $this->state(fn () => [
+            'extraction_status' => ExtractionStatus::Uploading,
+        ]);
+    }
+
+    public function extracted(): static
+    {
+        return $this->state(fn () => [
+            'extraction_status' => ExtractionStatus::Extracted,
+        ]);
+    }
+
+    public function withError(?string $errorCode = null): static
+    {
+        return $this->state(fn () => [
+            'extraction_status' => ExtractionStatus::Error,
+            'error_code' => $errorCode,
+            'error_message' => $errorCode ? 'Error: ' . $errorCode : null,
+        ]);
+    }
+
+    public function withTelegramUrl(?string $channel = null): static
+    {
+        return $this->state(fn () => [
+            'type' => SourceType::TelegramChannel,
+            'url' => 'https://t.me/' . ($channel ?? fake()->userName()),
+            'metadata' => [
+                'channel_id' => fake()->numerify('########'),
+                'title' => fake()->company(),
+                'members' => fake()->numberBetween(1000, 250000),
+                'avatar_url' => fake()->imageUrl(),
+            ],
+        ]);
+    }
+
+    public function withUrl(string $url): static
+    {
+        return $this->state(fn () => ['url' => $url]);
+    }
+
+    public function withScrapeConfig(array $config): static
+    {
+        return $this->state(function (array $attributes) use ($config) {
+            $metadata = $attributes['metadata'] ?? [];
+            return [
+                'metadata' => array_merge($metadata, ['scrape_config' => $config]),
+            ];
+        });
+    }
+
+    public function withParent(ContentSource $parent, ?\App\Models\OriginalItem $item = null): static
+    {
+        return $this->state(fn () => [
+            'parent_source_id' => $parent->id,
+            'parent_item_id' => $item?->id,
+        ]);
+    }
+
+    public function withType(SourceType $type): static
+    {
+        return $this->state(fn () => ['type' => $type]);
+    }
+
+    public function stale(int $minutes = 31): static
+    {
+        return $this->state(fn () => [
+            'updated_at' => now()->subMinutes($minutes),
+        ]);
+    }
 }

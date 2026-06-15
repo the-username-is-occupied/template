@@ -17,9 +17,7 @@ final class ProcessTelegramChunkJobTest extends TestCase
 
     public function test_job_processes_posts_and_creates_original_items(): void
     {
-        $source = ContentSource::factory()->create([
-            'extraction_status' => ExtractionStatus::Uploading,
-        ]);
+        $source = ContentSource::factory()->uploading()->create();
 
         $posts = [
             [
@@ -49,10 +47,7 @@ final class ProcessTelegramChunkJobTest extends TestCase
 
     public function test_job_updates_last_fetched_id(): void
     {
-        $source = ContentSource::factory()->create([
-            'extraction_status' => ExtractionStatus::Uploading,
-            'last_fetched_id' => 100,
-        ]);
+        $source = ContentSource::factory()->uploading()->create(['last_fetched_id' => 100]);
 
         $posts = [
             ['id' => 150, 'url' => 'https://t.me/test/150', 'text' => 'Post 150'],

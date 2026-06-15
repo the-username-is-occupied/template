@@ -18,9 +18,7 @@ final class TelegramScrapingDoneJobTest extends TestCase
 
     public function test_job_sets_extraction_status_to_extracted(): void
     {
-        $source = ContentSource::factory()->create([
-            'extraction_status' => ExtractionStatus::Uploading,
-        ]);
+        $source = ContentSource::factory()->uploading()->create();
 
         $job = new TelegramScrapingDoneJob($source->id);
         $job->handle();
@@ -30,9 +28,7 @@ final class TelegramScrapingDoneJobTest extends TestCase
 
     public function test_job_updates_draft_status_to_awaiting_index(): void
     {
-        $source = ContentSource::factory()->create([
-            'extraction_status' => ExtractionStatus::Uploading,
-        ]);
+        $source = ContentSource::factory()->uploading()->create();
 
         $draft = SourceDraft::factory()->create([
             'content_source_id' => $source->id,

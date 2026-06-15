@@ -49,13 +49,12 @@ class WebsiteExtractorTest extends TestCase
         ]);
 
         // Create content source
-        $source = ContentSource::create([
-            'user_id' => $user->id,
-            'type' => SourceType::Website,
-            'url' => 'https://example.com',
-            'title' => 'Test Website',
-            'extraction_status' => ExtractionStatus::Pending,
-        ]);
+        $source = ContentSource::factory()
+            ->for($user)
+            ->withType(SourceType::Website)
+            ->withUrl('https://example.com')
+            ->pending()
+            ->create(['title' => 'Test Website']);
         Log::info('TEST: ContentSource created', ['source_id' => $source->id, 'url' => $source->url]);
         // Prevent events from being dispatched
         Event::fake();

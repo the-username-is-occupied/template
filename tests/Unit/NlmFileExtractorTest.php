@@ -6,6 +6,7 @@ use App\Domain\NotebookLM\DTOs\SourceDTO;
 use App\Domain\NotebookLM\DTOs\SourceFulltextDTO;
 use App\Domain\NotebookLM\NotebookLMService;
 use App\Enums\ExtractionStatus;
+use App\Enums\SourceType;
 use App\Models\ContentSource;
 use App\Models\OriginalItem;
 use App\Models\TechAccount;
@@ -46,13 +47,14 @@ test('NlmFileExtractor uploads file, extracts text, and deletes file in finally'
     Storage::put($filePath, 'fake pdf content');
 
     // Create content source
-    $source = ContentSource::create([
-        'user_id' => $user->id,
-        'type' => 'pdf',
-        'file_ref' => $filePath,
-        'title' => 'Test PDF',
-        'extraction_status' => 'pending',
-    ]);
+    $source = ContentSource::factory()
+        ->for($user)
+        ->withType(SourceType::Pdf)
+        ->pending()
+        ->create([
+            'file_ref' => $filePath,
+            'title' => 'Test PDF',
+        ]);
 
     // Mock NotebookLMService
     $notebookLMService = Mockery::mock(NotebookLMService::class);

@@ -50,23 +50,21 @@ final class SourceDraftLinksTest extends TestCase
         $item1 = OriginalItem::factory()->create(['content_source_id' => $this->parentSource->id]);
         $item2 = OriginalItem::factory()->create(['content_source_id' => $this->parentSource->id]);
 
-        ContentSource::factory()->create([
-            'user_id' => $this->user->id,
-            'parent_source_id' => $this->parentSource->id,
-            'parent_item_id' => $item1->id,
-            'review_status' => ReviewStatus::PendingReview,
-            'type' => SourceType::TelegramChannel,
-            'url' => 'https://t.me/channel1/123',
-        ]);
+        ContentSource::factory()
+            ->for($this->user)
+            ->withParent($this->parentSource, $item1)
+            ->pendingReview()
+            ->withType(SourceType::TelegramChannel)
+            ->withTelegramUrl('channel1')
+            ->create();
 
-        ContentSource::factory()->create([
-            'user_id' => $this->user->id,
-            'parent_source_id' => $this->parentSource->id,
-            'parent_item_id' => $item2->id,
-            'review_status' => ReviewStatus::PendingReview,
-            'type' => SourceType::Website,
-            'url' => 'https://example.com/article',
-        ]);
+        ContentSource::factory()
+            ->for($this->user)
+            ->withParent($this->parentSource, $item2)
+            ->pendingReview()
+            ->withType(SourceType::Website)
+            ->withUrl('https://example.com/article')
+            ->create();
 
         $response = $this->actingAs($this->user)
             ->getJson("/api/source-drafts/{$this->draft->id}/links");
@@ -83,23 +81,21 @@ final class SourceDraftLinksTest extends TestCase
         $item = OriginalItem::factory()->create(['content_source_id' => $this->parentSource->id]);
 
         // Create two TG links from same channel
-        ContentSource::factory()->create([
-            'user_id' => $this->user->id,
-            'parent_source_id' => $this->parentSource->id,
-            'parent_item_id' => $item->id,
-            'review_status' => ReviewStatus::PendingReview,
-            'type' => SourceType::TelegramChannel,
-            'url' => 'https://t.me/channel1/123',
-        ]);
+        ContentSource::factory()
+            ->for($this->user)
+            ->withParent($this->parentSource, $item)
+            ->pendingReview()
+            ->withType(SourceType::TelegramChannel)
+            ->withTelegramUrl('channel1')
+            ->create();
 
-        ContentSource::factory()->create([
-            'user_id' => $this->user->id,
-            'parent_source_id' => $this->parentSource->id,
-            'parent_item_id' => $item->id,
-            'review_status' => ReviewStatus::PendingReview,
-            'type' => SourceType::TelegramChannel,
-            'url' => 'https://t.me/channel1/456',
-        ]);
+        ContentSource::factory()
+            ->for($this->user)
+            ->withParent($this->parentSource, $item)
+            ->pendingReview()
+            ->withType(SourceType::TelegramChannel)
+            ->withTelegramUrl('channel1')
+            ->create();
 
         $response = $this->actingAs($this->user)
             ->getJson("/api/source-drafts/{$this->draft->id}/links");
@@ -116,14 +112,13 @@ final class SourceDraftLinksTest extends TestCase
             'source_url' => 'https://t.me/parent/999',
         ]);
 
-        $childSource = ContentSource::factory()->create([
-            'user_id' => $this->user->id,
-            'parent_source_id' => $this->parentSource->id,
-            'parent_item_id' => $item->id,
-            'review_status' => ReviewStatus::PendingReview,
-            'type' => SourceType::TelegramChannel,
-            'url' => 'https://t.me/channel1/123',
-        ]);
+        ContentSource::factory()
+            ->for($this->user)
+            ->withParent($this->parentSource, $item)
+            ->pendingReview()
+            ->withType(SourceType::TelegramChannel)
+            ->withTelegramUrl('channel1')
+            ->create();
 
         $response = $this->actingAs($this->user)
             ->getJson("/api/source-drafts/{$this->draft->id}/links");
