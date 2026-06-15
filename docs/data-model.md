@@ -186,16 +186,18 @@
 ---
 
 ### `md_bundles`
-Упакованный MD-файл для загрузки в NLM. Создаётся под конкретный ноутбук.
+Упакованный MD-файл для загрузки в NLM. Создаётся под конкретный ноутбук. Детальная архитектура 4-уровневой LSM-иерархии бандлов описана в [`bundle-architecture.md`](./bundle-architecture.md).
 
 | Поле | Тип | Описание |
 |---|---|---|
 | id | uuid | PK |
 | notebook_id | uuid | FK → notebooks |
+| type | enum | `active_delta`, `active_quarter`, `frozen_quarter`, `frozen_half`, `frozen_full` |
 | file_path | text | Путь к файлу на хранилище |
 | word_count | int | Количество слов (word count) |
 | status | enum | `pending`, `uploading`, `uploaded`, `error` |
 | nlm_source_id | text | ID источника в NLM после загрузки бандла |
+| is_consolidating | boolean | Флаг блокировки во время дефрагментации (слияния бандлов). Default: `false` |
 | created_at | timestamptz | |
 
 ---
@@ -230,7 +232,7 @@ content_source (extraction)
   → extraction_status = extracted → source_draft удаляется
 
 original_items
-  → упаковываем в md_bundles (под конкретный notebook)
+  → упаковываем в md_bundles (под конкретный notebook) согласно 4-уровневой LSM-иерархии (см. bundle-architecture.md)
   → загружаем bundle в NLM (nlm_source_id)
 ```
 
