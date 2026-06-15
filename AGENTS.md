@@ -40,7 +40,7 @@ This project has domain-specific skills available in `**/skills/**`. You MUST ac
 - Use descriptive names for variables and methods. For example, `isRegisteredForDiscounts`, not `discount()`.
 - Check for existing components to reuse before writing a new one.
 - All data entering the application must be represented as DTOs via `spatie/laravel-data`, including the HTTP, console, and job layers.
-- Keep application layers thin: controllers, commands, and jobs should orchestrate work only, and business logic should live in service classes.
+- KEEP APPLICATION LAYERS THIN: controllers, commands, and jobs should orchestrate work only, and business logic should live in service classes.
 
 ## Docker-First Workflow
 

@@ -8,7 +8,10 @@ use App\Contracts\SourceExtractorInterface;
 use App\Enums\SourceType;
 use App\Exceptions\UnsupportedSourceTypeException;
 use App\Models\ContentSource;
+use App\Services\Extractors\NlmFileExtractor;
 use App\Services\Extractors\TextExtractor;
+use App\Services\Extractors\WebsiteExtractor;
+use App\Services\Extractors\YouTubeExtractor;
 
 class ExtractorFactory
 {
@@ -27,6 +30,11 @@ class ExtractorFactory
 
         $extractor = match ($type) {
             SourceType::Text => TextExtractor::class,
+            SourceType::YoutubeChannel, SourceType::YoutubeVideo => YouTubeExtractor::class,
+            SourceType::Website => WebsiteExtractor::class,
+            SourceType::Pdf, SourceType::Docx, SourceType::Csv, SourceType::Pptx,
+            SourceType::Epub, SourceType::Mp3, SourceType::Mp4, SourceType::Jpg,
+            SourceType::Png, SourceType::Audio, SourceType::Video, SourceType::Image => NlmFileExtractor::class,
             default => throw new UnsupportedSourceTypeException($type->value)
         };
 

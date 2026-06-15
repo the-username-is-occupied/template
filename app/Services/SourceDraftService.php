@@ -9,6 +9,7 @@ use App\Enums\SourceDraftStatus;
 use App\Enums\SourceType;
 use App\Events\SourceDraftError;
 use App\Events\SourceMetaLoaded;
+use App\Events\YoutubeVideosLoaded;
 use App\Jobs\FetchSourceMetaJob;
 use App\Models\Notebook;
 use App\Models\SourceDraft;
@@ -182,5 +183,46 @@ class SourceDraftService
         }
 
         return null;
+    }
+
+    /**
+     * Load video list for YouTube channel draft
+     *
+     * @param  array<string>  $contentTypes  Types of content to load: 'video', 'shorts', 'streams'
+     */
+    public function loadVideoList(SourceDraft $draft, array $contentTypes = ['video', 'shorts']): void
+    {
+        if ($draft->type !== SourceType::YoutubeChannel) {
+            throw new \InvalidArgumentException('loadVideoList is only for YouTube channels');
+        }
+
+        try {
+            // Extract channel ID from raw_input
+            $channelIdentifier = $draft->raw_input;
+            if (preg_match('#youtube\.com/@([a-zA-Z0-9_-]+)#i', $channelIdentifier, $matches) ||
+                preg_match('#youtube\.com/channel/([a-zA-Z0-9_-]+)#i', $channelIdentifier, $matches) ||
+                preg_match('#youtube\.com/c/([a-zA-Z0-9_-]+)#i', $channelIdentifier, $matches)) {
+                $channelIdentifier = $matches[1];
+            }
+
+            // Get video URLs
+            $videoUrlsData = $this->youTubeService->getVideoUrls($channelIdentifier, $contentTypes);
+
+            // Save video list to draft metadata
+            $draft->update([
+                'channel_meta' => array_merge($draft->channel_meta ?? [], [
+                    'video_urls' => $videoUrlsData->urls,
+                    'total_videos' => count($videoUrlsData->urls),
+                ]),
+                'status' => SourceDraftStatus::AwaitingIndex,
+            ]);
+
+            // Publish SSE event
+            event(new YoutubeVideosLoaded($draft, $videoUrlsData->urls));
+
+        } catch (\Exception $e) {
+            Log::error("Failed to load video list for draft {$draft->id}: ".$e->getMessage());
+            $this->handleMetaError($draft, 'video_load_failed', $e->getMessage());
+        }
     }
 }

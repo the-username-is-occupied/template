@@ -57,6 +57,6 @@ class Notebook extends Model
 
     public function notebookContentSources(): HasMany
     {
-        return $this->hasMany(NotebookContentSource::class);
+        return $this->hasMany(ContentSource::class);
     }
 }
