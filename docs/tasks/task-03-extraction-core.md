@@ -5,13 +5,16 @@
 Реализуем каркас для обработки источников после подтверждения пользователем:
 `SourceService` → `ProcessSourceJob` → `ExtractorFactory` → конкретный экстрактор.
 
-Также реализуем экстракторы для двух типов источников, которые Laravel может обработать самостоятельно: `website` (HTTP-скрейпинг) и `text` (простые текстовые файлы .txt / .md).
+Также реализуем экстрактор для типа источников, который Laravel может обработать самостоятельно: `text` (простые текстовые файлы .txt / .md).
 
-> ⚠️ **Важно про файловые форматы:** NLM принимает множество форматов (pdf, docx, pptx, csv, epub, аудио, видео, изображения и др.), но Laravel **не может** самостоятельно извлечь из них текст. Такие форматы обрабатываются через загрузку в технический NLM ноутбук — аналогично YouTube. Этот экстрактор (`NlmFileExtractor`) реализуется в **Task 05**. В данной задаче только закладываем интерфейс и маппинг.
+> ⚠️ **Важно про типы источников:**
+> - `text` — обрабатывается Laravel самостоятельно (чтение файла из Storage)
+> - `website` — обрабатывается через NLM ноутбук (загрузка URL в тех. ноутбук, извлечение текста) — реализуется в **Task 05**
+> - `pdf`, `docx`, `csv`, `pptx`, `epub`, аудио, видео, изображения — обрабатываются через NLM ноутбук — реализуется в **Task 05**
+> - `youtube_channel`, `youtube_video` — обрабатываются через NLM ноутбук — реализуется в **Task 05**
 
 Изучи перед началом: `docs/source-pipeline.md` (раздел "Ключевые классы и интерфейсы", "Обработка ошибок"), `docs/architecture.md` (Thin Jobs Pattern).
 
-Убедись, что `Task 01` и `Task 02` выполнены.
 
 ---
 
@@ -57,7 +60,7 @@ interface SourceExtractorInterface
 | `telegram_channel`, `telegram_post` | `TelegramExtractor` | Task 04 |
 | `youtube_channel`, `youtube_video` | `YouTubeExtractor` | Task 05 |
 | `text` | `TextExtractor` | Task 03 (эта задача) |
-| `website` | `WebsiteExtractor` | Task 03 (эта задача) |
+| `website` | `WebsiteExtractor` | Task 05 |
 | `pdf`, `docx`, `csv`, `pptx`, `epub`, `audio`, `video`, изображения | `NlmFileExtractor` | Task 05 |
 
 Фабрика должна уметь разрешать экстракторы из IoC-контейнера, чтобы тесты могли подменять их через `$this->mock()`.
@@ -85,20 +88,6 @@ interface SourceExtractorInterface
 - Создаёт один `OriginalItem` с `full_text` = содержимое файла
 - Подсчитывает `word_count`
 - Устанавливает `extraction_status = extracted`, публикует SSE `extraction_done`
-
-### 7. WebsiteExtractor
-
-Создай `App\Services\Extractors\WebsiteExtractor` реализующий `SourceExtractorInterface`.
-
-Обрабатывает тип `website` — произвольный HTTP URL.
-
-Логика:
-- HTTP GET страницы через Laravel HTTP Client
-- Извлечение читаемого текста (strip_tags, или получение текста из `<main>` / `<article>` / `<body>`)
-- Создаёт один `OriginalItem` с `title` из `<title>` тега, `full_text` = извлечённый текст, `source_url` = URL
-- Устанавливает `extraction_status = extracted`, публикует SSE `extraction_done`
-
-Фатальная ошибка (4xx, недоступный хост) — не retry, сразу `extraction_status = error`.
 
 ### 7. API Endpoints
 
@@ -130,5 +119,4 @@ interface SourceExtractorInterface
 - Фатальная ошибка (например, недоступный URL) → `extraction_status = error`, SSE `error`
 - Транзитная ошибка (таймаут) → исключение пробрасывается, Laravel делает retry
 - `TextExtractor` unit-тест: txt-файл → один `OriginalItem` с корректным `word_count`
-- `WebsiteExtractor` unit-тест: HTTP-ответ (мок) → один `OriginalItem` с title и текстом
 - Feature-тесты: подтверждение черновика, обработка ошибок, dispatch job

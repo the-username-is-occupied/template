@@ -2,12 +2,13 @@
 
 ## Контекст
 
-Реализуем два экстрактора, которые используют технические NLM ноутбуки для извлечения контента:
+Реализуем три экстрактора, которые используют технические NLM ноутбуки для извлечения контента:
 
 1. **YouTubeExtractor** — загружает YouTube URL в тех. ноутбук, извлекает транскрипт, удаляет
-2. **NlmFileExtractor** — загружает файл в тех. ноутбук, извлекает текст, удаляет
+2. **WebsiteExtractor** — загружает веб-сайт URL в тех. ноутбук, извлекает текст страницы, удаляет
+3. **NlmFileExtractor** — загружает файл в тех. ноутбук, извлекает текст, удаляет
 
-**Почему оба здесь:** оба экстрактора используют один и тот же механизм (пул тех. ноутбуков, distributed lock, batching, crash recovery) — имеет смысл реализовывать вместе.
+**Почему все здесь:** все три экстрактора используют один и тот же механизм (пул тех. ноутбуков, distributed lock, batching, crash recovery) — имеет смысл реализовывать вместе.
 
 **Форматы файлов для `NlmFileExtractor`** — всё что NLM принимает, но Laravel не умеет читать самостоятельно:
 pdf, docx, csv, pptx, epub, 3g2, 3gp, aac, aif, aifc, aiff, amr, au, avi, cda, m4a, mid, mp3, mp4, mpeg, ogg, opus, ra, ram, snd, wav, wma, avif, bmp, gif, ico, jp2, png, webp, tif, tiff, heic, heif, jpeg, jpg
@@ -49,7 +50,36 @@ pdf, docx, csv, pptx, epub, 3g2, 3gp, aac, aif, aifc, aiff, amr, au, avi, cda, m
 
 **Важно:** удаление источников из NLM должно быть в `finally` — даже при ошибке.
 
-### 2. Минимальный AccountService (если не существует)
+### 2. WebsiteExtractor (новый)
+
+Создай `App\Services\Extractors\WebsiteExtractor` реализующий `SourceExtractorInterface`.
+
+Обрабатывает тип `website` — произвольный HTTP URL. Контент извлекается через NLM ноутбук (как для YouTube), а не самостоятельно Laravel.
+
+Логика `extract(ContentSource $source)`:
+
+1. Получает URL из `source.source_url`
+2. Устанавливает `extraction_status = extracting`
+3. Запрашивает у `AccountService` свободный тех. ноутбук типа `source_extractor`
+4. Захватывает distributed lock
+5. В блоке `try/finally`:
+   - Добавляет URL через `NotebookLMService::addSourceUrl()`
+   - Ждёт индексации через `NotebookLMService::waitUntilReady()`
+   - Извлекает текст через `NotebookLMService::getSourceFulltext()`
+   - **В `finally`:** удаляет источник из тех. ноутбука (`NotebookLMService::deleteSource()`)
+6. Освобождает lock
+7. Создаёт один `OriginalItem` с:
+   - `title` из метаданных NLM (или `source_url`)
+   - `full_text` = извлечённый текст
+   - `source_url` = URL
+   - `word_count`
+8. Устанавливает `extraction_status = extracted`, публикует SSE `extraction_done`
+
+В отличие от `YouTubeExtractor`, веб-сайты обрабатываются **по одному** (batching не нужен — один URL = один источник в NLM).
+
+Фатальная ошибка (недоступный хост, 4xx, неподдерживаемый контент): `extraction_status = error`, не retry.
+
+### 3. Минимальный AccountService (если не существует)
 
 Если `AccountService` ещё не реализован в проекте, создай `App\Services\AccountService` с минимально необходимыми методами:
 
@@ -61,7 +91,7 @@ pdf, docx, csv, pptx, epub, 3g2, 3gp, aac, aif, aifc, aiff, amr, au, avi, cda, m
 
 Distributed lock реализуй через DB-level pessimistic lock (`lockForUpdate()`) внутри транзакции, а не через Redis — надёжнее при работе с несколькими Job workers.
 
-### 3. Использование NotebookLMService (уже существует в кодовой базе)
+### 4. Использование NotebookLMService (уже существует в кодовой базе)
 
 В проекте уже реализован `App\Domain\NotebookLM\NotebookLMService` для коммуникации с NLM FastAPI сервисом.
 **Не меняй этот класс** — используй только его публичные методы. При необходимости добавь новые методы в `NotebookLMService`, но не создавай отдельный `NlmClient`.
@@ -89,7 +119,7 @@ Distributed lock реализуй через DB-level pessimistic lock (`lockFor
 
 Базовый URL и таймаут настроены в `config/notebook-lm.php`; `NotebookLMService` берёт их самостоятельно.
 
-### 4. NlmFileExtractor (новый)
+### 5. NlmFileExtractor (новый)
 
 Создай `App\Services\Extractors\NlmFileExtractor` реализующий `SourceExtractorInterface`.
 
@@ -114,7 +144,7 @@ Distributed lock реализуй через DB-level pessimistic lock (`lockFor
 
 Фатальная ошибка (файл не найден, неподдерживаемый формат): `extraction_status = error`, не retry.
 
-### 5. Визард: загрузка списка видео (YT-специфичный шаг)
+### 6. Визард: загрузка списка видео (YT-специфичный шаг)
 
 В `SourceDraftService` добавь метод `loadVideoList(SourceDraft $draft, array $contentTypes): void`:
 1. Вызывает `YouTubeService::getVideoUrls(channelId, $contentTypes)`
@@ -124,7 +154,7 @@ Distributed lock реализуй через DB-level pessimistic lock (`lockFor
 
 Этот метод вызывается из `SourceService::confirmAndProcess()` для YouTube-источников.
 
-### 6. API Endpoint: подтверждение YT
+### 7. API Endpoint: подтверждение YT
 
 Расширь `POST /api/source-drafts/{draft}/confirm` для YT:
 
@@ -134,7 +164,7 @@ Distributed lock реализуй через DB-level pessimistic lock (`lockFor
 
 Добавь также поддержку "снятия галочек" при индексации: `POST /api/source-drafts/{draft}/index` принимает `video_urls` — финальный список URL для извлечения. Этот список сохраняется в `content_source.metadata` перед dispatch `ProcessSourceJob`.
 
-### 7. SSE Events
+### 8. SSE Events
 
 Добавь Events + Listeners для:
 - `YoutubeVideosLoaded` → публикует `videos_loaded` (`draft_id`, `videos[]` с id, url, title, duration, thumbnail)
@@ -159,10 +189,12 @@ Distributed lock реализуй через DB-level pessimistic lock (`lockFor
 ## Критерии готовности
 
 - Подтверждение YT черновика → загрузка видео → SSE `videos_loaded` → пользователь нажимает «Индексировать» → `YouTubeExtractor` батчами извлекает транскрипты
+- `WebsiteExtractor`: загрузка URL через `NotebookLMService::addSourceUrl()` → `OriginalItem` с title и текстом страницы
 - `NlmFileExtractor`: загрузка pdf/mp3/jpg через `NotebookLMService::addSourceFile()` → `OriginalItem` с извлечённым текстом
-- В `finally` блоке источники всегда удаляются из тех. ноутбука — и для YT, и для файлов
+- В `finally` блоке источники всегда удаляются из тех. ноутбука — для YT, веб-сайтов и файлов
 - `AccountService::acquireTechNotebookLock()` атомарен: два параллельных вызова не захватят один ноутбук
 - `CleanupStaleTechNotebooksJob` находит зависшие ноутбуки и очищает их
 - Все вызовы `NotebookLMService` и `AccountService` мокируются в тестах
 - Feature-тест: "YouTube channel extraction with 3 videos in 2 batches"
+- Unit-тест `WebsiteExtractor`: URL загружен, текст извлечён, источник удалён в finally (в том числе при исключении)
 - Unit-тест `NlmFileExtractor`: файл загружен, текст извлечён, файл удалён в finally (в том числе при исключении)
