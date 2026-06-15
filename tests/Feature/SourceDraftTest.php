@@ -200,10 +200,10 @@ final class SourceDraftTest extends TestCase
 
     public function test_show_source_draft(): void
     {
-        $draft = SourceDraft::factory()->create([
-            'user_id' => $this->user->id,
-            'knowledge_base_id' => $this->notebook->id,
-        ]);
+        $draft = SourceDraft::factory()
+            ->forUser($this->user)
+            ->forNotebook($this->notebook)
+            ->create();
 
         $response = $this->actingAs($this->user)
             ->getJson("/api/source-drafts/{$draft->id}");
@@ -218,10 +218,11 @@ final class SourceDraftTest extends TestCase
     public function test_cannot_access_other_users_draft(): void
     {
         $otherUser = User::factory()->create();
-        $draft = SourceDraft::factory()->create([
-            'user_id' => $otherUser->id,
-            'knowledge_base_id' => Notebook::factory()->create(['user_id' => $otherUser->id])->id,
-        ]);
+        $otherNotebook = Notebook::factory()->forUser($otherUser)->create();
+        $draft = SourceDraft::factory()
+            ->forUser($otherUser)
+            ->forNotebook($otherNotebook)
+            ->create();
 
         $response = $this->actingAs($this->user)
             ->getJson("/api/source-drafts/{$draft->id}");
@@ -231,11 +232,11 @@ final class SourceDraftTest extends TestCase
 
     public function test_abandon_source_draft(): void
     {
-        $draft = SourceDraft::factory()->create([
-            'user_id' => $this->user->id,
-            'knowledge_base_id' => $this->notebook->id,
-            'status' => SourceDraftStatus::AwaitingConfirm,
-        ]);
+        $draft = SourceDraft::factory()
+            ->forUser($this->user)
+            ->forNotebook($this->notebook)
+            ->awaitingConfirm()
+            ->create();
 
         $response = $this->actingAs($this->user)
             ->deleteJson("/api/source-drafts/{$draft->id}");
@@ -251,10 +252,11 @@ final class SourceDraftTest extends TestCase
 
     public function test_source_draft_service_handle_meta_loaded(): void
     {
-        $draft = SourceDraft::factory()->fetchingMeta()->create([
-            'user_id' => $this->user->id,
-            'knowledge_base_id' => $this->notebook->id,
-        ]);
+        $draft = SourceDraft::factory()
+            ->forUser($this->user)
+            ->forNotebook($this->notebook)
+            ->fetchingMeta()
+            ->create();
 
         Event::fake([
             SourceMetaLoaded::class,
@@ -278,10 +280,11 @@ final class SourceDraftTest extends TestCase
 
     public function test_source_draft_service_handle_meta_error(): void
     {
-        $draft = SourceDraft::factory()->fetchingMeta()->create([
-            'user_id' => $this->user->id,
-            'knowledge_base_id' => $this->notebook->id,
-        ]);
+        $draft = SourceDraft::factory()
+            ->forUser($this->user)
+            ->forNotebook($this->notebook)
+            ->fetchingMeta()
+            ->create();
 
         Event::fake([
             SourceDraftError::class,

@@ -62,9 +62,7 @@ final class ProcessTelegramChunkJobTest extends TestCase
 
     public function test_job_skips_existing_posts(): void
     {
-        $source = ContentSource::factory()->create([
-            'extraction_status' => ExtractionStatus::Uploading,
-        ]);
+        $source = ContentSource::factory()->uploading()->create();
 
         // Create existing post
         OriginalItem::factory()->create([

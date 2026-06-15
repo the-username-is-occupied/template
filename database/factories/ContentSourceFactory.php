@@ -167,4 +167,14 @@ class ContentSourceFactory extends Factory
             'updated_at' => now()->subMinutes($minutes),
         ]);
     }
+
+    public function withVideoUrls(array $videoUrls): static
+    {
+        return $this->state(function (array $attributes) use ($videoUrls) {
+            $metadata = $attributes['metadata'] ?? [];
+            return [
+                'metadata' => array_merge($metadata, ['video_urls' => $videoUrls]),
+            ];
+        });
+    }
 }

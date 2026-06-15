@@ -16,7 +16,7 @@ final class TelegramWebhookControllerTest extends TestCase
     public function test_webhook_upload_dispatches_job(): void
     {
         $source = ContentSource::factory()->create();
-        SourceDraft::factory()->create(['content_source_id' => $source->id]);
+        SourceDraft::factory()->withContentSource($source)->create();
 
         $posts = [
             [

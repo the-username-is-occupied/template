@@ -130,12 +130,12 @@ final class ExtractionCoreTest extends TestCase
     {
         Queue::fake();
 
-        $draft = SourceDraft::factory()->create([
-            'user_id' => $this->user->id,
-            'type' => SourceType::Text,
-            'raw_input' => 'https://example.com/test.txt',
-            'status' => SourceDraftStatus::AwaitingConfirm,
-        ]);
+        $draft = SourceDraft::factory()
+            ->forUser($this->user)
+            ->withType(SourceType::Text)
+            ->withUrl('https://example.com/test.txt')
+            ->awaitingConfirm()
+            ->create();
 
         Storage::disk('local')->put('test.txt', 'Test content');
 
@@ -155,17 +155,17 @@ final class ExtractionCoreTest extends TestCase
     {
         Queue::fake();
 
-        $source = ContentSource::factory()->create([
-            'user_id' => $this->user->id,
-            'type' => SourceType::TelegramChannel,
-            'extraction_status' => ExtractionStatus::Extracted,
-        ]);
+        $source = ContentSource::factory()
+            ->for($this->user)
+            ->withType(SourceType::TelegramChannel)
+            ->extracted()
+            ->create();
 
-        $draft = SourceDraft::factory()->create([
-            'user_id' => $this->user->id,
-            'content_source_id' => $source->id,
-            'status' => SourceDraftStatus::AwaitingIndex,
-        ]);
+        $draft = SourceDraft::factory()
+            ->forUser($this->user)
+            ->withContentSource($source)
+            ->awaitingIndex()
+            ->create();
 
         $service = new SourceService(new ExtractorFactory);
         $service->startIndexing($draft, []);
@@ -182,12 +182,12 @@ final class ExtractionCoreTest extends TestCase
 
         Storage::disk('local')->put('test.txt', 'Test content');
 
-        $draft = SourceDraft::factory()->create([
-            'user_id' => $this->user->id,
-            'type' => SourceType::Text,
-            'raw_input' => 'https://example.com/test.txt',
-            'status' => SourceDraftStatus::AwaitingConfirm,
-        ]);
+        $draft = SourceDraft::factory()
+            ->forUser($this->user)
+            ->withType(SourceType::Text)
+            ->withUrl('https://example.com/test.txt')
+            ->awaitingConfirm()
+            ->create();
 
         $response = $this->actingAs($this->user)
             ->postJson("/api/source-drafts/{$draft->id}/confirm");
@@ -203,17 +203,17 @@ final class ExtractionCoreTest extends TestCase
     {
         Queue::fake();
 
-        $source = ContentSource::factory()->create([
-            'user_id' => $this->user->id,
-            'type' => SourceType::TelegramChannel,
-            'extraction_status' => ExtractionStatus::Extracted,
-        ]);
+        $source = ContentSource::factory()
+            ->for($this->user)
+            ->withType(SourceType::TelegramChannel)
+            ->extracted()
+            ->create();
 
-        $draft = SourceDraft::factory()->create([
-            'user_id' => $this->user->id,
-            'content_source_id' => $source->id,
-            'status' => SourceDraftStatus::AwaitingIndex,
-        ]);
+        $draft = SourceDraft::factory()
+            ->forUser($this->user)
+            ->withContentSource($source)
+            ->awaitingIndex()
+            ->create();
 
         $response = $this->actingAs($this->user)
             ->postJson("/api/source-drafts/{$draft->id}/index", [

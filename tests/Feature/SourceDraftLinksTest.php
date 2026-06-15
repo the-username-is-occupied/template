@@ -31,17 +31,15 @@ final class SourceDraftLinksTest extends TestCase
         parent::setUp();
 
         $this->user = User::factory()->create();
-        $this->notebook = Notebook::factory()->create(['user_id' => $this->user->id]);
+        $this->notebook = Notebook::factory()->forUser($this->user)->create();
 
-        $this->parentSource = ContentSource::factory()->create([
-            'user_id' => $this->user->id,
-        ]);
+        $this->parentSource = ContentSource::factory()->for($this->user)->create();
 
-        $this->draft = SourceDraft::factory()->create([
-            'user_id' => $this->user->id,
-            'knowledge_base_id' => $this->notebook->id,
-            'content_source_id' => $this->parentSource->id,
-        ]);
+        $this->draft = SourceDraft::factory()
+            ->forUser($this->user)
+            ->forNotebook($this->notebook)
+            ->withContentSource($this->parentSource)
+            ->create();
     }
 
     public function test_can_get_discovered_links(): void
@@ -130,9 +128,7 @@ final class SourceDraftLinksTest extends TestCase
     public function test_cannot_access_other_users_draft(): void
     {
         $otherUser = User::factory()->create();
-        $otherDraft = SourceDraft::factory()->create([
-            'user_id' => $otherUser->id,
-        ]);
+        $otherDraft = SourceDraft::factory()->forUser($otherUser)->create();
 
         $response = $this->actingAs($this->user)
             ->getJson("/api/source-drafts/{$otherDraft->id}/links");

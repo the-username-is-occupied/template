@@ -6,6 +6,7 @@ namespace Database\Factories;
 
 use App\Enums\SourceDraftStatus;
 use App\Enums\SourceType;
+use App\Models\ContentSource;
 use App\Models\Notebook;
 use App\Models\SourceDraft;
 use App\Models\User;
@@ -59,5 +60,35 @@ class SourceDraftFactory extends Factory
     public function awaitingIndex(): static
     {
         return $this->state(['status' => SourceDraftStatus::AwaitingIndex]);
+    }
+
+    public function abandoned(): static
+    {
+        return $this->state(['status' => SourceDraftStatus::Abandoned]);
+    }
+
+    public function forUser(User $user): static
+    {
+        return $this->state(fn () => ['user_id' => $user->id]);
+    }
+
+    public function forNotebook(Notebook $notebook): static
+    {
+        return $this->state(fn () => ['knowledge_base_id' => $notebook->id]);
+    }
+
+    public function withContentSource(ContentSource $contentSource): static
+    {
+        return $this->state(fn () => ['content_source_id' => $contentSource->id]);
+    }
+
+    public function withType(SourceType $type): static
+    {
+        return $this->state(fn () => ['type' => $type]);
+    }
+
+    public function withUrl(string $url): static
+    {
+        return $this->state(fn () => ['raw_input' => $url]);
     }
 }

@@ -25,4 +25,9 @@ class NotebookFactory extends Factory
             'status' => 'active',
         ];
     }
+
+    public function forUser(User $user): static
+    {
+        return $this->state(fn () => ['user_id' => $user->id]);
+    }
 }

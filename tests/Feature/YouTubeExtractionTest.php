@@ -44,16 +44,12 @@ test('YouTube channel extraction with 3 videos in 2 batches', function () {
         ->youtube()
         ->withUrl('https://youtube.com/@testchannel')
         ->pending()
-        ->create([
-            'title' => 'Test Channel',
-            'metadata' => [
-                'video_urls' => [
-                    'https://youtube.com/watch?v=video1',
-                    'https://youtube.com/watch?v=video2',
-                    'https://youtube.com/watch?v=video3',
-                ],
-            ],
-        ]);
+        ->withVideoUrls([
+            'https://youtube.com/watch?v=video1',
+            'https://youtube.com/watch?v=video2',
+            'https://youtube.com/watch?v=video3',
+        ])
+        ->create(['title' => 'Test Channel']);
 
 
     // Mock NotebookLMService
