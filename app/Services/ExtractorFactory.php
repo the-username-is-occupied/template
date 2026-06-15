@@ -25,7 +25,7 @@ class ExtractorFactory
             $type = SourceType::from($type);
         }
 
-        $extractor = match($type){
+        $extractor = match ($type) {
             SourceType::Text => TextExtractor::class,
             default => throw new UnsupportedSourceTypeException($type->value)
         };

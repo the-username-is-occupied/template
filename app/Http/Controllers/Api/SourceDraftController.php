@@ -9,6 +9,7 @@ use App\Domain\SourcePipeline\DTOs\SourceDraftResource;
 use App\Http\Controllers\Controller;
 use App\Models\Notebook;
 use App\Models\SourceDraft;
+use App\Services\DraftLinkGroupingService;
 use App\Services\SourceDraftService;
 use App\Services\SourceService;
 use Illuminate\Http\JsonResponse;
@@ -20,6 +21,7 @@ class SourceDraftController extends Controller
     public function __construct(
         private readonly SourceDraftService $draftService,
         private readonly SourceService $sourceService,
+        private readonly DraftLinkGroupingService $linkGroupingService,
     ) {}
 
     /**
@@ -95,6 +97,18 @@ class SourceDraftController extends Controller
         return response()->json([
             'message' => 'Indexing started.',
         ]);
+    }
+
+    /**
+     * Get discovered links grouped by type/domain/channel.
+     */
+    public function links(SourceDraft $draft): JsonResponse
+    {
+        $this->authorizeDraft($draft);
+
+        $grouped = $this->linkGroupingService->getGroupedLinks($draft);
+
+        return response()->json($grouped);
     }
 
     private function authorizeDraft(SourceDraft $draft): void

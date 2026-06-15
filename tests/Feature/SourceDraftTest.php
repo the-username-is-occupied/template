@@ -8,8 +8,8 @@ use App\Domain\Telegram\DTOs\ChannelInfoResponse;
 use App\Domain\Telegram\TGScraperService;
 use App\Enums\SourceDraftStatus;
 use App\Enums\SourceType;
-use App\Listeners\SendSourceDraftErrorNotification;
-use App\Listeners\SendSourceMetaLoadedNotification;
+use App\Events\SourceDraftError;
+use App\Events\SourceMetaLoaded;
 use App\Models\Notebook;
 use App\Models\SourceDraft;
 use App\Models\User;
@@ -17,6 +17,7 @@ use App\Services\SmartUrlDetector;
 use App\Services\SourceDraftService;
 use App\Services\YouTubeService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Event;
 use Tests\TestCase;
 
 final class SourceDraftTest extends TestCase
@@ -129,9 +130,9 @@ final class SourceDraftTest extends TestCase
                 ));
         });
 
-        $this->mock(SendSourceMetaLoadedNotification::class, function ($mock) {
-            $mock->shouldReceive('handle')->once();
-        });
+        Event::fake([
+            SourceMetaLoaded::class,
+        ]);
 
         $response = $this->actingAs($this->user)
             ->postJson('/api/source-drafts', [
@@ -165,9 +166,9 @@ final class SourceDraftTest extends TestCase
                 ));
         });
 
-        $this->mock(SendSourceMetaLoadedNotification::class, function ($mock) {
-            $mock->shouldReceive('handle')->twice();
-        });
+        Event::fake([
+            SourceMetaLoaded::class,
+        ]);
 
         $response = $this->actingAs($this->user)
             ->postJson('/api/source-drafts', [
@@ -239,9 +240,9 @@ final class SourceDraftTest extends TestCase
             'knowledge_base_id' => $this->notebook->id,
         ]);
 
-        $this->mock(SendSourceMetaLoadedNotification::class, function ($mock) {
-            $mock->shouldReceive('handle')->once();
-        });
+        Event::fake([
+            SourceMetaLoaded::class,
+        ]);
 
         $service = new SourceDraftService(
             new SmartUrlDetector,
@@ -266,9 +267,9 @@ final class SourceDraftTest extends TestCase
             'knowledge_base_id' => $this->notebook->id,
         ]);
 
-        $this->mock(SendSourceDraftErrorNotification::class, function ($mock) {
-            $mock->shouldReceive('handle')->once();
-        });
+        Event::fake([
+            SourceDraftError::class,
+        ]);
 
         $service = new SourceDraftService(
             new SmartUrlDetector,

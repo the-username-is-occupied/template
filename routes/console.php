@@ -1,5 +1,6 @@
 <?php
 
+use App\Console\Commands\RetryStaleUploadsCommand;
 use App\Domain\NotebookLM\Jobs\CheckAccountHealth;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
@@ -11,3 +12,6 @@ Artisan::command('inspire', function () {
 
 // Check NotebookLM account health every minute
 // Schedule::job(new CheckAccountHealth)->everyMinute();
+
+// Retry stale uploads every 30 minutes
+Schedule::command(RetryStaleUploadsCommand::class)->everyThirtyMinutes();

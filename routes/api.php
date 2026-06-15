@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Http\Controllers\Api\SourceDraftController;
+use App\Http\Controllers\Api\TelegramWebhookController;
 use App\Http\Controllers\DebugSseController;
 use App\Http\Controllers\TelegramHookController;
 use App\Http\Controllers\TG\TGScraperController;
@@ -12,6 +13,9 @@ Route::get('/', fn () => app()->version())->name('api');
 Route::get('/debug/sse/config', [DebugSseController::class, 'config'])->name('api.debug.sse.config');
 Route::post('/debug/sse/publish', [DebugSseController::class, 'publish'])->name('api.debug.sse.publish');
 Route::post('/hook', TelegramHookController::class)->name('api.telegram.hook');
+
+// Telegram Scraper webhook (no auth, internal network only)
+Route::post('/webhooks/telegram-scraper', [TelegramWebhookController::class, 'handle']);
 
 Route::prefix('tg')->group(function () {
     Route::get('status', [TGScraperController::class, 'status']);
@@ -26,4 +30,5 @@ Route::middleware('auth')->prefix('source-drafts')->group(function () {
     Route::delete('/{draft}', [SourceDraftController::class, 'destroy']);
     Route::post('/{draft}/confirm', [SourceDraftController::class, 'confirm']);
     Route::post('/{draft}/index', [SourceDraftController::class, 'index']);
+    Route::get('/{draft}/links', [SourceDraftController::class, 'links']);
 });
