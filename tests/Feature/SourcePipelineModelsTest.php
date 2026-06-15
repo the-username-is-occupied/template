@@ -30,6 +30,7 @@ final class SourcePipelineModelsTest extends TestCase
 
         $pendingSource = ContentSource::factory()->autoExtracted()->pendingReview()->create([
             'user_id' => $user->id,
+            'auto_update' => false,
         ]);
 
         $this->assertSame(1, ContentSource::pendingReview()->count());

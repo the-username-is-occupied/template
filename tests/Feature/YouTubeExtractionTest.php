@@ -14,7 +14,6 @@ use App\Models\User;
 use App\Services\AccountService;
 use App\Services\Extractors\YouTubeExtractor;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Mockery;
 use Tests\TestCase;
 
 uses(TestCase::class, RefreshDatabase::class);

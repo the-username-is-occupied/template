@@ -6,12 +6,16 @@ namespace App\Jobs;
 
 use App\Domain\NotebookLM\NotebookLMService;
 use App\Models\TechNotebook;
+use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
+use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Log;
 
 class CleanupStaleTechNotebooksJob implements ShouldQueue
 {
+    use InteractsWithQueue, Queueable;
+
     public function handle(NotebookLMService $notebookLMService): void
     {
         // Find stale notebooks (locked for more than 15 minutes)

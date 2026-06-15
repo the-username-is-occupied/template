@@ -12,8 +12,8 @@ return new class extends Migration
     {
         Schema::create('tech_notebooks', function (Blueprint $table) {
             $table->uuid('id')->primary();
-            $table->string('account_id');
-            $table->string('notebook_id');
+            $table->foreignUuid('account_id')->references('id')->on('tech_accounts')->onDelete('cascade');
+            $table->uuid('notebook_id');
             $table->string('type'); // source_extractor, summary_aggregator, global_search
             $table->integer('sources_count')->default(0);
             $table->integer('max_sources')->default(20);
@@ -23,7 +23,6 @@ return new class extends Migration
             $table->json('metadata')->nullable();
             $table->timestamps();
 
-            $table->foreign('account_id')->references('id')->on('tech_accounts')->onDelete('cascade');
             $table->index(['type', 'status']);
             $table->index('status');
         });

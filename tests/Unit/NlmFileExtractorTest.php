@@ -15,7 +15,6 @@ use App\Services\AccountService;
 use App\Services\Extractors\NlmFileExtractor;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Storage;
-use Mockery;
 use Tests\TestCase;
 
 uses(TestCase::class, RefreshDatabase::class);

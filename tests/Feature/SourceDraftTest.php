@@ -6,6 +6,7 @@ namespace Tests\Feature;
 
 use App\Domain\Telegram\DTOs\ChannelInfoResponse;
 use App\Domain\Telegram\TGScraperService;
+use App\Domain\YouTube\DTOs\ChannelInfoData;
 use App\Enums\SourceDraftStatus;
 use App\Enums\SourceType;
 use App\Events\SourceDraftError;
@@ -163,6 +164,21 @@ final class SourceDraftTest extends TestCase
                     description: null,
                     members: null,
                     avatar_url: null
+                ));
+        });
+
+        $this->mock(YouTubeService::class, function ($mock) {
+            $mock->shouldReceive('getChannelInfo')
+                ->andReturn(new ChannelInfoData(
+                    id: 'UCtest123',
+                    title: 'Test Channel',
+                    description: 'A test YouTube channel',
+                    handle: '@test',
+                    avatar_url: 'https://example.com/avatar.jpg',
+                    published_at: null,
+                    subscribers_count: 1000,
+                    view_count: 10000,
+                    video_count: 50,
                 ));
         });
 

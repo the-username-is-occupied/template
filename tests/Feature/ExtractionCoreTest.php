@@ -102,7 +102,7 @@ final class ExtractionCoreTest extends TestCase
     {
         $source = ContentSource::factory()->create([
             'user_id' => $this->user->id,
-            'type' => SourceType::Website,
+            'type' => SourceType::TelegramChannel,
         ]);
 
         $factory = new ExtractorFactory;

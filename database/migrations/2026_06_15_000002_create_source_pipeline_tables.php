@@ -13,7 +13,7 @@ return new class extends Migration
     {
         Schema::create('content_sources', function (Blueprint $table): void {
             $table->uuid('id')->primary();
-            $table->foreignUuid('user_id')->constrained()->cascadeOnDelete();
+            $table->foreignId('user_id')->constrained()->cascadeOnDelete();
             $table->string('type');
             $table->text('url')->nullable();
             $table->text('file_ref')->nullable();
@@ -21,7 +21,7 @@ return new class extends Migration
             $table->boolean('auto_update')->default(false);
             $table->string('extraction_status')->default('pending');
             $table->text('nlm_temp_source_id')->nullable();
-            $table->foreignUuid('parent_source_id')->nullable()->constrained('content_sources')->nullOnDelete();
+            $table->uuid('parent_source_id')->nullable();
             $table->string('discovery_method')->default('manual');
             $table->string('review_status')->default('approved');
             $table->string('last_fetched_id')->nullable();
@@ -31,9 +31,13 @@ return new class extends Migration
             $table->timestamps();
         });
 
+        Schema::table('content_sources', function (Blueprint $table): void {
+            $table->foreign('parent_source_id')->references('id')->on('content_sources')->nullOnDelete();
+        });
+
         Schema::create('source_drafts', function (Blueprint $table): void {
             $table->uuid('id')->primary();
-            $table->foreignUuid('user_id')->constrained()->cascadeOnDelete();
+            $table->foreignId('user_id')->constrained()->cascadeOnDelete();
             $table->foreignUuid('knowledge_base_id')->constrained('notebooks')->cascadeOnDelete();
             $table->foreignUuid('content_source_id')->nullable()->constrained('content_sources')->nullOnDelete();
             $table->string('type')->nullable();
@@ -54,13 +58,17 @@ return new class extends Migration
             $table->text('title')->nullable();
             $table->text('full_text')->nullable();
             $table->text('source_url')->nullable();
-            $table->foreignUuid('parent_item_id')->nullable()->constrained('original_items')->nullOnDelete();
+            $table->uuid('parent_item_id')->nullable();
             $table->timestampTz('published_at')->nullable();
             $table->unsignedInteger('word_count')->default(0);
             $table->json('metadata')->nullable();
             $table->timestampTz('created_at')->useCurrent();
 
             $table->index(['content_source_id', 'published_at']);
+        });
+
+        Schema::table('original_items', function (Blueprint $table): void {
+            $table->foreign('parent_item_id')->references('id')->on('original_items')->nullOnDelete();
         });
 
         Schema::create('md_bundles', function (Blueprint $table): void {

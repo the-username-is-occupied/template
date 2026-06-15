@@ -12,7 +12,7 @@ return new class extends Migration
     {
         Schema::create('notebooks', function (Blueprint $table): void {
             $table->uuid('id')->primary();
-            $table->foreignUuid('user_id')->constrained()->cascadeOnDelete();
+            $table->foreignId('user_id')->constrained()->cascadeOnDelete();
             $table->text('nlm_notebook_id')->nullable();
             $table->text('title');
             $table->text('system_prompt')->nullable();

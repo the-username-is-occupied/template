@@ -21,7 +21,9 @@ class WebsiteExtractor implements SourceExtractorInterface
 
     public function extract(ContentSource $source): void
     {
-        $url = $source->source_url;
+        Log::info('WebsiteExtractor::extract() started', ['source_id' => $source->id]);
+
+        $url = $source->url;
 
         if (empty($url)) {
             $source->update([
