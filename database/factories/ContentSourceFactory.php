@@ -9,6 +9,7 @@ use App\Enums\ExtractionStatus;
 use App\Enums\ReviewStatus;
 use App\Enums\SourceType;
 use App\Models\ContentSource;
+use App\Models\OriginalItem;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
@@ -115,7 +116,7 @@ class ContentSourceFactory extends Factory
         return $this->state(fn () => [
             'extraction_status' => ExtractionStatus::Error,
             'error_code' => $errorCode,
-            'error_message' => $errorCode ? 'Error: ' . $errorCode : null,
+            'error_message' => $errorCode ? 'Error: '.$errorCode : null,
         ]);
     }
 
@@ -123,7 +124,7 @@ class ContentSourceFactory extends Factory
     {
         return $this->state(fn () => [
             'type' => SourceType::TelegramChannel,
-            'url' => 'https://t.me/' . ($channel ?? fake()->userName()),
+            'url' => 'https://t.me/'.($channel ?? fake()->userName()),
             'metadata' => [
                 'channel_id' => fake()->numerify('########'),
                 'title' => fake()->company(),
@@ -142,13 +143,14 @@ class ContentSourceFactory extends Factory
     {
         return $this->state(function (array $attributes) use ($config) {
             $metadata = $attributes['metadata'] ?? [];
+
             return [
                 'metadata' => array_merge($metadata, ['scrape_config' => $config]),
             ];
         });
     }
 
-    public function withParent(ContentSource $parent, ?\App\Models\OriginalItem $item = null): static
+    public function withParent(ContentSource $parent, ?OriginalItem $item = null): static
     {
         return $this->state(fn () => [
             'parent_source_id' => $parent->id,
@@ -172,6 +174,7 @@ class ContentSourceFactory extends Factory
     {
         return $this->state(function (array $attributes) use ($videoUrls) {
             $metadata = $attributes['metadata'] ?? [];
+
             return [
                 'metadata' => array_merge($metadata, ['video_urls' => $videoUrls]),
             ];

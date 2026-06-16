@@ -8,7 +8,7 @@ use App\Domain\NotebookLM\NotebookLMService;
 use App\Enums\TechAccountStatus;
 use App\Http\Requests\Admin\StoreTechAccountRequest;
 use App\Http\Requests\Admin\UpdateTechAccountRequest;
-use App\Models\TechAccounts;
+use App\Models\TechAccount;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\File;
@@ -20,11 +20,11 @@ class TechAccountService
         private readonly NotebookLMService $notebookLMService
     ) {}
 
-    public function create(StoreTechAccountRequest $request): TechAccounts
+    public function create(StoreTechAccountRequest $request): TechAccount
     {
         $validated = $request->validated();
 
-        $account = new TechAccounts;
+        $account = new TechAccount;
         $account->fill($validated);
         $account->status = TechAccountStatus::Initializing;
         $account->save();
@@ -40,7 +40,7 @@ class TechAccountService
         return $account;
     }
 
-    public function update(UpdateTechAccountRequest $request, TechAccounts $account): void
+    public function update(UpdateTechAccountRequest $request, TechAccount $account): void
     {
         $validated = $request->validated();
 
@@ -55,7 +55,7 @@ class TechAccountService
 
     }
 
-    public function delete(TechAccounts $account): void
+    public function delete(TechAccount $account): void
     {
         $this->notebookLMService->removeAccount((string) $account->id);
 
@@ -68,7 +68,7 @@ class TechAccountService
         $account->delete();
     }
 
-    private function storeStorageState(Request $request, TechAccounts $account): void
+    private function storeStorageState(Request $request, TechAccount $account): void
     {
         if (! $request->hasFile('storage_state')) {
             return;
@@ -88,14 +88,14 @@ class TechAccountService
         File::put($path, $contents);
     }
 
-    private function cookiePath(TechAccounts $account): string
+    private function cookiePath(TechAccount $account): string
     {
         return rtrim((string) config('tech-accounts.cookie_base_path'), '/').'/'.$account->id.'/storage_state.json';
     }
 
     public function index(Request $request): LengthAwarePaginator
     {
-        return TechAccounts::query()
+        return TechAccount::query()
             ->when($request->string('status')->toString() !== '', fn ($query) => $query->where('status', $request->string('status')->toString()))
             ->when($request->string('pool_type')->toString() !== '', fn ($query) => $query->where('pool_type', $request->string('pool_type')->toString()))
             ->when($request->string('search')->toString() !== '', fn ($query) => $query->where(function ($innerQuery) use ($request): void {

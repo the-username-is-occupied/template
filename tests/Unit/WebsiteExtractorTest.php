@@ -34,7 +34,7 @@ class WebsiteExtractorTest extends TestCase
         $techAccount = TechAccount::create([
             'name' => 'Test Account',
             'email' => 'test@example.com',
-            'pool_type' => 'source_extractor',
+            'pool_type' => 'free',
             'status' => 'active',
         ]);
 
@@ -136,7 +136,7 @@ class WebsiteExtractorTest extends TestCase
         $techAccount = TechAccount::create([
             'name' => 'Test Account 2',
             'email' => 'test2@example.com',
-            'pool_type' => 'source_extractor',
+            'pool_type' => 'free',
             'status' => 'active',
         ]);
 

@@ -10,7 +10,7 @@ use App\Enums\TechAccountStatus;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\StoreTechAccountRequest;
 use App\Http\Requests\Admin\UpdateTechAccountRequest;
-use App\Models\TechAccounts;
+use App\Models\TechAccount;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -35,7 +35,7 @@ class TechAccountController extends Controller
     public function create(): View
     {
         return view('admin.tech-accounts.create', [
-            'account' => new TechAccounts,
+            'account' => new TechAccount,
             'statuses' => TechAccountStatus::cases(),
             'poolTypes' => TechAccountPoolType::cases(),
             'action' => route('admin.tech-accounts.store'),
@@ -54,7 +54,7 @@ class TechAccountController extends Controller
             ->with('status', 'Account created successfully.');
     }
 
-    public function edit(TechAccounts $techAccount): View
+    public function edit(TechAccount $techAccount): View
     {
         return view('admin.tech-accounts.edit', [
             'account' => $techAccount,
@@ -67,7 +67,7 @@ class TechAccountController extends Controller
         ]);
     }
 
-    public function update(UpdateTechAccountRequest $request, TechAccounts $techAccount): RedirectResponse
+    public function update(UpdateTechAccountRequest $request, TechAccount $techAccount): RedirectResponse
     {
         $this->service->update($request, $techAccount);
 
@@ -76,7 +76,7 @@ class TechAccountController extends Controller
             ->with('status', 'Account updated successfully.');
     }
 
-    public function destroy(TechAccounts $techAccount): RedirectResponse
+    public function destroy(TechAccount $techAccount): RedirectResponse
     {
         $this->service->delete($techAccount);
 

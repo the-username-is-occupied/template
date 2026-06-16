@@ -4,9 +4,12 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Enums\TechAccountPoolType;
+use App\Enums\TechAccountStatus;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class TechAccount extends Model
 {
@@ -35,10 +38,19 @@ class TechAccount extends Model
     protected function casts(): array
     {
         return [
-            'metadata' => 'array',
+            'pool_type' => TechAccountPoolType::class,
+            'status' => TechAccountStatus::class,
+            'notebooks_count' => 'integer',
+            'chats_today' => 'integer',
             'chats_reset_at' => 'datetime',
             'last_used_at' => 'datetime',
+            'metadata' => 'array',
         ];
+    }
+
+    public function tierLimit(): BelongsTo
+    {
+        return $this->belongsTo(AccountTierLimit::class, 'pool_type', 'tier');
     }
 
     public function notebooks()

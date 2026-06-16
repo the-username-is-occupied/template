@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Tests\Feature;
 
-use App\Enums\ReviewStatus;
 use App\Enums\SourceType;
 use App\Models\ContentSource;
 use App\Models\Notebook;

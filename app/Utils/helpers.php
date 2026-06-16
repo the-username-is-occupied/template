@@ -1,6 +1,6 @@
 <?php
 
-use App\Models\TechAccounts;
+use App\Models\TechAccount;
 
 if (! function_exists('format_duration')) {
     function format_duration(float $duration): string
@@ -12,6 +12,6 @@ if (! function_exists('format_duration')) {
 if (! function_exists('tech')) {
     function tech()
     {
-        return TechAccounts::query();
+        return TechAccount::query();
     }
 }

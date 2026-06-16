@@ -6,7 +6,7 @@ namespace App\Domain\NotebookLM\Jobs;
 
 use App\Domain\NotebookLM\NotebookLMService;
 use App\Enums\TechAccountStatus;
-use App\Models\TechAccounts;
+use App\Models\TechAccount;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Queue\InteractsWithQueue;
@@ -62,7 +62,7 @@ class CheckAccountHealth implements ShouldQueue
      */
     protected function processAccountHealth(string $accountId, array $health): void
     {
-        $account = TechAccounts::find($accountId);
+        $account = TechAccount::find($accountId);
 
         if (! $account) {
             Log::warning('Account not found in database', [

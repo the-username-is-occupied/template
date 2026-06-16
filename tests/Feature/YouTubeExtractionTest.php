@@ -25,7 +25,7 @@ test('YouTube channel extraction with 3 videos in 2 batches', function () {
         'id' => '019ecba7-ec15-7088-84c4-f167fc886ff4',
         'name' => 'Test Account',
         'email' => 'test@example.com',
-        'pool_type' => 'source_extractor',
+        'pool_type' => 'free',
         'status' => 'active',
     ]);
 
@@ -50,7 +50,6 @@ test('YouTube channel extraction with 3 videos in 2 batches', function () {
             'https://youtube.com/watch?v=video3',
         ])
         ->create(['title' => 'Test Channel']);
-
 
     // Mock NotebookLMService
     $notebookLMService = Mockery::mock(NotebookLMService::class);

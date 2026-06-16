@@ -6,13 +6,13 @@ namespace Database\Factories;
 
 use App\Enums\TechAccountPoolType;
 use App\Enums\TechAccountStatus;
-use App\Models\TechAccounts;
+use App\Models\TechAccount;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 /**
- * @extends Factory<TechAccounts>
+ * @extends Factory<TechAccount>
  */
-class TechAccountsFactory extends Factory
+class TechAccountFactory extends Factory
 {
     /**
      * Define the model's default state.

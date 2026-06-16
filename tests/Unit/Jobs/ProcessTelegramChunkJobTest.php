@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Jobs;
 
-use App\Enums\ExtractionStatus;
 use App\Jobs\ProcessTelegramChunkJob;
 use App\Models\ContentSource;
 use App\Models\OriginalItem;

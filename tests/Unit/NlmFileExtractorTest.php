@@ -27,7 +27,7 @@ test('NlmFileExtractor uploads file, extracts text, and deletes file in finally'
         'id' => '019ecba7-eb46-73cd-aa84-a4a5b6dc189f',
         'name' => 'Test Account',
         'email' => 'test@example.com',
-        'pool_type' => 'source_extractor',
+        'pool_type' => 'free',
         'status' => 'active',
     ]);
 
@@ -119,7 +119,7 @@ test('NlmFileExtractor deletes file in finally block even on exception', functio
         'id' => '019ecba8-bede-700e-88aa-50be0c6ece2d',
         'name' => 'Test Account',
         'email' => 'test2@example.com',
-        'pool_type' => 'source_extractor',
+        'pool_type' => 'free',
         'status' => 'active',
     ]);
 

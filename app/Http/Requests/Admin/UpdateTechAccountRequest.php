@@ -6,7 +6,7 @@ namespace App\Http\Requests\Admin;
 
 use App\Enums\TechAccountPoolType;
 use App\Enums\TechAccountStatus;
-use App\Models\TechAccounts;
+use App\Models\TechAccount;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -23,7 +23,7 @@ final class UpdateTechAccountRequest extends FormRequest
     public function rules(): array
     {
         $account = $this->route('techAccount');
-        $accountId = $account instanceof TechAccounts ? $account->getKey() : $account;
+        $accountId = $account instanceof TechAccount ? $account->getKey() : $account;
 
         return [
             'name' => ['required', 'string', 'max:255'],

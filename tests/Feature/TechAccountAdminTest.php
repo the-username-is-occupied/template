@@ -6,13 +6,13 @@ namespace Tests\Feature;
 
 use App\Domain\NotebookLM\NotebookLMService;
 use App\Domain\TechAccount\TechAccountService;
-use App\Models\TechAccounts;
+use App\Models\TechAccount;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\File;
 use Tests\TestCase;
 
-final class TechAccountsAdminTest extends TestCase
+final class TechAccountAdminTest extends TestCase
 {
     use RefreshDatabase;
 
@@ -52,7 +52,7 @@ final class TechAccountsAdminTest extends TestCase
 
         $response->assertRedirect(route('admin.tech-accounts.index'));
 
-        $account = TechAccounts::query()->where('email', 'account-one@example.com')->firstOrFail();
+        $account = TechAccount::query()->where('email', 'account-one@example.com')->firstOrFail();
 
         $this->assertSame('Account One', $account->name);
         $this->assertSame('active', $account->status->value);
@@ -69,44 +69,7 @@ final class TechAccountsAdminTest extends TestCase
         // $deleteResponse->assertRedirect(route('admin.tech-accounts.index'));
 
         app()->make(TechAccountService::class)->delete($account);
-        $this->assertNull(TechAccounts::find($account->id));
+        $this->assertNull(TechAccount::find($account->id));
         $this->assertFileDoesNotExist($account->cookie_path);
     }
-
-    // public function test_it_updates_a_tech_account_without_reuploading_storage_state(): void
-    // {
-    //     $this->withoutMiddleware();
-
-    //     $cookieBasePath = storage_path('framework/testing-tech-accounts');
-    //     config()->set('tech-accounts.cookie_base_path', $cookieBasePath);
-
-    //     $account = TechAccounts::factory()->create([
-    //         'name' => 'Original Name',
-    //         'email' => 'original@example.com',
-    //         'pool_type' => 'free',
-    //         'status' => 'active',
-    //     ]);
-
-    //     $id = $account->id;
-
-    //     $response = $this->put(route('admin.tech-accounts.update', ['techAccount' => $account->id]), [
-    //         'name' => 'Updated Name',
-    //         'email' => 'origina232l@example.com',
-    //         'pool_type' => 'free',
-    //         'status' => 'active',
-    //         'notebooks_count' => 8,
-    //         'chats_today' => 11,
-    //         'chats_reset_at' => now()->format('Y-m-d H:i:s'),
-    //         'last_used_at' => now()->format('Y-m-d H:i:s'),
-    //     ]);
-
-    //     $response->assertRedirect(route('admin.tech-accounts.index'));
-
-    //     $account->fresh();
-
-    //     $this->assertSame($id, $account->id);
-    //     $this->assertSame('Updated Name', $account->name);
-    //     $this->assertSame('original@example.com', $account->email);
-    //     $this->assertSame($cookieBasePath.'/'.$account->id.'/storage_state.json', $account->cookie_path);
-    // }
 }

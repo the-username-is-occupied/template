@@ -11,7 +11,7 @@ use App\Domain\NotebookLM\DTOs\NotebookMetadataDTO;
 use App\Domain\NotebookLM\DTOs\ShareStatusDTO;
 use App\Domain\NotebookLM\DTOs\SourceDTO;
 use App\Domain\NotebookLM\DTOs\SourceFulltextDTO;
-use App\Models\TechAccounts;
+use App\Models\TechAccount;
 
 /**
  * Decorator for NotebookLMService that automatically uses a specific TechAccount.
@@ -24,9 +24,9 @@ class NotebookLMServiceDecorator
 {
     protected NotebookLMService $service;
 
-    protected TechAccounts $account;
+    protected TechAccount $account;
 
-    public function __construct(TechAccounts $account, ?NotebookLMService $service = null)
+    public function __construct(TechAccount $account, ?NotebookLMService $service = null)
     {
         $this->account = $account;
         $this->service = $service ?? new NotebookLMService;
@@ -311,7 +311,7 @@ class NotebookLMServiceDecorator
     /**
      * Get the underlying TechAccount instance.
      */
-    public function getAccount(): TechAccounts
+    public function getAccount(): TechAccount
     {
         return $this->account;
     }

@@ -6,7 +6,7 @@ namespace Tests\Feature;
 
 use App\Domain\NotebookLM\NotebookLMService;
 use App\Enums\TechAccountStatus;
-use App\Models\TechAccounts;
+use App\Models\TechAccount;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\File;
@@ -28,7 +28,7 @@ final class NotebookLMServiceTest extends TestCase
 
     protected ?string $storageStatePath = null;
 
-    protected ?TechAccounts $account = null;
+    protected ?TechAccount $account = null;
 
     protected function setUp(): void
     {
@@ -89,7 +89,7 @@ final class NotebookLMServiceTest extends TestCase
 
         $response->assertRedirect(route('admin.tech-accounts.index'));
 
-        $this->account = TechAccounts::query()->where('email', 'test-notebooklm@example.com')->firstOrFail();
+        $this->account = TechAccount::query()->where('email', 'test-notebooklm@example.com')->firstOrFail();
 
         $this->assertNotNull($this->account);
         $this->assertFileExists($this->account->cookie_path);
@@ -112,7 +112,7 @@ final class NotebookLMServiceTest extends TestCase
         // Create account
         $service = new NotebookLMService;
 
-        $this->account = TechAccounts::factory()->create([
+        $this->account = TechAccount::factory()->create([
             'name' => 'Test Account',
             'email' => 'list-test@example.com',
             'status' => TechAccountStatus::Active,

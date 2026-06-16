@@ -10,6 +10,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Collection;
 
 class OriginalItem extends Model
 {
@@ -78,5 +79,25 @@ class OriginalItem extends Model
     public function scopeUnbundled($query)
     {
         return $query->whereNull('md_bundle_id');
+    }
+
+    /**
+     * Scope to get items that need bundling with their notebook IDs.
+     */
+    public function scopeForNotebooksWithUnbundledItems($query)
+    {
+        return $query->unbundled()
+            ->join('content_sources', 'original_items.content_source_id', '=', 'content_sources.id')
+            ->join('notebook_content_sources', 'content_sources.id', '=', 'notebook_content_sources.content_source_id');
+    }
+
+    /**
+     * Get distinct notebook IDs that have unbundled items.
+     */
+    public static function getNotebookIdsWithUnbundledItems(): Collection
+    {
+        return static::forNotebooksWithUnbundledItems()
+            ->distinct()
+            ->pluck('notebook_content_sources.notebook_id');
     }
 }
