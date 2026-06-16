@@ -78,6 +78,9 @@ services:
     ports:
       - "${NOTEBOOKLM_PORT:-8000}:8000"
     restart: unless-stopped
+    dns:
+      - 111.88.96.50
+      - 111.88.96.51  
     networks:
       - notebooklm_net
       - backend
