@@ -7,7 +7,7 @@
 
 Изучи перед началом: `docs/bundle-architecture.md` (раздел "ConsolidateBundlesJob"), `docs/account-pool.md` (раздел "Фоновые джобы"), `docs/source-pipeline.md` (раздел "Восстановление после сбоя TG-парсинга").
 
-
+Все job тонике, логика должна быть в сервисных классах
 ---
 
 ## Что нужно сделать
