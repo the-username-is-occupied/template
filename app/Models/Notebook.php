@@ -68,4 +68,9 @@ class Notebook extends Model
         return $this->belongsToMany(ContentSource::class, 'notebook_content_sources')
             ->withPivot('added_at');
     }
+
+    public function isConsolidating()
+    {
+        return $this->mdBundles()->where('is_consolidating', true)->exists();
+    }
 }

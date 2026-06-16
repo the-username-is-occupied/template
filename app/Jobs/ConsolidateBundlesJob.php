@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Jobs;
 
+use App\Enums\MdBundleType;
 use App\Models\Notebook;
 use App\Services\BundleConsolidationService;
 use Illuminate\Bus\Queueable;
@@ -29,9 +30,12 @@ class ConsolidateBundlesJob implements ShouldBeUnique, ShouldQueue
 
     /**
      * Create a new job instance.
+     *
+     * @param  string  $level  'quarter_to_half' or 'half_to_full'
      */
     public function __construct(
         public readonly string $notebookId,
+        public readonly string $level = 'quarter_to_half',
     ) {}
 
     /**
@@ -39,7 +43,7 @@ class ConsolidateBundlesJob implements ShouldBeUnique, ShouldQueue
      */
     public function uniqueId(): string
     {
-        return $this->notebookId;
+        return $this->notebookId.'_'.$this->level;
     }
 
     /**
@@ -57,6 +61,6 @@ class ConsolidateBundlesJob implements ShouldBeUnique, ShouldQueue
             return;
         }
 
-        $consolidationService->consolidate($notebook);
+        $consolidationService->consolidate($notebook, MdBundleType::level($this->level));
     }
 }

@@ -9,10 +9,12 @@ use App\Enums\ExtractionStatus;
 use App\Enums\ReviewStatus;
 use App\Enums\SourceType;
 use Database\Factories\ContentSourceFactory;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class ContentSource extends Model
@@ -84,17 +86,22 @@ class ContentSource extends Model
         return $this->hasMany(OriginalItem::class);
     }
 
-    public function scopePendingReview($query)
+    public function notebooks(): BelongsToMany
+    {
+        return $this->belongsToMany(Notebook::class, 'notebook_content_sources');
+    }
+
+    public function scopePendingReview(Builder $query)
     {
         return $query->where('review_status', ReviewStatus::PendingReview);
     }
 
-    public function scopeAutoUpdate($query)
+    public function scopeAutoUpdate(Builder $query)
     {
         return $query->where('auto_update', true);
     }
 
-    public function scopeApproved($query)
+    public function scopeApproved(Builder $query)
     {
         return $query->where('review_status', ReviewStatus::Approved);
     }

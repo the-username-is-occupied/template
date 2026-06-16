@@ -151,10 +151,11 @@ class BundleBuilder
 
             $frozenQuarterCount = $notebook->mdBundles()
                 ->where('type', MdBundleType::FrozenQuarter)
+                ->where('is_consolidating', false)
                 ->count();
 
             if ($frozenQuarterCount >= 2) {
-                ConsolidateBundlesJob::dispatch($notebook->id);
+                ConsolidateBundlesJob::dispatch($notebook->id, 'quarter_to_half');
             }
         }
 
