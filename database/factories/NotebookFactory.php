@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Database\Factories;
 
 use App\Models\Notebook;
+use App\Models\TechAccount;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
@@ -19,6 +20,7 @@ class NotebookFactory extends Factory
     {
         return [
             'user_id' => User::factory(),
+            'tech_account_id' => TechAccount::factory(),
             'nlm_notebook_id' => fake()->uuid(),
             'title' => fake()->sentence(3),
             'system_prompt' => fake()->optional()->sentence(),

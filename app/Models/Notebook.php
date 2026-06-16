@@ -24,6 +24,7 @@ class Notebook extends Model
 
     protected $fillable = [
         'user_id',
+        'tech_account_id',
         'nlm_notebook_id',
         'title',
         'system_prompt',
@@ -34,6 +35,7 @@ class Notebook extends Model
     {
         return [
             'user_id' => 'string',
+            'tech_account_id' => 'string',
             'nlm_notebook_id' => 'string',
             'title' => 'string',
             'system_prompt' => 'string',
@@ -44,6 +46,11 @@ class Notebook extends Model
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
+    }
+
+    public function techAccount(): BelongsTo
+    {
+        return $this->belongsTo(TechAccount::class, 'tech_account_id');
     }
 
     public function mdBundles(): HasMany

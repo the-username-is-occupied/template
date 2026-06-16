@@ -52,7 +52,7 @@ final class BundleBuilderTest extends TestCase
         $notebookLMService = $this->mock(NotebookLMService::class);
 
         // NLM is mocked — no actual calls expected in unit tests
-        $notebookLMService->shouldReceive('addSourceText')
+        $notebookLMService->shouldReceive('addSourceFile')
             ->andReturn(new SourceDTO(
                 id: 'nlm-source-'.fake()->uuid(),
                 title: 'mocked',
@@ -61,6 +61,9 @@ final class BundleBuilderTest extends TestCase
                 status: '1',
                 kind: 'text',
             ));
+
+        $notebookLMService->shouldReceive('deleteSource')
+        ->andReturn(true);
 
         return new BundleBuilder(
             $renderer,

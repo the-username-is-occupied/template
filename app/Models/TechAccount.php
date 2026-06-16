@@ -53,8 +53,13 @@ class TechAccount extends Model
         return $this->belongsTo(AccountTierLimit::class, 'pool_type', 'tier');
     }
 
-    public function notebooks()
+    public function techNotebooks()
     {
         return $this->hasMany(TechNotebook::class, 'account_id');
+    }
+
+    public function notebooks()
+    {
+        return $this->hasMany(Notebook::class, 'tech_account_id');
     }
 }

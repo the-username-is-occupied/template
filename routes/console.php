@@ -16,10 +16,10 @@ Artisan::command('inspire', function () {
 // Schedule::job(new CheckAccountHealth)->everyMinute();
 
 // Retry stale uploads every 30 minutes
-Schedule::command(RetryStaleUploadsCommand::class)->everyThirtyMinutes();
+// Schedule::command(RetryStaleUploadsCommand::class)->everyThirtyMinutes();
 
 // Cleanup stale tech notebooks every 15 minutes
-Schedule::job(new CleanupStaleTechNotebooksJob)->everyFifteenMinutes();
+// Schedule::job(new CleanupStaleTechNotebooksJob)->everyFifteenMinutes();
 
 // Build bundles for notebooks with unbundled items every 5 minutes
-Schedule::job(new DispatchNotebookBundleJobs)->everyFiveMinutes();
+// Schedule::job(new DispatchNotebookBundleJobs)->everyFiveMinutes();

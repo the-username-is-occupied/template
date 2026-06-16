@@ -11,7 +11,6 @@ use App\Jobs\ConsolidateBundlesJob;
 use App\Models\MdBundle;
 use App\Models\Notebook;
 use App\Models\OriginalItem;
-use App\Models\TechNotebook;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -195,7 +194,8 @@ class BundleBuilder
         }
 
         if ($quarterContent !== '') {
-            $sourceId = $this->uploadToNlm($notebook, $quarterContent, "quarter-{$quarter->id}");
+            $absolutePath = $disk->path($quarterFilePath);
+            $sourceId = $this->uploadToNlm($notebook, $absolutePath, "quarter-{$quarter->id}");
             $quarter->update([
                 'nlm_source_id' => $sourceId,
                 'status' => MdBundleStatus::Uploaded,
@@ -242,7 +242,8 @@ class BundleBuilder
         $disk->put($bundle->file_path, $content);
 
         // Upload to NLM
-        $sourceId = $this->uploadToNlm($notebook, $content, "bundle-{$bundle->id}");
+        $absolutePath = $disk->path($bundle->file_path);
+        $sourceId = $this->uploadToNlm($notebook, $absolutePath, "bundle-{$bundle->id}");
         $bundle->update([
             'nlm_source_id' => $sourceId,
             'status' => MdBundleStatus::Uploaded,
@@ -276,37 +277,36 @@ class BundleBuilder
             $this->deleteNlmSource($notebook, $bundle->nlm_source_id);
         }
 
-        $updatedContent = $disk->get($filePath);
-        $newSourceId = $this->uploadToNlm($notebook, $updatedContent ?? '', "bundle-{$bundle->id}");
+        $absolutePath = $disk->path($filePath);
+        $newSourceId = $this->uploadToNlm($notebook, $absolutePath, "bundle-{$bundle->id}");
         $bundle->update(['nlm_source_id' => $newSourceId, 'status' => MdBundleStatus::Uploaded]);
     }
 
     /**
-     * Upload content to NLM and return the source ID.
+     * Upload bundle file to NLM and return the source ID.
      */
-    private function uploadToNlm(Notebook $notebook, string $content, string $title): ?string
+    private function uploadToNlm(Notebook $notebook, string $filePath, string $title): ?string
     {
         if ($notebook->nlm_notebook_id === null) {
             return null;
         }
 
-        $techNotebook = TechNotebook::where('notebook_id', $notebook->nlm_notebook_id)->first();
+        $techAccount = $notebook->techAccount;
 
-        if ($techNotebook === null) {
-            Log::warning('No tech notebook found for NLM notebook', [
-                'nlm_notebook_id' => $notebook->nlm_notebook_id,
+        if ($techAccount === null) {
+            Log::warning('No tech account found for notebook', [
                 'notebook_id' => $notebook->id,
             ]);
 
-            return null;
+            throw new \Exception('Tech account not found for notebook');
         }
 
         try {
-            $source = $this->notebookLMService->addSourceText(
-                $techNotebook->account_id,
+            $source = $this->notebookLMService->addSourceFile(
+                $techAccount->id,
                 $notebook->nlm_notebook_id,
-                $title,
-                $content,
+                $filePath,
+                ['title' => $title],
             );
 
             return $source->id;
@@ -314,10 +314,11 @@ class BundleBuilder
             Log::error('Failed to upload bundle to NLM', [
                 'notebook_id' => $notebook->id,
                 'title' => $title,
+                'file_path' => $filePath,
                 'error' => $e->getMessage(),
             ]);
 
-            return null;
+            throw $e;
         }
     }
 
@@ -330,15 +331,15 @@ class BundleBuilder
             return;
         }
 
-        $techNotebook = TechNotebook::where('notebook_id', $notebook->nlm_notebook_id)->first();
+        $techAccount = $notebook->techAccount;
 
-        if ($techNotebook === null) {
+        if ($techAccount === null) {
             return;
         }
 
         try {
             $this->notebookLMService->deleteSource(
-                $techNotebook->account_id,
+                $techAccount->id,
                 $notebook->nlm_notebook_id,
                 $sourceId,
             );
@@ -347,6 +348,8 @@ class BundleBuilder
                 'source_id' => $sourceId,
                 'error' => $e->getMessage(),
             ]);
+
+            throw $e;
         }
     }
 
