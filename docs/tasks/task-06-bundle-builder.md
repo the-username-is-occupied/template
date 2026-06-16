@@ -7,7 +7,6 @@
 
 Изучи перед началом: `docs/bundle-architecture.md` (полностью), `docs/source-pipeline.md` (разделы "MD Bundle Strategy", "Bundle File Format", "Citation Resolution").
 
-Убедись, что `Task 01`–`Task 05` выполнены.
 
 ---
 

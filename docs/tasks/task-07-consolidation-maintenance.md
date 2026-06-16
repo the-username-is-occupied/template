@@ -7,7 +7,6 @@
 
 Изучи перед началом: `docs/bundle-architecture.md` (раздел "ConsolidateBundlesJob"), `docs/account-pool.md` (раздел "Фоновые джобы"), `docs/source-pipeline.md` (раздел "Восстановление после сбоя TG-парсинга").
 
-Убедись, что `Task 01`–`Task 06` выполнены.
 
 ---
 

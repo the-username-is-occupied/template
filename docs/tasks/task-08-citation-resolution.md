@@ -7,7 +7,6 @@
 
 Изучи перед началом: `docs/source-pipeline.md` (раздел "Citation Resolution", "Bundle File Format").
 
-Убедись, что `Task 01` и `Task 06` выполнены.
 
 ---
 
