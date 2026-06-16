@@ -5,9 +5,9 @@ namespace App\Services;
 use App\Domain\YouTube\DTOs\ChannelInfoData;
 use App\Domain\YouTube\DTOs\ChannelUrlMappingData;
 use App\Domain\YouTube\DTOs\VideoUrlsData;
+use App\Exceptions\YouTubeApiException;
 use Google\Client;
 use Google\Service\YouTube;
-use Illuminate\Support\Facades\Log;
 use Spatie\LaravelData\DataCollection;
 
 class YouTubeService
@@ -26,7 +26,7 @@ class YouTubeService
      *
      * * @param string $identifier ID канала (UC...) или хэндл (например, @GoogleDevelopers)
      */
-    public function getChannelInfo(string $identifier): ?ChannelInfoData
+    public function getChannelInfo(string $identifier): ChannelInfoData
     {
         $params = [];
 
@@ -41,7 +41,7 @@ class YouTubeService
             $items = $response->getItems();
 
             if (empty($items)) {
-                return null;
+                throw new YouTubeApiException("YouTube channel not found: {$identifier}");
             }
 
             $channel = $items[0];
@@ -59,10 +59,10 @@ class YouTubeService
                 view_count: (int) $statistics->getViewCount(),
                 video_count: (int) $statistics->getVideoCount(),
             );
+        } catch (YouTubeApiException $e) {
+            throw $e;
         } catch (\Exception $e) {
-            Log::error("YouTube API Error in getChannelInfo for '{$identifier}': ".$e->getMessage());
-
-            return null;
+            throw new YouTubeApiException("YouTube API Error in getChannelInfo for '{$identifier}': ".$e->getMessage(), 0, $e);
         }
     }
 
@@ -133,8 +133,7 @@ class YouTubeService
                 }
                 $pageToken = $response->getNextPageToken();
             } catch (\Exception $e) {
-                Log::error("YouTube API Error fetching playlist {$playlistId}: ".$e->getMessage());
-                break;
+                throw new YouTubeApiException("YouTube API Error fetching playlist {$playlistId}: ".$e->getMessage(), 0, $e);
             }
         } while ($pageToken);
 
@@ -162,8 +161,7 @@ class YouTubeService
                 }
                 $pageToken = $response->getNextPageToken();
             } catch (\Exception $e) {
-                Log::error("YouTube API Error fetching custom playlist {$playlistId}: ".$e->getMessage());
-                break;
+                throw new YouTubeApiException("YouTube API Error fetching custom playlist {$playlistId}: ".$e->getMessage(), 0, $e);
             }
         } while ($pageToken);
 
@@ -182,6 +180,7 @@ class YouTubeService
         // Фильтруем метаданные видео пачками по 50 штук
         $filteredUrls = [];
         $chunks = array_chunk($videoIds, 50);
+        $errors = [];
 
         foreach ($chunks as $chunk) {
             try {
@@ -211,8 +210,12 @@ class YouTubeService
                     }
                 }
             } catch (\Exception $e) {
-                Log::error('YouTube API Error filtering videos for custom playlist: '.$e->getMessage());
+                $errors[] = 'Failed to filter video chunk: '.$e->getMessage();
             }
+        }
+
+        if (! empty($errors)) {
+            throw new YouTubeApiException("YouTube API Error filtering videos for custom playlist {$playlistId}: ".implode('; ', $errors));
         }
 
         return $filteredUrls;
@@ -287,12 +290,12 @@ class YouTubeService
                     $channelIds[] = $cId;
                 }
             } catch (\Exception $e) {
-                Log::error('YouTube API Error batch fetching video details: '.$e->getMessage());
+                throw new YouTubeApiException('YouTube API Error batch fetching video details: '.$e->getMessage(), 0, $e);
             }
         }
 
         if (empty($channelIds)) {
-            return ChannelUrlMappingData::collect($mappings);
+            throw new YouTubeApiException('No channel IDs found for the provided video URLs');
         }
 
         // 3. Получаем Handle (@channel_name) для каждого уникального Channel ID (пачками по 50 штук)
@@ -316,7 +319,7 @@ class YouTubeService
                     }
                 }
             } catch (\Exception $e) {
-                Log::error('YouTube API Error batch fetching channel handles: '.$e->getMessage());
+                throw new YouTubeApiException('YouTube API Error batch fetching channel handles: '.$e->getMessage(), 0, $e);
             }
         }
 

@@ -8,6 +8,7 @@ use App\Enums\DiscoveryMethod;
 use App\Enums\ExtractionStatus;
 use App\Enums\ReviewStatus;
 use App\Enums\SourceType;
+use App\Exceptions\SourceDetectionException;
 use App\Models\ContentSource;
 use App\Models\OriginalItem;
 use Illuminate\Support\Facades\Log;
@@ -108,12 +109,12 @@ class LinkProcessorService
 
             return $detected->type;
         } catch (\Throwable $e) {
-            Log::warning('Failed to detect source type, defaulting to Website', [
+            Log::warning('Failed to detect source type', [
                 'url' => $url,
                 'error' => $e->getMessage(),
             ]);
 
-            return SourceType::Website;
+            throw new SourceDetectionException('Failed to detect source type for URL: '.$url.'. Error: '.$e->getMessage(), 0, $e);
         }
     }
 }

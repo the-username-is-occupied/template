@@ -10,6 +10,7 @@ use App\Enums\SourceType;
 use App\Events\SourceDraftError;
 use App\Events\SourceMetaLoaded;
 use App\Events\YoutubeVideosLoaded;
+use App\Exceptions\MetaFetchException;
 use App\Jobs\FetchSourceMetaJob;
 use App\Models\Notebook;
 use App\Models\SourceDraft;
@@ -107,25 +108,29 @@ class SourceDraftService
                 SourceType::TelegramChannel => $this->fetchTelegramMeta($draft),
                 SourceType::YoutubeChannel => $this->fetchYouTubeChannelMeta($draft),
                 SourceType::YoutubeVideo, SourceType::Website, SourceType::Pdf => $this->fetchGenericMeta($draft),
-                default => null,
+                default => throw new MetaFetchException('Unsupported source type: '.$draft->type->value),
             };
 
             if ($meta !== null) {
                 $this->handleMetaLoaded($draft, $meta);
             } else {
                 $this->handleMetaError($draft, 'meta_fetch_failed', 'Failed to fetch meta for this source type.');
+                throw new MetaFetchException('Failed to fetch meta for this source type.');
             }
+        } catch (MetaFetchException $e) {
+            throw $e;
         } catch (\Exception $e) {
             Log::error("SourceDraftService::fetchMeta failed for draft {$draftId}: ".$e->getMessage());
             $this->handleMetaError($draft, 'meta_fetch_error', $e->getMessage());
+            throw new MetaFetchException('Failed to fetch meta: '.$e->getMessage(), 0, $e);
         }
     }
 
-    private function fetchTelegramMeta(SourceDraft $draft): ?array
+    private function fetchTelegramMeta(SourceDraft $draft): array
     {
         $channel = $this->extractTelegramChannel($draft->raw_input);
         if (! $channel) {
-            return null;
+            throw new MetaFetchException('Could not extract Telegram channel from: '.$draft->raw_input);
         }
 
         try {
@@ -138,11 +143,11 @@ class SourceDraftService
                 'avatar_url' => $response->avatar_url,
             ];
         } catch (\Exception $e) {
-            return null;
+            throw new MetaFetchException('Failed to fetch Telegram channel info for '.$channel.': '.$e->getMessage(), 0, $e);
         }
     }
 
-    private function fetchYouTubeChannelMeta(SourceDraft $draft): ?array
+    private function fetchYouTubeChannelMeta(SourceDraft $draft): array
     {
         $identifier = $draft->raw_input;
         if (preg_match('#youtube\.com/@([a-zA-Z0-9_-]+)#i', $identifier, $matches) ||
@@ -154,7 +159,7 @@ class SourceDraftService
         $info = $this->youTubeService->getChannelInfo($identifier);
 
         if (! $info) {
-            return null;
+            throw new MetaFetchException('Failed to fetch YouTube channel info for: '.$identifier);
         }
 
         return [
@@ -223,6 +228,7 @@ class SourceDraftService
         } catch (\Exception $e) {
             Log::error("Failed to load video list for draft {$draft->id}: ".$e->getMessage());
             $this->handleMetaError($draft, 'video_load_failed', $e->getMessage());
+            throw new MetaFetchException('Failed to load video list: '.$e->getMessage(), 0, $e);
         }
     }
 }

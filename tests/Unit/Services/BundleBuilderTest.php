@@ -63,7 +63,7 @@ final class BundleBuilderTest extends TestCase
             ));
 
         $notebookLMService->shouldReceive('deleteSource')
-        ->andReturn(true);
+            ->andReturn(true);
 
         return new BundleBuilder(
             $renderer,
