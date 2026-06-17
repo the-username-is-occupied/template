@@ -55,13 +55,6 @@ class SmartUrlDetector
             );
         }
 
-        // PDF file
-        if (preg_match('/\.pdf$/i', $url)) {
-            return new SourceTypeData(
-                type: SourceType::Pdf,
-                normalizedId: $url
-            );
-        }
 
         // Default: website
         return new SourceTypeData(

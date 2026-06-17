@@ -49,7 +49,7 @@ test('NlmFileExtractor uploads file, extracts text, and deletes file in finally'
     // Create content source
     $source = ContentSource::factory()
         ->for($user)
-        ->withType(SourceType::Pdf)
+        ->withType(SourceType::File)
         ->pending()
         ->create([
             'file_ref' => $filePath,
@@ -62,15 +62,15 @@ test('NlmFileExtractor uploads file, extracts text, and deletes file in finally'
     $notebookLMService->shouldReceive('addSourceFile')
         ->once()
         ->with($techAccount->id, $notebook->notebook_id, Mockery::any())
-        ->andReturn(new SourceDTO(id: 'source-1', title: 'Test PDF', url: null, created_at: now()->toISOString(), status: 'ready', kind: 'pdf'));
+        ->andReturn(new SourceDTO(id: 'source-1', title: 'Test File', url: null, created_at: now()->toISOString(), status: 'ready', kind: 'file'));
 
     $notebookLMService->shouldReceive('waitUntilReady')
         ->once()
-        ->andReturn(new SourceDTO(id: 'source-1', title: 'Test PDF', url: null, created_at: now()->toISOString(), status: 'ready', kind: 'pdf'));
+        ->andReturn(new SourceDTO(id: 'source-1', title: 'Test File', url: null, created_at: now()->toISOString(), status: 'ready', kind: 'file'));
 
     $notebookLMService->shouldReceive('getSourceFulltext')
         ->once()
-        ->andReturn(new SourceFulltextDTO(source_id: 'source-1', title: 'Test PDF', content: 'This is extracted text from PDF', url: null, char_count: 80));
+        ->andReturn(new SourceFulltextDTO(source_id: 'source-1', title: 'Test File', content: 'This is extracted text from file', url: null, char_count: 80));
 
     $notebookLMService->shouldReceive('deleteSource')
         ->once()
@@ -106,8 +106,8 @@ test('NlmFileExtractor uploads file, extracts text, and deletes file in finally'
     // Assert OriginalItem was created
     $originalItem = OriginalItem::where('content_source_id', $source->id)->first();
     expect($originalItem)->not->toBeNull();
-    expect($originalItem->title)->toBe('Test PDF');
-    expect($originalItem->full_text)->toBe('This is extracted text from PDF');
+    expect($originalItem->title)->toBe('Test File');
+    expect($originalItem->full_text)->toBe('This is extracted text from file');
     expect($originalItem->source_url)->toBeNull(); // File, not URL
     expect($originalItem->word_count)->toBeGreaterThan(0);
 });
@@ -141,9 +141,9 @@ test('NlmFileExtractor deletes file in finally block even on exception', functio
     // Create content source
     $source = ContentSource::create([
         'user_id' => $user->id,
-        'type' => 'pdf',
+        'type' => 'file',
         'file_ref' => $filePath,
-        'title' => 'Test PDF',
+        'title' => 'Test File',
         'extraction_status' => 'pending',
     ]);
 
@@ -152,7 +152,7 @@ test('NlmFileExtractor deletes file in finally block even on exception', functio
 
     $notebookLMService->shouldReceive('addSourceFile')
         ->once()
-        ->andReturn(new SourceDTO(id: 'source-1', title: 'Test PDF', url: null, created_at: now()->toISOString(), status: 'ready', kind: 'pdf'));
+        ->andReturn(new SourceDTO(id: 'source-1', title: 'Test File', url: null, created_at: now()->toISOString(), status: 'ready', kind: 'file'));
 
     $notebookLMService->shouldReceive('waitUntilReady')
         ->once()
@@ -195,9 +195,9 @@ test('NlmFileExtractor handles file not found error', function () {
     // Create content source with non-existent file
     $source = ContentSource::create([
         'user_id' => $user->id,
-        'type' => 'pdf',
+        'type' => 'file',
         'file_ref' => 'uploads/non-existent.pdf',
-        'title' => 'Test PDF',
+        'title' => 'Test File',
         'extraction_status' => 'pending',
     ]);
 

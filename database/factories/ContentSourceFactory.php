@@ -27,8 +27,8 @@ class ContentSourceFactory extends Factory
         return [
             'user_id' => User::factory(),
             'type' => $type,
-            'url' => in_array($type, [SourceType::Pdf, SourceType::Audio, SourceType::Video, SourceType::Text], true) ? null : fake()->url(),
-            'file_ref' => in_array($type, [SourceType::Pdf, SourceType::Audio, SourceType::Video, SourceType::Text], true) ? 'files/'.$this->faker->uuid().'.bin' : null,
+            'url' => $type->isFile() ? null : fake()->url(),
+            'file_ref' => $type->isFile() ? 'files/'.$this->faker->uuid().'.bin' : null,
             'title' => fake()->sentence(4),
             'auto_update' => fake()->boolean(20),
             'extraction_status' => fake()->randomElement(ExtractionStatus::cases()),

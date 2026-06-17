@@ -89,12 +89,12 @@ final class SourceDraftTest extends TestCase
         $this->assertEquals('PLrAXtmRdnEQeiGU6GBsMcu4F8xLZXUx9S', $result->normalizedId);
     }
 
-    public function test_smart_url_detector_detects_pdf(): void
+    public function test_smart_url_detector_detects_file(): void
     {
         $detector = new SmartUrlDetector;
 
         $result = $detector->detect('https://example.com/document.pdf');
-        $this->assertEquals(SourceType::Pdf, $result->type);
+        $this->assertEquals(SourceType::Website, $result->type);
         $this->assertStringEndsWith('.pdf', $result->normalizedId);
     }
 

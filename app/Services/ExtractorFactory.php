@@ -34,9 +34,7 @@ class ExtractorFactory
             SourceType::TelegramChannel => TelegramExtractor::class,
             SourceType::YoutubeChannel, SourceType::YoutubeVideo => YouTubeExtractor::class,
             SourceType::Website => WebsiteExtractor::class,
-            SourceType::Pdf, SourceType::Docx, SourceType::Csv, SourceType::Pptx,
-            SourceType::Epub, SourceType::Mp3, SourceType::Mp4, SourceType::Jpg,
-            SourceType::Png, SourceType::Audio, SourceType::Video, SourceType::Image => NlmFileExtractor::class,
+            SourceType::File => NlmFileExtractor::class,
             default => throw new UnsupportedSourceTypeException($type->value)
         };
 

@@ -10,7 +10,7 @@ use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Http\Exceptions\ThrottleRequestsException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Validation\ValidationException;
-use Log;
+use Illuminate\Support\Facades\Log;
 use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 use Symfony\Component\HttpKernel\Exception\HttpExceptionInterface;
 use Symfony\Component\HttpKernel\Exception\MethodNotAllowedHttpException;
@@ -22,6 +22,13 @@ class JsonErrorHelper
     public static function handle(Exceptions $exceptions): void
     {
         $exceptions->render(function (Throwable $throwable): ?JsonResponse {
+
+        Log::error('Exception occurred:', [
+            'message' => $throwable->getMessage(),
+            'exception' => get_class($throwable),
+            'stack_trace' => $throwable->getTraceAsString(),
+        ]);
+
             if (! static::wantsJson()) {
                 return null;
             }

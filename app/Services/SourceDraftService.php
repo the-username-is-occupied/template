@@ -107,7 +107,7 @@ class SourceDraftService
             $meta = match ($draft->type) {
                 SourceType::TelegramChannel => $this->fetchTelegramMeta($draft),
                 SourceType::YoutubeChannel => $this->fetchYouTubeChannelMeta($draft),
-                SourceType::YoutubeVideo, SourceType::Website, SourceType::Pdf => $this->fetchGenericMeta($draft),
+                SourceType::YoutubeVideo, SourceType::Website, SourceType::File, SourceType::Text => $this->fetchGenericMeta($draft),
                 default => throw new MetaFetchException('Unsupported source type: '.$draft->type->value),
             };
 
