@@ -6,7 +6,8 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Jobs\ProcessTelegramChunkJob;
-use App\Jobs\TelegramScrapingDoneJob;
+use App\Models\ContentSource;
+use App\Services\TelegramChunkService;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Log;
@@ -46,16 +47,19 @@ class TelegramWebhookController extends Controller
             'content_source_id' => $contentSourceId,
         ]);
 
+        /** @var TelegramChunkService $chunkService */
+        $chunkService = app(TelegramChunkService::class);
+
         match ($action) {
-            'upload' => $this->handleUpload($contentSourceId, $validated['posts'] ?? []),
-            'done' => $this->handleDone($contentSourceId),
+            'upload' => $this->handleUpload($chunkService, $contentSourceId, $validated['posts'] ?? []),
+            'done' => $this->handleDone($chunkService, $contentSourceId),
             default => null,
         };
 
         return response()->noContent(200);
     }
 
-    private function handleUpload(string $contentSourceId, array $posts): void
+    private function handleUpload(TelegramChunkService $chunkService, string $contentSourceId, array $posts): void
     {
         if (empty($posts)) {
             Log::warning('Received upload action with empty posts array', [
@@ -64,6 +68,9 @@ class TelegramWebhookController extends Controller
 
             return;
         }
+
+        // Increment pending chunks counter in Redis
+        $chunkService->incrementPendingChunks($contentSourceId);
 
         // Dispatch job to process the chunk
         ProcessTelegramChunkJob::dispatch($contentSourceId, $posts);
@@ -74,13 +81,26 @@ class TelegramWebhookController extends Controller
         ]);
     }
 
-    private function handleDone(string $contentSourceId): void
+    private function handleDone(TelegramChunkService $chunkService, string $contentSourceId): void
     {
-        // Dispatch job to finalize scraping
-        TelegramScrapingDoneJob::dispatch($contentSourceId);
+        // Set scraping done flag in Redis
+        $chunkService->setScrapingDone($contentSourceId);
 
-        Log::info('Dispatched TelegramScrapingDoneJob', [
-            'content_source_id' => $contentSourceId,
-        ]);
+        // Check if there are no pending chunks
+        $pendingChunks = $chunkService->getPendingChunksCount($contentSourceId);
+
+        if ($pendingChunks <= 0) {
+            // All chunks are processed, execute done logic immediately
+            $source = ContentSource::find($contentSourceId);
+
+            if ($source) {
+                $chunkService->executeDoneLogic($source);
+            }
+        } else {
+            Log::info('Scraping done flag set, waiting for pending chunks to complete', [
+                'content_source_id' => $contentSourceId,
+                'pending_chunks' => $pendingChunks,
+            ]);
+        }
     }
 }

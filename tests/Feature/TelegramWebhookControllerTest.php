@@ -13,7 +13,7 @@ final class TelegramWebhookControllerTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_webhook_upload_dispatches_job(): void
+    public function test_webhook_upload_returns_200(): void
     {
         $source = ContentSource::factory()->create();
         SourceDraft::factory()->withContentSource($source)->create();
@@ -36,7 +36,7 @@ final class TelegramWebhookControllerTest extends TestCase
         $response->assertStatus(200);
     }
 
-    public function test_webhook_done_dispatches_job(): void
+    public function test_webhook_done_returns_200(): void
     {
         $source = ContentSource::factory()->create();
 
@@ -65,5 +65,18 @@ final class TelegramWebhookControllerTest extends TestCase
         ]);
 
         $response->assertStatus(422);
+    }
+
+    public function test_webhook_upload_with_empty_posts_returns_200(): void
+    {
+        $source = ContentSource::factory()->create();
+
+        $response = $this->postJson('/api/webhooks/telegram-scraper', [
+            'action' => 'upload',
+            'content_source_id' => $source->id,
+            'posts' => [],
+        ]);
+
+        $response->assertStatus(200);
     }
 }

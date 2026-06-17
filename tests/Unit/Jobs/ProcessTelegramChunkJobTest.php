@@ -7,6 +7,7 @@ namespace Tests\Unit\Jobs;
 use App\Jobs\ProcessTelegramChunkJob;
 use App\Models\ContentSource;
 use App\Models\OriginalItem;
+use App\Services\TelegramChunkService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -31,32 +32,32 @@ final class ProcessTelegramChunkJobTest extends TestCase
             ],
         ];
 
+        // Mock TelegramChunkService - use Mockery::on() to match any ContentSource
+        $mock = $this->mock(TelegramChunkService::class);
+        $mock->shouldReceive('processChunk')
+            ->once()
+            ->withArgs(function ($arg1, $arg2) use ($source, $posts) {
+                return $arg1->id === $source->id && $arg2 === $posts;
+            });
+        $mock->shouldReceive('finalizeChunk')
+            ->once()
+            ->withArgs(function ($arg) use ($source) {
+                return $arg->id === $source->id;
+            });
+
         $job = new ProcessTelegramChunkJob($source->id, $posts);
         $job->handle();
 
-        $this->assertDatabaseHas('original_items', [
-            'content_source_id' => $source->id,
-            'source_url' => 'https://t.me/test/123',
-        ]);
-
-        $originalItem = OriginalItem::where('content_source_id', $source->id)->first();
-        $this->assertNotNull($originalItem->word_count);
-        $this->assertEquals('1000', $originalItem->metadata['views']);
+        // Service methods are called, actual processing is tested in TelegramChunkServiceTest
     }
 
-    public function test_job_updates_last_fetched_id(): void
+    public function test_job_skips_when_content_source_not_found(): void
     {
-        $source = ContentSource::factory()->uploading()->create(['last_fetched_id' => 100]);
-
-        $posts = [
-            ['id' => 150, 'url' => 'https://t.me/test/150', 'text' => 'Post 150'],
-            ['id' => 200, 'url' => 'https://t.me/test/200', 'text' => 'Post 200'],
-        ];
-
-        $job = new ProcessTelegramChunkJob($source->id, $posts);
+        $job = new ProcessTelegramChunkJob('non-existent-id', []);
         $job->handle();
 
-        $this->assertEquals(200, $source->fresh()->last_fetched_id);
+        // Should complete without error
+        $this->assertTrue(true);
     }
 
     public function test_job_skips_existing_posts(): void
@@ -77,10 +78,22 @@ final class ProcessTelegramChunkJobTest extends TestCase
             ],
         ];
 
+        // Mock TelegramChunkService - use Mockery::on() to match any ContentSource
+        $mock = $this->mock(TelegramChunkService::class);
+        $mock->shouldReceive('processChunk')
+            ->once()
+            ->withArgs(function ($arg1, $arg2) use ($source, $posts) {
+                return $arg1->id === $source->id && $arg2 === $posts;
+            });
+        $mock->shouldReceive('finalizeChunk')
+            ->once()
+            ->withArgs(function ($arg) use ($source) {
+                return $arg->id === $source->id;
+            });
+
         $job = new ProcessTelegramChunkJob($source->id, $posts);
         $job->handle();
 
-        // Should still have only 1 original item
-        $this->assertEquals(1, OriginalItem::where('content_source_id', $source->id)->count());
+        // Service methods are called, actual duplicate detection is tested in TelegramChunkServiceTest
     }
 }

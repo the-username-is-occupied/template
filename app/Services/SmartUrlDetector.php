@@ -55,7 +55,6 @@ class SmartUrlDetector
             );
         }
 
-
         // Default: website
         return new SourceTypeData(
             type: SourceType::Website,

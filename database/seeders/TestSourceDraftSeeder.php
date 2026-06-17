@@ -30,7 +30,7 @@ class TestSourceDraftSeeder extends Seeder
         $this->command->info("✓ Using TechAccount: {$techAccount->name} (ID: {$techAccount->id})");
 
         $notebook = $techAccount->notebooks()->first();
-        
+
         // 3. Create a notebook in NLM first
         // $notebookLMService = app(NotebookLMService::class);
 
@@ -88,7 +88,7 @@ class TestSourceDraftSeeder extends Seeder
                 return;
             }
 
-           $this->command->info('Wait');
+            $this->command->info('Wait');
             sleep($waitInterval);
             $elapsed += $waitInterval;
         }
@@ -135,6 +135,6 @@ class TestSourceDraftSeeder extends Seeder
 
         $this->command->info('✅ Test completed successfully!');
         $this->command->line('You can now check the SourceDraft and ContentSource in the database.');
-        $this->command->line("Run: php artisan tinker --execute='App\Models\SourceDraft::find({$draft->id})'");
+        $this->command->line("Run: php artisan tinker --execute='App\Models\SourceDraft::find('{$draft->id}')'");
     }
 }

@@ -9,8 +9,8 @@ use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Http\Exceptions\ThrottleRequestsException;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Validation\ValidationException;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Validation\ValidationException;
 use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 use Symfony\Component\HttpKernel\Exception\HttpExceptionInterface;
 use Symfony\Component\HttpKernel\Exception\MethodNotAllowedHttpException;
@@ -23,11 +23,11 @@ class JsonErrorHelper
     {
         $exceptions->render(function (Throwable $throwable): ?JsonResponse {
 
-        Log::error('Exception occurred:', [
-            'message' => $throwable->getMessage(),
-            'exception' => get_class($throwable),
-            'stack_trace' => $throwable->getTraceAsString(),
-        ]);
+            Log::error('Exception occurred:', [
+                'message' => $throwable->getMessage(),
+                'exception' => get_class($throwable),
+                'stack_trace' => $throwable->getTraceAsString(),
+            ]);
 
             if (! static::wantsJson()) {
                 return null;

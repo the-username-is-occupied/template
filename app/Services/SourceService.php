@@ -32,12 +32,10 @@ class SourceService
         }
 
         $source = DB::transaction(function () use ($draft) {
-            $source = ContentSource::firstOrCreate(
+            $source = ContentSource::create(
                 [
                     'user_id' => $draft->user_id,
                     'url' => $draft->raw_input,
-                ],
-                [
                     'type' => $draft->type,
                     'title' => $draft->channel_meta['title'] ?? null,
                     'extraction_status' => ExtractionStatus::Pending,

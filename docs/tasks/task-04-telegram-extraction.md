@@ -32,10 +32,16 @@
 Маршрут: `POST /api/webhooks/telegram-scraper` (без auth middleware, доступен только из внутренней сети).
 
 Логика обработки:
-- `action=upload`: получает `content_source_id` и массив постов, диспатчит `ProcessTelegramChunkJob`
-- `action=done`: диспатчит `TelegramScrapingDoneJob`
+- `action=upload`: 
+  - Увеличивает счётчик `pending_chunks` в Redis через `TelegramChunkService::incrementPendingChunks()`
+  - Диспатчит `ProcessTelegramChunkJob`
+- `action=done`: 
+  - Устанавливает флаг `scraping_done` в Redis через `TelegramChunkService::setScrapingDone()`
+  - Проверяет `pending_chunks` в Redis
+  - Если `pending_chunks == 0` — выполняет `TelegramChunkService::executeDoneLogic()` немедленно
+  - Если `pending_chunks > 0` — ждёт завершения всех чанков (проверка в `finalizeChunk()`)
 
-Webhook-контроллер должен быть максимально тонким — только валидация и dispatch.
+Webhook-контроллер должен быть максимально тонким — только валидация и вызовы сервиса.
 
 ### 3. ProcessTelegramChunkJob
 
@@ -43,26 +49,43 @@ Webhook-контроллер должен быть максимально тон
 
 Логика:
 1. Находит `ContentSource` по `content_source_id`
-2. Для каждого поста из пачки создаёт `OriginalItem`:
-   - `title` = первые N слов текста или ID поста
+2. Вызывает `TelegramChunkService::processChunk()` для обработки постов:
+   - Для каждого поста создаёт `OriginalItem`
+   - `title` = первые 8 слов текста или "Post #ID"
    - `full_text` = `post.text`
    - `source_url` = `post.url`
    - `published_at` = `post.date`
    - `word_count` = подсчёт слов через `preg_match_all('/[\p{L}\p{N}]+/u', $text)`
    - `metadata` = `{ views, type, reactions }`
-3. Обновляет `content_source.last_fetched_id` до максимального ID в пачке
+3. Вызывает `TelegramChunkService::finalizeChunk()` для завершения:
+   - Декрементирует счётчик `pending_chunks` в Redis
+   - Проверяет, все ли чанки обработаны и получен ли флаг `scraping_done`
+   - Если да — выполняет логику завершения (обновляет статусы, диспатчит SSE)
 4. Передаёт ссылки из каждого поста в `LinkProcessorService::processLinks()`
 5. Публикует SSE `parsing_progress` и `links_batch` (если есть новые ссылки)
 
-### 4. TelegramScrapingDoneJob
+**Примечание:** Job больше не уникален (`ShouldBeUnique` удалён), не обновляет `last_fetched_id`.
 
-Создай `App\Jobs\TelegramScrapingDoneJob`.
+### 4. TelegramChunkService (заменяет TelegramScrapingDoneJob)
 
-Логика:
-1. Находит `ContentSource` и связанный `SourceDraft`
-2. Устанавливает `content_source.extraction_status = extracted`
-3. Устанавливает `draft.status = awaiting_index`
-4. Публикует SSE `parsing_done` с `total_posts` и `total_links`
+Создай `App\Services\TelegramChunkService` — основной сервис для обработки чанков.
+
+Методы:
+- `processChunk(ContentSource $source, array $posts): array` — обработка пачки постов
+- `finalizeChunk(ContentSource $source): void` — завершение чанка (декрементирует счётчик, проверяет готовность)
+- `executeDoneLogic(ContentSource $source): void` — логика завершения (обновляет статусы, диспатчит SSE)
+- `incrementPendingChunks(string $contentSourceId): void` — увеличивает счётчик в Redis
+- `decrementPendingChunks(string $contentSourceId): int` — уменьшает счётчик в Redis
+- `setScrapingDone(string $contentSourceId): void` — устанавливает флаг завершения в Redis
+- `isScrapingDone(string $contentSourceId): bool` — проверяет флаг завершения
+- `getPendingChunksCount(string $contentSourceId): int` — получает количество ожидающих чанков
+- `cleanupRedisKeys(string $contentSourceId): void` — очищает Redis-ключи после завершения
+
+Redis-ключи:
+- `telegram:source:{content_source_id}:pending_chunks` — счётчик ожидающих чанков
+- `telegram:source:{content_source_id}:scraping_done` — флаг завершения парсинга
+
+**Примечание:** `TelegramScrapingDoneJob` удалён. Его логика перенесена в `executeDoneLogic()`.
 
 ### 5. LinkProcessorService
 

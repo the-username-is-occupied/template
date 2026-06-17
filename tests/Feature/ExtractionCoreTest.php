@@ -9,7 +9,6 @@ use App\Enums\ExtractionStatus;
 use App\Enums\SourceDraftStatus;
 use App\Enums\SourceType;
 use App\Events\ExtractionCompleted;
-use App\Exceptions\UnsupportedSourceTypeException;
 use App\Jobs\ProcessSourceJob;
 use App\Models\ContentSource;
 use App\Models\SourceDraft;
