@@ -17,7 +17,7 @@ Artisan::command('inspire', function () {
 })->purpose('Display an inspiring quote');
 
 // Maintain tech notebooks pool every 5 minutes
-// Schedule::job(new MaintainTechNotebooksPoolJob)->everyFiveMinutes();
+Schedule::job(new MaintainTechNotebooksPoolJob)->everyFiveMinutes();
 
 // Cleanup stale tech notebooks every 15 minutes
 // Schedule::job(new CleanupStaleTechNotebooksJob)->everyFifteenMinutes();

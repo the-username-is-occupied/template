@@ -30,7 +30,7 @@ class TestSourceDraftSeeder extends Seeder
         $this->command->info("✓ Using TechAccount: {$techAccount->name} (ID: {$techAccount->id})");
 
         $notebook = $techAccount->notebooks()->first();
-        $draft = $notebook->sourceDrafts()->first();
+        
         // 3. Create a notebook in NLM first
         // $notebookLMService = app(NotebookLMService::class);
 
@@ -53,57 +53,57 @@ class TestSourceDraftSeeder extends Seeder
 
         // $this->command->info("✓ Created notebook: {$notebook->title} (ID: {$notebook->id})");
 
-        // // 5. Create SourceDraft for Telegram channel
-        // $rawInput = 'https://t.me/tolk_tolk';
+        // 5. Create SourceDraft for Telegram channel
+        $rawInput = 'https://t.me/tolk_tolk';
 
-        // $draftService = app(SourceDraftService::class);
-        // $drafts = $draftService->create($user, $notebook, $rawInput);
+        $draftService = app(SourceDraftService::class);
+        $drafts = $draftService->create($user, $notebook, $rawInput);
 
-        // $draft = $drafts->first();
+        $draft = $drafts->first();
 
-        // $this->command->info("✓ Created SourceDraft (ID: {$draft->id})");
-        // $this->command->line("  - Type: {$draft->type->value}");
-        // $this->command->line("  - Status: {$draft->status->value}");
-        // $this->command->line("  - Raw input: {$draft->raw_input}");
+        $this->command->info("✓ Created SourceDraft (ID: {$draft->id})");
+        $this->command->line("  - Type: {$draft->type->value}");
+        $this->command->line("  - Status: {$draft->status->value}");
+        $this->command->line("  - Raw input: {$draft->raw_input}");
 
-        // // 6. Wait for meta fetching to complete
-        // $this->command->info('⏳ Waiting for meta fetching...');
+        // 6. Wait for meta fetching to complete
+        $this->command->info('⏳ Waiting for meta fetching...');
 
-        // $maxWaitTime = 30; // seconds
-        // $waitInterval = 2; // seconds
-        // $elapsed = 0;
+        $maxWaitTime = 30; // seconds
+        $waitInterval = 2; // seconds
+        $elapsed = 0;
 
-        // while ($elapsed < $maxWaitTime) {
-        //     $draft->refresh();
+        while ($elapsed < $maxWaitTime) {
+            $draft->refresh();
 
-        //     if ($draft->status === SourceDraftStatus::AwaitingConfirm) {
-        //         $this->command->info('✓ Meta fetched successfully!');
-        //         break;
-        //     }
+            if ($draft->status === SourceDraftStatus::AwaitingConfirm) {
+                $this->command->info('✓ Meta fetched successfully!');
+                break;
+            }
 
-        //     if ($draft->status === SourceDraftStatus::Abandoned) {
-        //         $this->command->error('✗ Meta fetching failed. Draft abandoned.');
-        //         $this->command->error('Draft data: '.json_encode($draft->toArray(), JSON_PRETTY_PRINT));
+            if ($draft->status === SourceDraftStatus::Abandoned) {
+                $this->command->error('✗ Meta fetching failed. Draft abandoned.');
+                $this->command->error('Draft data: '.json_encode($draft->toArray(), JSON_PRETTY_PRINT));
 
-        //         return;
-        //     }
+                return;
+            }
 
-        //    $this->command->info('Wait');
-        //     sleep($waitInterval);
-        //     $elapsed += $waitInterval;
-        // }
+           $this->command->info('Wait');
+            sleep($waitInterval);
+            $elapsed += $waitInterval;
+        }
 
-        // if ($draft->status !== SourceDraftStatus::AwaitingConfirm) {
-        //     $this->command->warn("⚠ Timeout waiting for meta. Current status: {$draft->status->value}");
-        // }
+        if ($draft->status !== SourceDraftStatus::AwaitingConfirm) {
+            $this->command->warn("⚠ Timeout waiting for meta. Current status: {$draft->status->value}");
+        }
 
-        // // 7. Display channel meta
-        // if ($draft->channel_meta) {
-        //     $this->command->info('📊 Channel Meta:');
-        //     $this->command->line('  - Title: '.($draft->channel_meta['title'] ?? 'N/A'));
-        //     $this->command->line('  - Description: '.substr($draft->channel_meta['description'] ?? 'N/A', 0, 100).'...');
-        //     $this->command->line('  - Members: '.($draft->channel_meta['members'] ?? 'N/A'));
-        // }
+        // 7. Display channel meta
+        if ($draft->channel_meta) {
+            $this->command->info('📊 Channel Meta:');
+            $this->command->line('  - Title: '.($draft->channel_meta['title'] ?? 'N/A'));
+            $this->command->line('  - Description: '.substr($draft->channel_meta['description'] ?? 'N/A', 0, 100).'...');
+            $this->command->line('  - Members: '.($draft->channel_meta['members'] ?? 'N/A'));
+        }
 
         // 8. Confirm draft with scrape config (limit 29 posts, chunks of 10)
         $scrapeConfig = [
