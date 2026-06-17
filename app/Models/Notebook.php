@@ -10,6 +10,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use App\Domain\NotebookLM\NotebookLMServiceDecorator;
 
 class Notebook extends Model
 {
@@ -73,5 +74,9 @@ class Notebook extends Model
     public function isConsolidating()
     {
         return $this->mdBundles()->where('is_consolidating', true)->exists();
+    }
+
+    public function nlm(){
+        return new NotebookLMServiceDecorator($this->techAccount);
     }
 }

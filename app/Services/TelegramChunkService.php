@@ -130,6 +130,7 @@ class TelegramChunkService
                 'status' => SourceDraftStatus::AwaitingIndex,
             ]);
 
+            $draft->contentSource->notebooks()->syncWithoutDetaching([$draft->knowledgeBase->id]);
             Log::info('Updated SourceDraft status to awaiting_index', [
                 'source_draft_id' => $draft->id,
                 'content_source_id' => $source->id,

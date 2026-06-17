@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Domain\NotebookLM\NotebookLMServiceDecorator;
 use App\Enums\TechAccountPoolType;
 use App\Enums\TechAccountStatus;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
@@ -61,5 +62,9 @@ class TechAccount extends Model
     public function notebooks()
     {
         return $this->hasMany(Notebook::class, 'tech_account_id');
+    }
+
+    public function service(){
+        return new NotebookLMServiceDecorator($this);
     }
 }

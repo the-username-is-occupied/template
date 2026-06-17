@@ -9,6 +9,7 @@ use App\Enums\ExtractionStatus;
 use App\Enums\ReviewStatus;
 use App\Enums\SourceDraftStatus;
 use App\Enums\SourceType;
+use App\Jobs\BuildBundlesJob;
 use App\Jobs\ProcessSourceJob;
 use App\Models\ContentSource;
 use App\Models\SourceDraft;
@@ -54,10 +55,6 @@ class SourceService
             return $source;
         });
 
-        // if (in_array($draft->type, [SourceType::TelegramChannel, SourceType::TelegramPost])) {
-        //     return $source;
-        // }
-
         ProcessSourceJob::dispatch($source->id);
 
         return $source;
@@ -80,9 +77,7 @@ class SourceService
                     ->update(['review_status' => ReviewStatus::Approved]);
             }
 
-            $draft->contentSource->notebooks()->syncWithoutDetaching([$draft->knowledgeBase->id]);
-
-            ProcessSourceJob::dispatch($draft->content_source_id);
+            BuildBundlesJob::dispatch($draft->knowledge_base_id);
         });
     }
 }

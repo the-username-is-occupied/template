@@ -12,7 +12,7 @@ class SourceDTO extends Data
         public string $id,
         public string $title,
         public ?string $url,
-        public string $created_at,
+        public ?string $created_at,
         public string $status,
         public string $kind,
         public bool $is_ready = false,

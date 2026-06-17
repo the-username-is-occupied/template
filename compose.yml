@@ -75,6 +75,7 @@ services:
       - notebooklm_data:/root/.notebooklm
       - ./docker/notebooklm/:/app
       - ./storage/app/cookies:/cookies
+      - ./storage/app/bundles:/var/www/html/storage/app/bundles
     ports:
       - "${NOTEBOOKLM_PORT:-8000}:8000"
     restart: unless-stopped

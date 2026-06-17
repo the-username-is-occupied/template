@@ -176,7 +176,7 @@ class NotebookLMService
     {
         $response = $this->post("/accounts/{$accountId}/notebooks/{$notebookId}/sources/text", [
             'title' => $title,
-            'content' => $content,
+            'text' => $content,
         ]);
 
         return SourceDTO::from($response['source']);

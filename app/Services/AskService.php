@@ -26,7 +26,7 @@ class AskService
         }
 
         return $this->notebookLMService->askQuestion(
-            $notebook->account_id,
+            $notebook->tech_account_id,
             $notebook->nlm_notebook_id,
             $question
         );
