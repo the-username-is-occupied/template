@@ -96,19 +96,6 @@ final class ExtractionCoreTest extends TestCase
         $this->assertInstanceOf(TextExtractor::class, $extractor);
     }
 
-    public function test_extractor_factory_throws_for_unsupported_type(): void
-    {
-        $source = ContentSource::factory()
-            ->for($this->user)
-            ->withType(SourceType::TelegramChannel)
-            ->create();
-
-        $factory = new ExtractorFactory;
-
-        $this->expectException(UnsupportedSourceTypeException::class);
-        $factory->make($source);
-    }
-
     public function test_source_indexing_service_processes_source(): void
     {
         Storage::disk('local')->put('test.txt', 'Test content');

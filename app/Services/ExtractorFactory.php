@@ -31,7 +31,7 @@ class ExtractorFactory
 
         $extractor = match ($type) {
             SourceType::Text => TextExtractor::class,
-            SourceType::TelegramChannel, SourceType::TelegramPost => TelegramExtractor::class,
+            SourceType::TelegramChannel => TelegramExtractor::class,
             SourceType::YoutubeChannel, SourceType::YoutubeVideo => YouTubeExtractor::class,
             SourceType::Website => WebsiteExtractor::class,
             SourceType::Pdf, SourceType::Docx, SourceType::Csv, SourceType::Pptx,
