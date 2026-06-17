@@ -25,30 +25,28 @@ class SendExtractionCompletedNotification
 
         $topic = "user.{$draft->user_id}.source-drafts";
 
-        if ($event->success) {
-            $data = json_encode([
-                'event' => 'extraction_done',
-                'draft_id' => $draft->id,
-                'content_source_id' => $source->id,
-                'items_count' => $source->originalItems()->count(),
-            ], JSON_THROW_ON_ERROR);
-
-            $this->publisher->publish($topic, $data);
-
-            $draft->update(['status' => SourceDraftStatus::Done]);
-
-            if ($draft->content_source_id) {
-                $draft->delete();
-            }
-        } else {
-            $data = json_encode([
+        if (! $event->success) {
+            $this->publisher->publish($topic, [
                 'event' => 'error',
                 'draft_id' => $draft->id,
                 'code' => 'extraction_failed',
                 'message' => $event->errorMessage,
-            ], JSON_THROW_ON_ERROR);
+            ]);
 
-            $this->publisher->publish($topic, $data);
+            return;
+        }
+
+        $this->publisher->publish($topic, [
+            'event' => 'extraction_done',
+            'draft_id' => $draft->id,
+            'content_source_id' => $source->id,
+            'items_count' => $source->originalItems()->count(),
+        ]);
+
+        $draft->update(['status' => SourceDraftStatus::Done]);
+
+        if ($draft->content_source_id) {
+            $draft->delete();
         }
     }
 }

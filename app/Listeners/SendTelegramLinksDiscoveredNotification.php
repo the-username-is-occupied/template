@@ -18,12 +18,10 @@ class SendTelegramLinksDiscoveredNotification
         $draft = $event->draft;
         $topic = "user.{$draft->user_id}.source-drafts";
 
-        $data = json_encode([
+        $this->publisher->publish($topic, [
             'event' => 'links_batch',
             'draft_id' => $draft->id,
             'links' => $event->links,
-        ], JSON_THROW_ON_ERROR);
-
-        $this->publisher->publish($topic, $data);
+        ]);
     }
 }

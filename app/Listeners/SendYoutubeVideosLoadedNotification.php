@@ -17,16 +17,17 @@ class SendYoutubeVideosLoadedNotification
     {
         $draft = $event->draft;
         $videos = $event->videos;
+        $topic = "user.{$draft->user_id}.source-drafts";
 
         $this->publisher->publish(
-            "source-drafts/{$draft->id}",
-            json_encode([
+            $topic,
+            [
                 'event' => 'videos_loaded',
                 'data' => [
                     'draft_id' => $draft->id,
                     'videos' => $videos,
                 ],
-            ])
+            ]
         );
     }
 }

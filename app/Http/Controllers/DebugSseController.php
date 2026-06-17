@@ -29,10 +29,10 @@ final class DebugSseController extends Controller
         $message = (string) $request->validated('message');
         $topic = (string) config('services.mercure.topic_prefix');
 
-        $this->mercurePublisher->publish($topic, json_encode([
+        $this->mercurePublisher->publish($topic, [
             'message' => $message,
             'sent_at' => now()->toIso8601String(),
-        ], JSON_THROW_ON_ERROR));
+        ]);
 
         return response()->json([
             'status' => 'ok',

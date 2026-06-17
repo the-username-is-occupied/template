@@ -17,15 +17,17 @@ class SendExtractionDoneNotification
     {
         $source = $event->source;
 
+        $topic = "user.{$source->user_id}.source-drafts";
+
         $this->publisher->publish(
-            "content-sources/{$source->id}",
-            json_encode([
+            $topic,
+            [
                 'event' => 'extraction_done',
                 'data' => [
                     'source_id' => $source->id,
                     'status' => $source->extraction_status->value,
                 ],
-            ])
+            ]
         );
     }
 }

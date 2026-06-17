@@ -21,20 +21,21 @@ final class MercurePublisher
      * Publishes a message to the specified topic.
      *
      * @param  string  $topic  The topic to publish to.
-     * @param  string  $data  The data to publish.
+     * @param  array  $data  The data to publish (will be JSON encoded).
      *
      * @throws RuntimeException If publishing fails.
      */
-    public function publish(string $topic, string $data): void
+    public function publish(string $topic, array $data): void
     {
         $hubUrl = $this->getConfig('hub_url');
         $secret = $this->getConfig('jwt_secret');
+        $encodedData = json_encode($data, JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
 
         $response = Http::asForm()
             ->withToken($this->createPublisherJwt($secret))
             ->post($hubUrl, [
                 'topic' => $topic,
-                'data' => $data,
+                'data' => $encodedData,
             ]);
 
         if ($response->failed()) {

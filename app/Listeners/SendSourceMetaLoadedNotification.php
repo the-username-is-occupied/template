@@ -18,11 +18,9 @@ class SendSourceMetaLoadedNotification
         $draft = $event->draft;
         $topic = "user.{$draft->user_id}.source-drafts";
 
-        $data = json_encode([
+        $this->publisher->publish($topic, [
             'draft_id' => $draft->id,
             'channel_meta' => $draft->channel_meta,
-        ], JSON_THROW_ON_ERROR);
-
-        $this->publisher->publish($topic, $data);
+        ]);
     }
 }

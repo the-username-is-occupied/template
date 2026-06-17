@@ -18,13 +18,11 @@ class SendTelegramParsingDoneNotification
         $draft = $event->draft;
         $topic = "user.{$draft->user_id}.source-drafts";
 
-        $data = json_encode([
+        $this->publisher->publish($topic, [
             'event' => 'parsing_done',
             'draft_id' => $draft->id,
             'total_posts' => $event->totalPosts,
             'total_links' => $event->totalLinks,
-        ], JSON_THROW_ON_ERROR);
-
-        $this->publisher->publish($topic, $data);
+        ]);
     }
 }

@@ -82,6 +82,8 @@ class SourceService
                     ->update(['review_status' => ReviewStatus::Approved]);
             }
 
+            $draft->contentSource->notebooks()->syncWithoutDetaching([$draft->knowledgeBase->id]);
+
             ProcessSourceJob::dispatch($draft->content_source_id);
         });
     }

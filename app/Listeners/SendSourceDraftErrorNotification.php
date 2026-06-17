@@ -18,12 +18,10 @@ class SendSourceDraftErrorNotification
         $draft = $event->draft;
         $topic = "user.{$draft->user_id}.source-drafts";
 
-        $data = json_encode([
+        $this->publisher->publish($topic, [
             'draft_id' => $draft->id,
             'code' => $event->code,
             'message' => $event->message,
-        ], JSON_THROW_ON_ERROR);
-
-        $this->publisher->publish($topic, $data);
+        ]);
     }
 }
