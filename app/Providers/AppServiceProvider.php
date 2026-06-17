@@ -49,7 +49,7 @@ class AppServiceProvider extends ServiceProvider
         // Schedule::command('pulse:check')->everyMinute();
         // Schedule::command('pulse:ingest')->everyMinute();
         // Schedule::command('telescope:prune --hours=72')->daily();
-        // Schedule::job(new CheckAccountHealth)->everyFiveMinutes();
+        Schedule::job(new CheckAccountHealth)->everyMinute();
 
     }
 }

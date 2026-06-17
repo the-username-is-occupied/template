@@ -46,7 +46,7 @@ class TGScraperService
         ?\DateTimeInterface $toDate = null,
         int $workers = 3,
         int $chunkLimit = 2000,
-        string $hookUrl = 'app/hook'
+        string $hookUrl = 'http://app:80/api/webhooks/telegram-scraper'
     ): ScrapeResponse {
         $data = [
             'content_source_id' => $contentSourceId,

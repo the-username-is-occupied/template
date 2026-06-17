@@ -42,6 +42,9 @@ class SourceService
                     'title' => $draft->channel_meta['title'] ?? null,
                     'extraction_status' => ExtractionStatus::Pending,
                     'discovery_method' => DiscoveryMethod::Manual,
+                    'metadata' => [
+                        'scrape_config' => $draft->scrape_config,
+                    ],
                 ]
             );
 
@@ -53,9 +56,9 @@ class SourceService
             return $source;
         });
 
-        if (in_array($draft->type, [SourceType::TelegramChannel, SourceType::TelegramPost])) {
-            return $source;
-        }
+        // if (in_array($draft->type, [SourceType::TelegramChannel, SourceType::TelegramPost])) {
+        //     return $source;
+        // }
 
         ProcessSourceJob::dispatch($source->id);
 

@@ -42,6 +42,11 @@ class BundleBuilder
     {
         $contentSourceIds = $notebook->contentSources()->pluck('content_sources.id');
 
+        Log::info('Fetching unbundled items for bundle build', [
+            'notebook_id' => $notebook->id,
+            'content_source_ids' => $contentSourceIds->toArray(),
+        ]);
+
         if ($contentSourceIds->isEmpty()) {
             return;
         }
@@ -50,6 +55,12 @@ class BundleBuilder
             ->unbundled()
             ->orderBy('published_at')
             ->get();
+
+        Log::info('Starting bundle build', [
+            'notebook_id' => $notebook->id,
+            'content_source_ids' => $contentSourceIds->toArray(),
+            'unbundled_item_count' => $items->count(),
+        ]);
 
         if ($items->isEmpty()) {
             return;

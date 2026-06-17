@@ -1,6 +1,7 @@
 <?php
 
 use App\Console\Commands\RetryStaleUploadsCommand;
+use App\Domain\NotebookLM\Jobs\CheckAccountHealth;
 use App\Jobs\CleanupOrphanedSourcesJob;
 use App\Jobs\CleanupStaleTechNotebooksJob;
 use App\Jobs\DispatchNotebookBundleJobs;
@@ -35,3 +36,8 @@ Artisan::command('inspire', function () {
 
 // Build bundles for notebooks with unbundled items every 5 minutes
 // Schedule::job(new DispatchNotebookBundleJobs)->everyFiveMinutes();
+
+// Schedule::job(new CheckAccountHealth)->everyMinute();
+
+Schedule::command('pulse:check')->everyMinute();
+Schedule::command('pulse:ingest')->everyMinute();

@@ -9,6 +9,7 @@ use App\Enums\SourceType;
 use App\Exceptions\UnsupportedSourceTypeException;
 use App\Models\ContentSource;
 use App\Services\Extractors\NlmFileExtractor;
+use App\Services\Extractors\TelegramExtractor;
 use App\Services\Extractors\TextExtractor;
 use App\Services\Extractors\WebsiteExtractor;
 use App\Services\Extractors\YouTubeExtractor;
@@ -30,6 +31,7 @@ class ExtractorFactory
 
         $extractor = match ($type) {
             SourceType::Text => TextExtractor::class,
+            SourceType::TelegramChannel, SourceType::TelegramPost => TelegramExtractor::class,
             SourceType::YoutubeChannel, SourceType::YoutubeVideo => YouTubeExtractor::class,
             SourceType::Website => WebsiteExtractor::class,
             SourceType::Pdf, SourceType::Docx, SourceType::Csv, SourceType::Pptx,

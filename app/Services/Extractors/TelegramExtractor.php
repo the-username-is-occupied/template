@@ -43,7 +43,7 @@ class TelegramExtractor implements SourceExtractorInterface
         $hookUrl = $this->buildWebhookUrl();
 
         // Get scrape config from source metadata
-        $scrapeConfig = $source->metadata['scrape_config'] ?? [];
+        $scrapeConfig = $source->metadata['scrape_config'] ?? $source->sourceDrafts()->first()?->scrape_config ?? [];
 
         try {
             // Call TG Scraper service
@@ -84,7 +84,7 @@ class TelegramExtractor implements SourceExtractorInterface
     private function buildWebhookUrl(): string
     {
         // Build internal webhook URL for TG Scraper to call back
-        return url('/api/webhooks/telegram-scraper');
+        return 'http://app:80/api/webhooks/telegram-scraper';
     }
 
     private function extractChannelFromSource(ContentSource $source): ?string

@@ -15,7 +15,7 @@ RUN python -m pip install --no-cache-dir \
     uvicorn \
     httpx \
     pydantic \
-    && mkdir -p /root/.notebooklm /workspace /app
+    && mkdir -p /root/.notebooklm /workspace /app /thep
 
 WORKDIR /app
 

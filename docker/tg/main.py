@@ -94,7 +94,7 @@ class ScrapeRequest(BaseModel):
                 "to_date": "2026-01-01",
                 "workers": 3,
                 "chunk_limit": 20,
-                "hook_url": "http://app:80/api/hook",
+                "hook_url": "http://app:80/api/webhooks/telegram-scraper",
             }
         }
     }
@@ -162,6 +162,12 @@ async def scrape(request: ScrapeRequest, background_tasks: BackgroundTasks):
 
     Если парсинг уже запущен, возвращает **409 Conflict**.
     """
+    # Log incoming scrape request parameters
+    logger.info(
+        "Received scrape request: %s",
+        request.model_dump_json(indent=2, exclude_none=True),
+    )
+
     if _state["busy"]:
         raise HTTPException(
             status_code=409,

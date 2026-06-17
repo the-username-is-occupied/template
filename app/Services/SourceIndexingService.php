@@ -31,6 +31,7 @@ class SourceIndexingService
             ]);
 
             event(new ExtractionCompleted($source, false, $e->getMessage()));
+            
         } catch (\Throwable $e) {
             Log::channel('requests')->error('Transient extraction error:', [
                 'content_source_id' => $contentSourceId,
