@@ -88,7 +88,9 @@ class ContentSource extends Model
 
     public function notebooks(): BelongsToMany
     {
-        return $this->belongsToMany(Notebook::class, 'notebook_content_sources');
+        return $this->belongsToMany(Notebook::class, 'notebook_content_sources')
+            ->using(NotebookContentSource::class)
+            ->withPivot('added_at');
     }
 
     public function scopePendingReview(Builder $query)

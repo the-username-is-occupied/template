@@ -66,6 +66,7 @@ class Notebook extends Model
     public function contentSources(): BelongsToMany
     {
         return $this->belongsToMany(ContentSource::class, 'notebook_content_sources')
+            ->using(NotebookContentSource::class)
             ->withPivot('added_at');
     }
 
