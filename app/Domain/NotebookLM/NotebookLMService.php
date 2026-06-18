@@ -36,7 +36,7 @@ class NotebookLMService
     public function __construct()
     {
         $this->baseUrl = config('notebook-lm.url', 'http://notebooklm:8000');
-        $this->timeout = config('notebook-lm.timeout', 180);
+        $this->timeout = config('notebook-lm.timeout', 30);
     }
 
     public function getBaseUrl(): string
@@ -326,7 +326,8 @@ class NotebookLMService
             'conversation_id' => $options['conversation_id'] ?? null,
         ]);
 
-        $response = $this->post("/accounts/{$accountId}/notebooks/ask", $data);
+        // Use 240 seconds timeout for askQuestion as it can take a long time
+        $response = $this->send('post', "/accounts/{$accountId}/notebooks/ask", $data, 240);
 
         return AskResultDTO::from($response['result']);
     }
@@ -447,10 +448,10 @@ class NotebookLMService
      * @param  array<string, mixed>  $data
      * @return array<string, mixed>
      */
-    protected function send(string $method, string $path, array $data = []): array
+    protected function send(string $method, string $path, array $data = [], ?int $timeout = null): array
     {
         /** @var Response $response */
-        $response = $this->client()->{$method}($this->baseUrl.$path, $data);
+        $response = $this->client($timeout)->{$method}($this->baseUrl.$path, $data);
 
         $this->logResponse($response, $path);
         $this->handleError($response, $path);
@@ -461,9 +462,9 @@ class NotebookLMService
     /**
      * Build a pre-configured HTTP client instance.
      */
-    protected function client(): PendingRequest
+    protected function client(?int $timeout = null): PendingRequest
     {
-        return Http::timeout($this->timeout);
+        return Http::timeout($timeout ?? $this->timeout);
     }
 
     // =========================================================================
