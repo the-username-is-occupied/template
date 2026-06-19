@@ -271,7 +271,8 @@ class BundleBuilder
     {
         $this->bundleItemsService->attachItems($bundle, collect([$item]));
 
-        $wordCount = $item->word_count ?? $this->wordCounter->count($item->full_text ?? '');
+        $newItemContent = $this->renderer->render(collect([$item]));
+        $wordCount = $this->wordCounter->count($newItemContent);
         $bundle->increment('word_count', $wordCount);
 
         // Update file on disk
@@ -279,7 +280,6 @@ class BundleBuilder
         $disk = Storage::disk('bundles');
         $filePath = "{$notebook->id}/{$bundle->id}.md";
         $existingContent = $disk->get($filePath) ?? '';
-        $newItemContent = $this->renderer->render(collect([$item]));
 
         $separator = $existingContent === '' ? '' : "\n\n";
         $disk->put($filePath, $existingContent.$separator.$newItemContent);
