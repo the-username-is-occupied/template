@@ -76,8 +76,8 @@ class Notebook extends Model
         return $this->mdBundles()->where('is_consolidating', true)->exists();
     }
 
-    public function nlm()
+    public function nlm(?TechAccount $account = null)
     {
-        return new NotebookNLMDecorator($this);
+        return new NotebookNLMDecorator($this, $account ? $account->service() : null);
     }
 }

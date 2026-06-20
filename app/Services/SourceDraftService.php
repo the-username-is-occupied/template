@@ -210,8 +210,12 @@ class SourceDraftService
                 $channelIdentifier = $matches[1];
             }
 
+            // Get channel info to resolve handle to UC... ID
+            $channelInfo = $this->youTubeService->getChannelInfo($channelIdentifier);
+            $channelId = $channelInfo->id; // This is the UC... ID
+
             // Get video URLs
-            $videoUrlsData = $this->youTubeService->getVideoUrls($channelIdentifier, $contentTypes);
+            $videoUrlsData = $this->youTubeService->getVideoUrls($channelId, $contentTypes);
 
             // Save video list to draft metadata
             $draft->update([

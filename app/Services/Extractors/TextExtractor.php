@@ -8,6 +8,7 @@ use App\Contracts\SourceExtractorInterface;
 use App\Enums\ExtractionStatus;
 use App\Events\ExtractionCompleted;
 use App\Models\ContentSource;
+use App\Services\WordCounter;
 use Illuminate\Support\Facades\Storage;
 
 class TextExtractor implements SourceExtractorInterface
@@ -39,7 +40,7 @@ class TextExtractor implements SourceExtractorInterface
         }
 
         $content = $disk->get($fileRef);
-        $wordCount = str_word_count(strip_tags($content));
+        $wordCount = new WordCounter()->count(strip_tags($content));
 
         $source->originalItems()->create([
             'title' => basename($fileRef),

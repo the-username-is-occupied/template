@@ -149,7 +149,6 @@ class TechNotebookPoolService
             'account_id' => $account->id,
             'notebook_id' => $notebookDTO->id,
             'type' => $type,
-            'status' => 'active',
         ]);
 
         $account->increment('notebooks_count');

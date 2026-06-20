@@ -8,7 +8,6 @@ use App\Enums\DiscoveryMethod;
 use App\Enums\ExtractionStatus;
 use App\Enums\ReviewStatus;
 use App\Enums\SourceDraftStatus;
-use App\Enums\SourceType;
 use App\Jobs\BuildBundlesJob;
 use App\Jobs\ProcessSourceJob;
 use App\Models\ContentSource;
@@ -43,6 +42,7 @@ class SourceService
                     'discovery_method' => DiscoveryMethod::Manual,
                     'metadata' => [
                         'scrape_config' => $draft->scrape_config,
+                        'channel_meta' => $draft->channel_meta,
                     ],
                 ]
             );

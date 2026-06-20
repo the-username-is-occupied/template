@@ -8,6 +8,7 @@ use App\Domain\YouTube\DTOs\VideoUrlsData;
 use App\Exceptions\YouTubeApiException;
 use Google\Client;
 use Google\Service\YouTube;
+use Illuminate\Support\Facades\Log;
 use Spatie\LaravelData\DataCollection;
 
 class YouTubeService
@@ -95,7 +96,12 @@ class YouTubeService
 
             $allUrls = [];
             foreach ($playlistsToFetch as $type => $playlistId) {
-                $allUrls = array_merge($allUrls, $this->getUrlsFromPlaylist($playlistId, $type));
+                try {
+                    $urls = $this->getUrlsFromPlaylist($playlistId, $type);
+                    $allUrls = array_merge($allUrls, $urls);
+                } catch (\Exception $e) {
+                    Log::error("Failed to fetch {$type} playlist {$playlistId}: ".$e->getMessage());
+                }
             }
 
             return new VideoUrlsData(urls: array_values(array_unique($allUrls)));

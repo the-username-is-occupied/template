@@ -10,6 +10,7 @@ use App\Events\ExtractionDone;
 use App\Models\ContentSource;
 use App\Models\OriginalItem;
 use App\Services\AccountService;
+use App\Services\WordCounter;
 use Illuminate\Support\Facades\Log;
 
 class YouTubeExtractor implements SourceExtractorInterface
@@ -17,12 +18,13 @@ class YouTubeExtractor implements SourceExtractorInterface
     public function __construct(
         private readonly AccountService $accountService,
         private readonly NotebookLMService $notebookLMService,
+        private readonly WordCounter $wordCounter,
     ) {}
 
     public function extract(ContentSource $source): void
     {
         // Get video URLs from metadata
-        $videoUrls = $source->metadata['video_urls'] ?? [];
+        $videoUrls = $source->metadata['channel_meta']['video_urls'] ?? [];
 
         if (empty($videoUrls)) {
             $source->update([
@@ -92,7 +94,7 @@ class YouTubeExtractor implements SourceExtractorInterface
                             'title' => $fulltextDto->title ?? basename($batchUrls[$index]),
                             'full_text' => $fulltextDto->content,
                             'source_url' => $batchUrls[$index],
-                            'word_count' => str_word_count($fulltextDto->content),
+                            'word_count' => $this->wordCounter->count($fulltextDto->content),
                             'metadata' => [
                                 'source_id' => $sourceId,
                                 'notebook_id' => $notebook->notebook_id,

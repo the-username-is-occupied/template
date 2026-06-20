@@ -37,7 +37,7 @@ class TestSourceDraftSeeder extends Seeder
         $this->command->info('⏳ Creating notebook in NLM...');
         $notebookDTO = $notebookLMService->createNotebook(
             $techAccount->id,
-            'Test Notebook for Telegram Channel'
+            'Test Notebook for YT Channel'
         );
         $nlmNotebookId = $notebookDTO->id;
 
@@ -48,13 +48,13 @@ class TestSourceDraftSeeder extends Seeder
             'user_id' => $user->id,
             'tech_account_id' => $techAccount->id,
             'nlm_notebook_id' => $nlmNotebookId,
-            'title' => 'Test Notebook for Telegram Channel',
+            'title' => 'Test Notebook for YT Channel',
         ]);
 
         $this->command->info("✓ Created notebook: {$notebook->title} (ID: {$notebook->id})");
 
-        // 5. Create SourceDraft for Telegram channel
-        $rawInput = 'https://t.me/tolk_tolk';
+        // 5. Create SourceDraft for YT channel
+        $rawInput = 'https://www.youtube.com/@olya_nitka';
 
         $draftService = app(SourceDraftService::class);
         $drafts = $draftService->create($user, $notebook, $rawInput);
