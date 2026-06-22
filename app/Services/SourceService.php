@@ -77,6 +77,7 @@ class SourceService
                     ->update(['review_status' => ReviewStatus::Approved]);
             }
 
+            $draft->contentSource->notebooks()->syncWithoutDetaching([$draft->knowledgeBase->id]);
             BuildBundlesJob::dispatch($draft->knowledge_base_id);
         });
     }

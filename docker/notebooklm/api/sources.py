@@ -16,6 +16,7 @@ from models import (
     SourceAddFileRequest,
     SourceAddFileResponse,
     SourceWaitRegisteredResponse,
+    SourcesWaitMultipleRequest,
     SourcesWaitMultipleResponse,
     SourceRefreshResponse,
     SourceFreshnessResponse,
@@ -210,12 +211,11 @@ async def wait_for_sources(
     request: Request,
     account_id: str,
     notebook_id: str,
-    source_ids: List[str],
-    timeout: float = 120.0,
+    body: SourcesWaitMultipleRequest,
 ):
     """Wait for multiple sources to become ready in parallel."""
     client = get_client(account_id)
-    sources = await client.sources.wait_for_sources(notebook_id, source_ids, timeout=timeout)
+    sources = await client.sources.wait_for_sources(notebook_id, body.source_ids, timeout=body.timeout)
     return SourcesWaitMultipleResponse(
         sources=[map_source(s) for s in sources],
     )

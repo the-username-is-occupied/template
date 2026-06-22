@@ -121,6 +121,11 @@ class SourceWaitRegisteredResponse(BaseResponse):
     source: Source = Field(..., description="Registered source")
 
 
+class SourcesWaitMultipleRequest(BaseModel):
+    source_ids: List[str] = Field(..., description="List of source IDs to wait for")
+    timeout: float = Field(default=120.0, description="Timeout in seconds")
+
+
 class SourcesWaitMultipleResponse(BaseResponse):
     sources: List[Source] = Field(..., description="List of ready sources")
 
