@@ -18,6 +18,10 @@ class LogRequest
         'secret',
     ];
 
+    private const array EXCLUDED_PATHS = [
+        '/api/webhooks/telegram-scraper',
+    ];
+
     public function handle(Request $request, Closure $next): Response
     {
         $request->attributes->set('request_start_time', microtime(true));
@@ -27,6 +31,10 @@ class LogRequest
 
     public function terminate(Request $request, Response $response): void
     {
+        if (in_array($request->getPathInfo(), self::EXCLUDED_PATHS, true)) {
+            return;
+        }
+
         $startTime = $request->attributes->get('request_start_time', microtime(true));
         $route = $request->route();
 

@@ -17,6 +17,7 @@ class BuildBundlesJob implements ShouldBeUnique, ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable;
 
+    public $timeout = 500;
     /**
      * The number of times the job may be attempted.
      */

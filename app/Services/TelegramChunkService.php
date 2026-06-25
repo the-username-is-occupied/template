@@ -306,11 +306,11 @@ class TelegramChunkService
             'metadata' => $metadata,
         ]);
 
-        Log::debug('Created OriginalItem from Telegram post', [
-            'content_source_id' => $source->id,
-            'original_item_id' => $originalItem->id,
-            'post_id' => $postId,
-        ]);
+        // Log::debug('Created OriginalItem from Telegram post', [
+        //     'content_source_id' => $source->id,
+        //     'original_item_id' => $originalItem->id,
+        //     'post_id' => $postId,
+        // ]);
 
         return $originalItem;
     }

@@ -37,7 +37,7 @@ class TestSourceDraftSeeder extends Seeder
         $this->command->info('⏳ Creating notebook in NLM...');
         $notebookDTO = $notebookLMService->createNotebook(
             $techAccount->id,
-            'Test Notebook for YT Channel'
+            'Test Notebook for tolk_tolk Channel'
         );
         $nlmNotebookId = $notebookDTO->id;
 
@@ -48,13 +48,13 @@ class TestSourceDraftSeeder extends Seeder
             'user_id' => $user->id,
             'tech_account_id' => $techAccount->id,
             'nlm_notebook_id' => $nlmNotebookId,
-            'title' => 'Test Notebook for YT Channel',
+            'title' => 'Test Notebook for tolk_tolk Channel',
         ]);
 
         $this->command->info("✓ Created notebook: {$notebook->title} (ID: {$notebook->id})");
 
-        // 5. Create SourceDraft for YT channel
-        $rawInput = 'https://www.youtube.com/@cognitivniynadzor';
+        // 5. Create SourceDraft for tolk_tolk channel
+        $rawInput = 'https://t.me/tolk_tolk';
 
         $draftService = app(SourceDraftService::class);
         $drafts = $draftService->create($user, $notebook, $rawInput);
@@ -106,7 +106,9 @@ class TestSourceDraftSeeder extends Seeder
         }
 
         $scrapeConfig = [
-            'limit' => 50
+            'limit' => 8000,
+            'chunk_limit' => 500,
+            'workers' => 3,
         ];
 
         $sourceService = app(SourceService::class);
@@ -132,6 +134,6 @@ class TestSourceDraftSeeder extends Seeder
 
         $this->command->info('✅ Test completed successfully!');
         $this->command->line('You can now check the SourceDraft and ContentSource in the database.');
-        $this->command->line("Run: php artisan tinker --execute='App\Models\SourceDraft::find('{$draft->id}')'");
+        $this->command->line("'SourceDraft::find('{$draft->id}')'");
     }
 }

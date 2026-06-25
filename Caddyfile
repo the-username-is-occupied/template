@@ -7,6 +7,11 @@
     encode zstd gzip
     root * /var/www/html/public
 
+    # Increase request body size limit (default is 10MB in Caddy)
+    request_body {
+        max_size 100MB
+    }
+
     mercure {
         transport_url {$MERCURE_TRANSPORT_URL:bolt:///data/mercure.db}
         publisher_jwt {$MERCURE_JWT_SECRET:!ChangeThisMercureHubJWTSecretKey!} HS256
