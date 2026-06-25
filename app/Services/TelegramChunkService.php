@@ -287,7 +287,7 @@ class TelegramChunkService
 
         // Count words
         // $wordCount = preg_match_all('/[\p{L}\p{N}]+/u', $postText);
-        $wordCount = (new WordCounter())->count($postText);
+        $wordCount = (new WordCounter)->count($postText);
 
         // Prepare metadata
         $metadata = [

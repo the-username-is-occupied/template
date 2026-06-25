@@ -214,8 +214,10 @@ class SourceDraftService
             $channelInfo = $this->youTubeService->getChannelInfo($channelIdentifier);
             $channelId = $channelInfo->id; // This is the UC... ID
 
-            // Get video URLs
-            $videoUrlsData = $this->youTubeService->getVideoUrls($channelId, $contentTypes);
+            // Get video URLs with limit and sort from scrapeConfig
+            $limit = $draft->scrape_config['limit'] ?? null;
+            $sort = $draft->scrape_config['sort'] ?? null;
+            $videoUrlsData = $this->youTubeService->getVideoUrls($channelId, $contentTypes, $limit, $sort);
 
             // Save video list to draft metadata
             $draft->update([

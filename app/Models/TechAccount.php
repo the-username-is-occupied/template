@@ -64,7 +64,8 @@ class TechAccount extends Model
         return $this->hasMany(Notebook::class, 'tech_account_id');
     }
 
-    public function service(){
+    public function service()
+    {
         return new NotebookLMServiceDecorator($this);
     }
 }

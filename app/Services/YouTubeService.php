@@ -70,10 +70,12 @@ class YouTubeService
     /**
      * 2. Получить URLs видео по каналу или плейлисту с фильтрацией по типам.
      *
-     * * @param string $id ID канала (UC...) или ID плейлиста (PL...)
+     * @param  string  $id  ID канала (UC...) или ID плейлиста (PL...)
      * @param  array  $types  Массив из возможных значений: 'video', 'shorts', 'streams'
+     * @param  int|null  $limit  Ограничение количества результатов (null = без ограничений)
+     * @param  string|null  $sort  Сортировка: null (новые первые) или 'oldest' (старые первые)
      */
-    public function getVideoUrls(string $id, array $types = ['video', 'shorts', 'streams']): VideoUrlsData
+    public function getVideoUrls(string $id, array $types = ['video', 'shorts', 'streams'], ?int $limit = null, ?string $sort = null): VideoUrlsData
     {
         if (empty($types)) {
             return new VideoUrlsData(urls: []);
@@ -97,24 +99,39 @@ class YouTubeService
             $allUrls = [];
             foreach ($playlistsToFetch as $type => $playlistId) {
                 try {
-                    $urls = $this->getUrlsFromPlaylist($playlistId, $type);
+                    $urls = $this->getUrlsFromPlaylist($playlistId, $type, $limit);
                     $allUrls = array_merge($allUrls, $urls);
                 } catch (\Exception $e) {
                     Log::error("Failed to fetch {$type} playlist {$playlistId}: ".$e->getMessage());
                 }
             }
 
-            return new VideoUrlsData(urls: array_values(array_unique($allUrls)));
+            $urls = array_values(array_unique($allUrls));
+        } else {
+            // Если передан ID обычного ПЛЕЙЛИСТА (смешанный контент)
+            $urls = $this->getUrlsFromCustomPlaylist($id, $types, $limit);
         }
 
-        // Если передан ID обычного ПЛЕЙЛИСТА (смешанный контент)
-        return new VideoUrlsData(urls: $this->getUrlsFromCustomPlaylist($id, $types));
+        // Применяем сортировку
+        if ($sort === 'oldest') {
+            $urls = array_reverse($urls); // Старые первыми
+        }
+        // 'newest' - порядок по умолчанию (YouTube уже возвращает новые первыми)
+
+        // Применяем лимит
+        if ($limit !== null && $limit > 0) {
+            $urls = array_slice($urls, 0, $limit);
+        }
+
+        return new VideoUrlsData(urls: $urls);
     }
 
     /**
      * Вспомогательный метод для сбора URL из конкретного системного плейлиста канала (высокая скорость).
+     *
+     * @param  int|null  $limit  Ограничение количества результатов (null = без ограничений)
      */
-    protected function getUrlsFromPlaylist(string $playlistId, string $type): array
+    protected function getUrlsFromPlaylist(string $playlistId, string $type, ?int $limit = null): array
     {
         $urls = [];
         $pageToken = null;
@@ -141,6 +158,12 @@ class YouTubeService
             } catch (\Exception $e) {
                 throw new YouTubeApiException("YouTube API Error fetching playlist {$playlistId}: ".$e->getMessage(), 0, $e);
             }
+
+            // Оптимизация: ранний выход при достижении лимита
+            if ($limit !== null && count($urls) >= $limit) {
+                $urls = array_slice($urls, 0, $limit);
+                break;
+            }
         } while ($pageToken);
 
         return $urls;
@@ -148,8 +171,10 @@ class YouTubeService
 
     /**
      * Вспомогательный метод для разбора стороннего плейлиста с детальной фильтрацией (требует больше квот).
+     *
+     * @param  int|null  $limit  Ограничение количества результатов (null = без ограничений)
      */
-    protected function getUrlsFromCustomPlaylist(string $playlistId, array $types): array
+    protected function getUrlsFromCustomPlaylist(string $playlistId, array $types, ?int $limit = null): array
     {
         $videoIds = [];
         $pageToken = null;

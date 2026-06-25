@@ -54,7 +54,7 @@ class TestSourceDraftSeeder extends Seeder
         $this->command->info("✓ Created notebook: {$notebook->title} (ID: {$notebook->id})");
 
         // 5. Create SourceDraft for YT channel
-        $rawInput = 'https://www.youtube.com/@olya_nitka';
+        $rawInput = 'https://www.youtube.com/@cognitivniynadzor';
 
         $draftService = app(SourceDraftService::class);
         $drafts = $draftService->create($user, $notebook, $rawInput);
@@ -105,11 +105,8 @@ class TestSourceDraftSeeder extends Seeder
             $this->command->line('  - Members: '.($draft->channel_meta['members'] ?? 'N/A'));
         }
 
-        // 8. Confirm draft with scrape config (limit 29 posts, chunks of 10)
         $scrapeConfig = [
-            'limit' => 50,
-            'chunk_limit' => 20,
-            'workers' => 3,
+            'limit' => 50
         ];
 
         $sourceService = app(SourceService::class);

@@ -9,16 +9,18 @@ RUN apt-get update \
     && apt-get install -y --no-install-recommends \
         curl \
         ca-certificates \
+        git \
     && rm -rf /var/lib/apt/lists/*
 
-
 RUN python -m pip install --no-cache-dir \
-    "notebooklm-py" \
     fastapi \
     uvicorn \
     httpx \
     pydantic \
     && mkdir -p /root/.notebooklm /workspace /app
+
+RUN python -m pip install --no-cache-dir \
+    "git+https://github.com/Leslielu/notebooklm-py.git@fix/md-upload-content-type"
 
 WORKDIR /app
 

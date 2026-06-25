@@ -1,7 +1,5 @@
 <?php
 
-use App\Models\TechAccount;
-
 if (! function_exists('format_duration')) {
     function format_duration(float $duration): string
     {
