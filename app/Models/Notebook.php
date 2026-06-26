@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Models;
 
 use App\Domain\NotebookLM\NotebookNLMDecorator;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -28,6 +29,7 @@ class Notebook extends Model
         'tech_account_id',
         'nlm_notebook_id',
         'title',
+        'slug',
         'system_prompt',
         'status',
     ];
@@ -39,6 +41,7 @@ class Notebook extends Model
             'tech_account_id' => 'string',
             'nlm_notebook_id' => 'string',
             'title' => 'string',
+            'slug' => 'string',
             'system_prompt' => 'string',
             'status' => 'string',
         ];
@@ -74,6 +77,16 @@ class Notebook extends Model
     public function isConsolidating()
     {
         return $this->mdBundles()->where('is_consolidating', true)->exists();
+    }
+
+    public function scopeSlug(Builder $q, string $slug): Builder
+    {
+        return $q->where('slug', $slug);
+    }
+
+    public function scopeHasSlug(Builder $q): Builder
+    {
+        return $q->isNotNull('slug');
     }
 
     public function nlm(?TechAccount $account = null)

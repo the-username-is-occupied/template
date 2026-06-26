@@ -1,7 +1,8 @@
 <?php
-/** @var SergiX44\Nutgram\Nutgram $bot */
 
-use SergiX44\Nutgram\Nutgram;
+/** @var Nutgram $bot */
+
+use App\Services\TelegramHandlerService;
 
 /*
 |--------------------------------------------------------------------------
@@ -13,6 +14,5 @@ use SergiX44\Nutgram\Nutgram;
 |
 */
 
-$bot->onCommand('start(?:\s+{base})?', function (Nutgram $bot, ?string $base) {
-    $bot->sendMessage('Hello, world! '.$base);
-})->description('The start command!');
+$handler = new TelegramHandlerService($bot);
+$handler->registerHandlers();

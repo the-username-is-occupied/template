@@ -40,7 +40,7 @@ class TextExtractor implements SourceExtractorInterface
         }
 
         $content = $disk->get($fileRef);
-        $wordCount = new WordCounter()->count(strip_tags($content));
+        $wordCount = (new WordCounter)->count(strip_tags($content));
 
         $source->originalItems()->create([
             'title' => basename($fileRef),
