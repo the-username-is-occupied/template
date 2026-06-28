@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services;
 
+use App\Models\Notebook;
 use App\Services\TelegramBot\DatabaseMenu;
 use Database\Factories\AskResultDTOFactory;
 use Illuminate\Support\Facades\Log;
@@ -111,8 +112,9 @@ class TelegramHandlerService
     private function handleTextMessage(Nutgram $bot, ?string $q = null): void
     {
         try {
-            $dto = AskResultDTOFactory::test();
-            $resolved = app()->make(CitationResolver::class)->resolve($dto);
+            $question = $bot->message()->text ?? $q;
+            $resolved = app()->make(AskService::class)->ask(Notebook::find('019f0e89-a41b-7357-a61c-d8d82a655cdb'),$question);
+        //    $resolved = app()->make(CitationResolver::class)->resolve(AskResultDTOFactory::test());
             $myLinks = $resolved->getCitationLinks();
             $text = $resolved->answer;
 

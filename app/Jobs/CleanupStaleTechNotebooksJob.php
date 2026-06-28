@@ -21,7 +21,7 @@ class CleanupStaleTechNotebooksJob implements ShouldQueue
         // Find stale notebooks (locked for more than 15 minutes)
         $staleNotebooks = TechNotebook::where('status', 'busy')
             ->whereNotNull('locked_at')
-            ->where('locked_at', '<', Carbon::now()->subMinutes(15))
+            ->where('locked_at', '<', Carbon::now()->subMinutes(30))
             ->get();
 
         foreach ($staleNotebooks as $notebook) {
@@ -29,8 +29,6 @@ class CleanupStaleTechNotebooksJob implements ShouldQueue
                 $this->cleanupNotebook($notebook, $notebookLMService);
             } catch (\Exception $e) {
                 Log::error("Failed to cleanup notebook {$notebook->id}: ".$e->getMessage());
-
-                // Mark as degraded
                 $notebook->update(['status' => 'degraded']);
             }
         }
@@ -38,29 +36,11 @@ class CleanupStaleTechNotebooksJob implements ShouldQueue
 
     private function cleanupNotebook(TechNotebook $notebook, NotebookLMService $notebookLMService): void
     {
-        // Get list of sources in the notebook
-        $sources = $notebookLMService->listSources(
+        $allDeleted = $notebookLMService->cleanupNotebookSources(
             $notebook->account_id,
             $notebook->notebook_id
         );
 
-        $allDeleted = true;
-
-        // Delete each source
-        foreach ($sources as $source) {
-            try {
-                $notebookLMService->deleteSource(
-                    $notebook->account_id,
-                    $notebook->notebook_id,
-                    $source->id
-                );
-            } catch (\Exception $e) {
-                Log::error("Failed to delete source {$source->id} from notebook {$notebook->id}: ".$e->getMessage());
-                $allDeleted = false;
-            }
-        }
-
-        // Update notebook status
         if ($allDeleted) {
             $notebook->update([
                 'status' => 'idle',

@@ -101,7 +101,7 @@ class TestSourceDraftSeeder extends Seeder
         }
 
         $scrapeConfig = [
-            'limit' => 100,
+            'limit' => 45,
             'chunk_limit' => 500,
             'workers' => 3,
         ];

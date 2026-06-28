@@ -23,10 +23,7 @@ class DatabaseMenu extends InlineMenu
             $this->menuText('Выберите активную базу знаний из списка:');
 
             // Ваши базы данных
-            $databases = [
-                ['id' => 12, 'name' => '📚 База по Laravel'],
-                ['id' => 15, 'name' => '🤖 База по AI & RAG'],
-            ];
+            $databases = $this->getDatabasesList();
 
             foreach ($databases as $db) {
                 // В callback_data передаем: "значение@имяМетодаКласса"

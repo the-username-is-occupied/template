@@ -192,6 +192,17 @@ class NotebookLMServiceDecorator
         return $this->service->checkSourceFreshness($this->account->id, $notebookId, $sourceId);
     }
 
+    
+    /**
+     * Clean up all sources in a notebook.
+     *
+     * @return bool True if all sources were deleted successfully
+     */
+    public function cleanupNotebookSources(string $notebookId): bool
+    {
+        return $this->service->cleanupNotebookSources($this->account->id, $notebookId);
+    }
+
     /**
      * Wait until a source finishes processing.
      *

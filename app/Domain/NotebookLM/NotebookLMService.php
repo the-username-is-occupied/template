@@ -244,6 +244,29 @@ class NotebookLMService
     }
 
     /**
+     * Clean up all sources in a notebook.
+     *
+     * @return bool True if all sources were deleted successfully
+     */
+    public function cleanupNotebookSources(string $accountId, string $notebookId): bool
+    {
+        $sources = $this->listSources($accountId, $notebookId);
+
+        $allDeleted = true;
+
+        foreach ($sources as $source) {
+            try {
+                $this->deleteSource($accountId, $notebookId, $source->id);
+            } catch (\Exception $e) {
+                Log::error("Failed to delete source {$source->id} from notebook {$notebookId}: ".$e->getMessage());
+                $allDeleted = false;
+            }
+        }
+
+        return $allDeleted;
+    }
+
+    /**
      * Wait until a source finishes processing.
      *
      * @param  array{timeout?: int}  $options

@@ -39,6 +39,8 @@ class YouTubeExtractor implements SourceExtractorInterface
 
         $unprocessedUrls = $videoUrls;
         $processedCount = 0;
+        $lockKey = "youtube_extract_{$source->id}";
+        $maxAttempts = 3;
 
         try {
             while (! empty($unprocessedUrls)) {
@@ -46,17 +48,27 @@ class YouTubeExtractor implements SourceExtractorInterface
                 $notebook = $this->accountService->getAvailableTechNotebook('source_extractor');
 
                 if (! $notebook) {
-                    throw new \Exception('No available tech notebooks');
+                    // No available notebooks, wait and retry
+                    if (--$maxAttempts <= 0) {
+                        throw new \Exception('No available tech notebooks after multiple attempts');
+                    }
+
+                    Log::warning("No available tech notebooks, waiting 10 seconds (attempts left: {$maxAttempts})");
+                    sleep(10);
+
+                    continue;
                 }
 
                 // Calculate batch size
                 $batchSize = min($notebook->getAvailableSlots(), count($unprocessedUrls));
                 $batchUrls = array_splice($unprocessedUrls, 0, $batchSize);
 
-                // Acquire lock
-                $lockKey = "youtube_extract_{$source->id}_".uniqid();
+                // Acquire lock with fixed key (not uniqid!)
                 if (! $this->accountService->acquireTechNotebookLock($notebook, $lockKey)) {
-                    Log::warning("Failed to acquire lock for notebook {$notebook->id}");
+                    Log::warning("Failed to acquire lock for notebook {$notebook->id}, trying another notebook");
+
+                    // Put URLs back to queue and try another notebook
+                    $unprocessedUrls = array_merge($batchUrls, $unprocessedUrls);
 
                     continue;
                 }
@@ -107,7 +119,10 @@ class YouTubeExtractor implements SourceExtractorInterface
                     // Increment sources count
                     $this->accountService->incrementSourcesCount($notebook, count($sourceIds));
 
-                } finally {
+                }  catch (\Throwable $e) {
+                            Log::error($e->getMessage());
+                        }
+                        finally {
                     // Always delete sources from notebook
                     foreach ($sourceIds ?? [] as $sourceId) {
                         try {
@@ -121,6 +136,9 @@ class YouTubeExtractor implements SourceExtractorInterface
                         }
                     }
 
+                    if (!empty($sourceIds)) {
+        $this->accountService->decrementSourcesCount($notebook, count($sourceIds));
+    }
                     // Release lock
                     $this->accountService->releaseTechNotebookLock($notebook);
                 }

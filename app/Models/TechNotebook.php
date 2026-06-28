@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Services\AccountService;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -81,5 +82,10 @@ class TechNotebook extends Model
     protected function getMaxSourcesAttribute(): int
     {
         return $this->tierLimit?->sources_per_notebook ?? 50;
+    }
+
+    public function clean(){
+        $this->account()->first()->service()->cleanupNotebookSources($this->notebook_id);
+        (new AccountService)->releaseTechNotebookLock($this);
     }
 }

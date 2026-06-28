@@ -32,10 +32,12 @@ class SourceService
         }
 
         $source = DB::transaction(function () use ($draft) {
-            $source = ContentSource::create(
+            $source = ContentSource::updateOrCreate(
                 [
                     'user_id' => $draft->user_id,
                     'url' => $draft->raw_input,
+                ],
+                [
                     'type' => $draft->type,
                     'title' => $draft->channel_meta['title'] ?? null,
                     'extraction_status' => ExtractionStatus::Pending,
@@ -49,7 +51,7 @@ class SourceService
 
             $draft->update([
                 'content_source_id' => $source->id,
-                'status' => SourceDraftStatus::Processing,
+                'status' => SourceDraftStatus::Processing
             ]);
 
             return $source;
@@ -78,7 +80,7 @@ class SourceService
             }
 
             $draft->contentSource->notebooks()->syncWithoutDetaching([$draft->knowledgeBase->id]);
-            BuildBundlesJob::dispatch($draft->knowledge_base_id);
+             BuildBundlesJob::dispatch($draft->knowledge_base_id);
         });
     }
 }

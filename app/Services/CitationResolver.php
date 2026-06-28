@@ -322,10 +322,10 @@ class CitationResolver
 
         // Find the last occurrence of a line starting with `> ` followed by Base64URL
         // The header format is: > {22-char-base64url} {"title":"...","date":"..."}
-        if (preg_match('/^> ([A-Za-z0-9_-]{22}) /m', $before, $matches, PREG_OFFSET_CAPTURE) === 1) {
-            // Return the LAST match (nearest header above the citation)
-            return $matches[1][0];
-        }
+       // Стало (preg_match_all — берём последнее совпадение)
+if (preg_match_all('/^> ([A-Za-z0-9_-]{22}) /m', $before, $matches) > 0) {
+    return end($matches[1]);
+}
 
         return null;
     }

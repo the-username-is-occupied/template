@@ -20,6 +20,8 @@ class ProcessSourceJob implements ShouldBeUnique, ShouldQueue
 
     public int $backoff = 60;
 
+    public $timeout = 600;
+
     public function __construct(
         public string $contentSourceId,
     ) {}
