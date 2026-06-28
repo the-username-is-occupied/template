@@ -43,7 +43,7 @@ class TelegramHandlerService
                 Log::info('Сработал start БЕЗ параметра');
                 $this->handleStartCommand($bot, null);
             })->description('Начать');
-            
+
             $this->bot->onCommand('db', function (Nutgram $bot) {
                 Log::info('Команда /db дошла, запускаем InlineMenu');
 
@@ -63,7 +63,6 @@ class TelegramHandlerService
                 $this->handleFallback($bot);
             });
 
-            
         } catch (Throwable $e) {
             Log::error($e->getMessage());
             throw $e;
@@ -112,29 +111,16 @@ class TelegramHandlerService
     private function handleTextMessage(Nutgram $bot, ?string $q = null): void
     {
         try {
-            $myLinks = [
-                1 => 'https://example.com/source1',
-                2 => 'https://example.com/source2',
-                3 => 'https://example.com/source3',
-                4 => 'https://example.com/source4',
-                5 => 'https://example.com/source5',
-                6 => 'https://example.com/source5',
-                7 => 'https://example.com/source5',
-                8 => 'https://example.com/source5',
-                9 => 'https://example.com/source5',
-                10 => 'https://example.com/source5',
-                11 => 'https://example.com/source5',
-                12 => 'https://example.com/source12',
-                13 => 'https://example.com/source13',
-            ];
+            $dto = AskResultDTOFactory::test();
+            $resolved = app()->make(CitationResolver::class)->resolve($dto);
+            $myLinks = $resolved->getCitationLinks();
+            $text = $resolved->answer;
 
             $questions = [
                 'Защита от манипуляций — это навык?',
                 'Каковы типичные риторические уловки?',
                 'Что нужно знать чтобы не стать жертвой пропаганды?',
             ];
-
-            $text = AskResultDTOFactory::test()->answer;
 
             // Add questions separated by ---
             $formattedQuestions = [];
