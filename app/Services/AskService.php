@@ -65,7 +65,7 @@ class AskService
             TechAccountUsage::upsert(
                 [['tech_account_id' => $account->id, 'date' => today(), 'count' => 1]],
                 ['tech_account_id', 'date'],
-                ['count' => DB::raw('count + 1')]
+                ['count' => DB::raw('tech_account_usages.count + 1')]
             );
 
             // Step 6: Resolve citations

@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace App\Services;
 
+use App\Domain\Citations\DTOs\ResolvedAskResultDTO;
+use App\Domain\NotebookLM\DTOs\AskResultDTO;
+use App\Models\ChatMessage;
 use App\Models\Notebook;
 use App\Services\TelegramBot\DatabaseMenu;
 use Database\Factories\AskResultDTOFactory;
@@ -115,6 +118,7 @@ class TelegramHandlerService
             $question = $bot->message()->text ?? $q;
             $resolved = app()->make(AskService::class)->ask(Notebook::find('019f0e89-a41b-7357-a61c-d8d82a655cdb'), $question);
             //    $resolved = app()->make(CitationResolver::class)->resolve(AskResultDTOFactory::test());
+        //    $resolved = AskResultDTO::from(ChatMessage::latest()->first()->result)->resolve();
             $myLinks = $resolved->getCitationLinks();
             $text = $resolved->answer;
 
@@ -138,7 +142,7 @@ class TelegramHandlerService
 
             $keyboard = InlineKeyboardMarkup::make()->addRow(...$buttons);
 
-            $signature = "\n\n _Сгенерировано в Eolithic._ \n _Ответы AI могут быть неточны. Обязательно проверяйте их._";
+            $signature = "\n\n _Ответы AI могут быть неточны. Обязательно проверяйте их._";
             $message = $this->prepareTelegramMarkdown($text.$signature, $myLinks);
             $messagesToSend = $this->splitTelegramMarkdown($message);
 

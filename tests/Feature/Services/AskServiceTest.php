@@ -184,26 +184,27 @@ test('ask increments usage count', function () {
     $account = TechAccount::factory()->create();
 
     $this->accountService->shouldReceive('getAccountForAsk')
-        ->once()
+        ->times(2)
         ->andReturn($account);
 
     $askResultDTO = \Mockery::mock(AskResultDTO::class);
     $askResultDTO->shouldReceive('resolve')
-        ->once()
+        ->times(2)
         ->andReturn(new ResolvedAskResultDTO(
             answer: 'Test answer',
             citations: new DataCollection(CitationData::class, [])
         ));
     $askResultDTO->shouldReceive('toArray')
-        ->once()
+        ->times(2)
         ->andReturn(['answer' => 'Test answer', 'conversation_id' => 'conv-123']);
 
     $this->notebookLMService->shouldReceive('askQuestion')
-        ->once()
+        ->times(2)
         ->andReturn($askResultDTO);
 
     expect(TechAccountUsage::where('tech_account_id', $account->id)->count())->toBe(0);
 
+    // First call - creates usage with count = 1
     $this->askService->ask($notebook, 'Test question');
 
     $usage = TechAccountUsage::where('tech_account_id', $account->id)
@@ -212,6 +213,13 @@ test('ask increments usage count', function () {
 
     expect($usage)->not->toBeNull();
     expect($usage->count)->toBe(1);
+
+    // Second call - should increment count to 2 (tests ON CONFLICT DO UPDATE)
+    $this->askService->ask($notebook, 'Another question');
+
+    $usage->refresh();
+
+    expect($usage->count)->toBe(2);
 });
 
 test('ask saves assistant message on success', function () {
