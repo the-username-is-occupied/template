@@ -6,7 +6,7 @@ namespace App\Domain\NotebookLM\DTOs;
 
 use Spatie\LaravelData\Data;
 use Spatie\LaravelData\DataCollection;
-
+use App\Services\CitationResolver;
 class AskResultDTO extends Data
 {
     public function __construct(
@@ -17,4 +17,8 @@ class AskResultDTO extends Data
         /** @var ChatReferenceDTO[] */
         public DataCollection $references,
     ) {}
+
+    public function resolve(){
+        return app()->make(CitationResolver::class)->resolve($this);
+    }
 }

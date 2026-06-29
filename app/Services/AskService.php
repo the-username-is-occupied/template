@@ -33,7 +33,7 @@ class AskService
             $question
         );
 
-        return app()->make(CitationResolver::class)->resolve($dto);
+        return $dto->resolve();
 
     }
 }

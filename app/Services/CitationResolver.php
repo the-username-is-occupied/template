@@ -85,8 +85,8 @@ class CitationResolver
             // Step 1: Detect strategy
             if (preg_match('/^[A-Za-z0-9_-]{22}(\s|$)/', $reference->cited_text) === 1) {
                 // Strategy A: cited_text starts with Base64URL → skip file search
-                $encodedId = substr($reference->cited_text, 0, 22);
-                // Decode immediately (step 6)
+                $encodedId = substr($reference->cited_text, 0, 22);                
+                                // Decode immediately (step 6)
                 $uuid = $this->bundleRenderer->decodeItemId($encodedId);
                 Log::debug('CitationResolver: Using Base64URL strategy', ['encoded_id' => $encodedId, 'uuid' => $uuid]);
             } else {
@@ -196,8 +196,8 @@ class CitationResolver
         }
 
         // Step 5: Extract Base64URL identifier (scan backward to `>` header)
-        $encodedId = $this->extractItemId($fileContent, $position);
-        if ($encodedId === null) {
+        $encodedId = $this->extractItemId($fileContent, $position);        
+                if ($encodedId === null) {
             Log::warning('CitationResolver: Could not extract item ID from bundle file', [
                 'nlm_source_id' => $reference->source_id,
                 'position' => $position,
