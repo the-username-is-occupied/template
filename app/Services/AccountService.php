@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace App\Services;
 
+use App\Enums\TechAccountStatus;
+use App\Exceptions\DailyLimitExceededException;
+use App\Models\TechAccount;
 use App\Models\TechNotebook;
 use Illuminate\Support\Facades\DB;
 
@@ -126,5 +129,38 @@ class AccountService
                 }
             }
         });
+    }
+
+    /**
+     * Get the best available tech account for asking a question.
+     *
+     * Selects the account with the minimum usage count for today
+     * that hasn't exceeded its daily limit.
+     *
+     * @throws DailyLimitExceededException when all accounts have reached their daily limit
+     */
+    public function getAccountForAsk(): TechAccount
+    {
+        $account = TechAccount::query()
+            ->select('tech_accounts.*')
+            ->where('status', TechAccountStatus::Active)
+            ->leftJoin('tech_account_usages', function ($join) {
+                $join->on('tech_accounts.id', '=', 'tech_account_usages.tech_account_id')
+                    ->where('tech_account_usages.date', '=', today());
+            })
+            ->orderByRaw('COALESCE(tech_account_usages.count, 0) ASC')
+            ->first();
+
+        if (! $account) {
+            throw new DailyLimitExceededException;
+        }
+
+        $used = $account->todayUsage?->count ?? 0;
+
+        if ($used >= $account->tierLimit->chats_per_day) {
+            throw new DailyLimitExceededException;
+        }
+
+        return $account;
     }
 }

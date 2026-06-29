@@ -4,9 +4,10 @@ declare(strict_types=1);
 
 namespace App\Domain\NotebookLM\DTOs;
 
+use App\Services\CitationResolver;
 use Spatie\LaravelData\Data;
 use Spatie\LaravelData\DataCollection;
-use App\Services\CitationResolver;
+
 class AskResultDTO extends Data
 {
     public function __construct(
@@ -18,7 +19,8 @@ class AskResultDTO extends Data
         public DataCollection $references,
     ) {}
 
-    public function resolve(){
+    public function resolve()
+    {
         return app()->make(CitationResolver::class)->resolve($this);
     }
 }

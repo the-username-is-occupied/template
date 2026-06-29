@@ -68,7 +68,7 @@ final class CitationResolverTest extends TestCase
             'published_at' => now()->subDays(1),
             'word_count' => 20,
         ]);
-        
+
         $uuid = $item->id;
         $encodedId = $this->renderer->encodeItemId($uuid);
 
@@ -80,7 +80,7 @@ final class CitationResolverTest extends TestCase
 
         // Create MdBundle - file_path is relative to the 'bundles' disk root
         $filePath = "{$uuid}.md";
-        
+
         // Write content to file if provided, otherwise write empty string
         Storage::disk('bundles')->put($filePath, $content ?: '');
 
@@ -125,11 +125,11 @@ final class CitationResolverTest extends TestCase
     public function test_resolves_citation_via_full_text_search(): void
     {
         $citedText = 'This is the full text of the test post.';
-        
+
         // Create test bundle first to get the item with auto-generated ID
         $content = ''; // Will be set after item is created
         [$bundle, $item, $encodedId, $contentSource] = $this->createTestBundle($content);
-        
+
         // Now create the actual content with the correct encoded ID
         $encodedId = $this->renderer->encodeItemId($item->id);
         $content = "> {$encodedId} {\"title\":\"Test Post Title\",\"date\":\"2024-01-01T00:00:00+00:00\"}\n{$citedText}";
@@ -155,7 +155,7 @@ final class CitationResolverTest extends TestCase
     {
         // Create test bundle first to get the item with auto-generated ID
         [$bundle, $item, $encodedId, $contentSource] = $this->createTestBundle();
-        
+
         $citedText = "{$encodedId} {\"title\":\"Test\",\"date\":\"\"} This is the cited text that starts with Base64URL.";
 
         // Write bundle content
@@ -197,7 +197,7 @@ final class CitationResolverTest extends TestCase
     {
         // Create test bundle first to get the item with auto-generated ID
         [$bundle, $item, $encodedId, $contentSource] = $this->createTestBundle();
-        
+
         $cleanText = 'This is the clean cited text.';
         $dirtyText = "{$encodedId} {\"title\":\"Test\",\"date\":\"2024-01-01\"} {$cleanText}";
 
@@ -209,7 +209,7 @@ final class CitationResolverTest extends TestCase
         $resolved = $this->resolver->resolve($askResult);
 
         // Debug: dump cited_text_clean
-        dump('cited_text_clean: ' . $resolved->citations[0]->cited_text_clean);
+        dump('cited_text_clean: '.$resolved->citations[0]->cited_text_clean);
 
         $this->assertCount(1, $resolved->citations);
         // cited_text_clean should NOT contain the Base64URL + JSON metadata
@@ -227,7 +227,7 @@ final class CitationResolverTest extends TestCase
     {
         // Create first item/bundle
         [$bundle, $item1, $encodedId1, $contentSource] = $this->createTestBundle();
-        
+
         // Create second item
         $item2 = OriginalItem::create([
             'content_source_id' => $contentSource->id,
@@ -238,7 +238,7 @@ final class CitationResolverTest extends TestCase
             'word_count' => 10,
         ]);
         $encodedId2 = $this->renderer->encodeItemId($item2->id);
-        
+
         // Write bundle content with both items
         $content = "> {$encodedId1} {\"title\":\"Post 1\",\"date\":\"\"}\nEnd of first post.\n\n> {$encodedId2} {\"title\":\"Post 2\",\"date\":\"\"}\nStart of second post.";
         Storage::disk('bundles')->put($bundle->file_path, $content);
@@ -259,7 +259,7 @@ final class CitationResolverTest extends TestCase
     {
         // Create test bundle first to get the item with auto-generated ID
         [$bundle, $item, $encodedId, $contentSource] = $this->createTestBundle();
-        
+
         // Write bundle content with the correct encoded ID
         $content = "> {$encodedId} {\"title\":\"Test\",\"date\":\"\"}\nFirst citation text.\n\nSecond citation text here.";
         Storage::disk('bundles')->put($bundle->file_path, $content);

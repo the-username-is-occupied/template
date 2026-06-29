@@ -64,6 +64,16 @@ class TechAccount extends Model
         return $this->hasMany(Notebook::class, 'tech_account_id');
     }
 
+    public function todayUsage()
+    {
+        return $this->hasOne(TechAccountUsage::class)->where('date', today());
+    }
+
+    public function usages()
+    {
+        return $this->hasMany(TechAccountUsage::class);
+    }
+
     public function service()
     {
         return new NotebookLMServiceDecorator($this);

@@ -113,8 +113,8 @@ class TelegramHandlerService
     {
         try {
             $question = $bot->message()->text ?? $q;
-            $resolved = app()->make(AskService::class)->ask(Notebook::find('019f0e89-a41b-7357-a61c-d8d82a655cdb'),$question);
-        //    $resolved = app()->make(CitationResolver::class)->resolve(AskResultDTOFactory::test());
+            $resolved = app()->make(AskService::class)->ask(Notebook::find('019f0e89-a41b-7357-a61c-d8d82a655cdb'), $question);
+            //    $resolved = app()->make(CitationResolver::class)->resolve(AskResultDTOFactory::test());
             $myLinks = $resolved->getCitationLinks();
             $text = $resolved->answer;
 

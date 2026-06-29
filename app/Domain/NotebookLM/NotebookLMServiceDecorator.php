@@ -192,7 +192,6 @@ class NotebookLMServiceDecorator
         return $this->service->checkSourceFreshness($this->account->id, $notebookId, $sourceId);
     }
 
-    
     /**
      * Clean up all sources in a notebook.
      *

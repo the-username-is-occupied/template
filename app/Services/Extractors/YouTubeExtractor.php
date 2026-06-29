@@ -119,10 +119,9 @@ class YouTubeExtractor implements SourceExtractorInterface
                     // Increment sources count
                     $this->accountService->incrementSourcesCount($notebook, count($sourceIds));
 
-                }  catch (\Throwable $e) {
-                            Log::error($e->getMessage());
-                        }
-                        finally {
+                } catch (\Throwable $e) {
+                    Log::error($e->getMessage());
+                } finally {
                     // Always delete sources from notebook
                     foreach ($sourceIds ?? [] as $sourceId) {
                         try {
@@ -136,9 +135,9 @@ class YouTubeExtractor implements SourceExtractorInterface
                         }
                     }
 
-                    if (!empty($sourceIds)) {
-        $this->accountService->decrementSourcesCount($notebook, count($sourceIds));
-    }
+                    if (! empty($sourceIds)) {
+                        $this->accountService->decrementSourcesCount($notebook, count($sourceIds));
+                    }
                     // Release lock
                     $this->accountService->releaseTechNotebookLock($notebook);
                 }

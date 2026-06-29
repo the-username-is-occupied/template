@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Models;
 
 use App\Domain\NotebookLM\NotebookNLMDecorator;
+use App\Services\AskService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -79,6 +80,11 @@ class Notebook extends Model
         return $this->mdBundles()->where('is_consolidating', true)->exists();
     }
 
+    public function chats()
+    {
+        return $this->hasMany(Chat::class);
+    }
+
     public function scopeSlug(Builder $q, string $slug): Builder
     {
         return $q->where('slug', $slug);
@@ -92,5 +98,11 @@ class Notebook extends Model
     public function nlm(?TechAccount $account = null)
     {
         return new NotebookNLMDecorator($this, $account ? $account->service() : null);
+    }
+
+    public function ask(string $q)
+    {
+
+        return app()->make(AskService::class)->ask($this, $q);
     }
 }

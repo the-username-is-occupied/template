@@ -51,7 +51,7 @@ class SourceService
 
             $draft->update([
                 'content_source_id' => $source->id,
-                'status' => SourceDraftStatus::Processing
+                'status' => SourceDraftStatus::Processing,
             ]);
 
             return $source;
@@ -80,7 +80,7 @@ class SourceService
             }
 
             $draft->contentSource->notebooks()->syncWithoutDetaching([$draft->knowledgeBase->id]);
-             BuildBundlesJob::dispatch($draft->knowledge_base_id);
+            BuildBundlesJob::dispatch($draft->knowledge_base_id);
         });
     }
 }
