@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services;
 
 use App\Domain\Citations\DTOs\ResolvedAskResultDTO;
+use App\Domain\NotebookLM\DTOs\SuggestedTopicDTO;
 use App\Domain\NotebookLM\NotebookLMService;
 use App\Exceptions\DailyLimitExceededException;
 use App\Models\Chat;
@@ -12,6 +13,7 @@ use App\Models\ChatMessage;
 use App\Models\Notebook;
 use App\Models\TechAccountUsage;
 use Illuminate\Support\Facades\DB;
+use Spatie\LaravelData\DataCollection;
 
 class AskService
 {
@@ -19,6 +21,46 @@ class AskService
         private readonly NotebookLMService $notebookLMService,
         private readonly AccountService $accountService,
     ) {}
+
+    /**
+     * Extract suggested questions from answer text.
+     *
+     * Looks for "Вопросы" section and parses numbered questions.
+     * Returns cleaned answer (without questions section) and array of SuggestedTopicDTO.
+     *
+     * @param  string  $answer
+     * @return array{string, SuggestedTopicDTO[]}
+     */
+    private function extractSuggestedQuestions(string $answer): array
+    {
+        // Check if answer contains "Вопросы"
+        $position = mb_strpos($answer, 'Вопросы');
+
+        if ($position === false) {
+            return [$answer, []];
+        }
+
+        // Split answer at "Вопросы"
+        $cleanedAnswer = mb_substr($answer, 0, $position);
+        $questionsSection = mb_substr($answer, $position);
+
+        // Parse numbered questions from the questions section
+        // Match patterns like "1. Question text" or "  2. Question text"
+        preg_match_all('/^\s*\d+\.\s*.+$/m', $questionsSection, $matches);
+
+        $suggestedTopics = [];
+        if (!empty($matches[0])) {
+            foreach ($matches[0] as $questionText) {
+                $questionText = trim($questionText);
+                $suggestedTopics[] = new SuggestedTopicDTO(
+                    question: $questionText,
+                    prompt: ''
+                );
+            }
+        }
+
+        return [trim($cleanedAnswer), $suggestedTopics];
+    }
 
     /**
      * Ask a question to a notebook.
@@ -29,7 +71,7 @@ class AskService
      *
      * @throws DailyLimitExceededException when daily limit exceeded
      */
-    public function ask(Notebook $notebook, string $question, ?Chat $chat = null): ResolvedAskResultDTO
+    public function ask(Notebook $notebook, string $question, ?Chat $chat = null): ChatMessage
     {
         if ($notebook->isConsolidating()) {
             throw new \RuntimeException('Notebook is currently being optimized. Please wait a moment and try again.');
@@ -61,6 +103,12 @@ class AskService
                 $question
             );
 
+            // Step 4.5: Extract suggested questions from answer
+            $answer = $dto->answer;
+            [$cleanedAnswer, $suggestedTopics] = $this->extractSuggestedQuestions($answer);
+            $dto->answer = $cleanedAnswer;
+            $dto->suggested = new DataCollection(SuggestedTopicDTO::class, $suggestedTopics);
+
             // Step 5: Increment usage
             TechAccountUsage::upsert(
                 [['tech_account_id' => $account->id, 'date' => today(), 'count' => 1]],
@@ -72,7 +120,7 @@ class AskService
             $resolved = $dto->resolve();
 
             // Step 7: Save assistant message (success)
-            ChatMessage::create([
+            $message = ChatMessage::create([
                 'chat_id' => $chat->id,
                 'tech_account_id' => $account->id,
                 'role' => 'assistant',
@@ -81,7 +129,7 @@ class AskService
             ]);
 
             // Step 8: Return resolved result
-            return $resolved;
+            return $message;
 
         } catch (\Throwable $e) {
             // Save failed attempt

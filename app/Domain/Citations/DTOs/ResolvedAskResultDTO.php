@@ -13,6 +13,8 @@ class ResolvedAskResultDTO extends Data
         public string $answer,
         /** @var CitationData[] */
         public DataCollection $citations,
+        /** @var \App\Domain\NotebookLM\DTOs\SuggestedTopicDTO[] */
+        public DataCollection $suggested = new DataCollection(\App\Domain\NotebookLM\DTOs\SuggestedTopicDTO::class, []),
     ) {}
 
     public function getUrls(): array
@@ -34,5 +36,10 @@ class ResolvedAskResultDTO extends Data
         return collect($this->citations)
             ->pluck('source_url', 'citation_number')
             ->toArray();
+    }
+
+    public function getQuestions(): array
+    {
+        return collect($this->suggested)->map->question->toArray();
     }
 }

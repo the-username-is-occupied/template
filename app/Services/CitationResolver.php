@@ -22,7 +22,7 @@ use Spatie\LaravelData\DataCollection;
  * Step 1 — Detect strategy: starts with Base64URL? → skip to step 5, else steps 2-4
  * Step 2 — Find MdBundle by nlm_source_id
  * Step 3 — Read MD file from disk (cached per nlm_source_id)
- * Step 4 — Find position of cited_text_clean in file
+ * Step 4 — Find position of cited_text_clean in file (exact strpos, then regex \s+ fallback)
  * Step 5 — Extract Base64URL identifier (scan backward to `>` header)
  * Step 6 — Validate and decode Base64URL to UUID
  * Step 7 — Find OriginalItem and return CitationData
@@ -32,6 +32,7 @@ use Spatie\LaravelData\DataCollection;
  * - cited_text contains Base64URL inline → metadata removed at step 0
  * - cited_text crosses boundary of two posts → returns item where citation STARTS
  * - cited_text not found in file → citation skipped (NLM may have rephrased)
+ * - cited_text has spaces where MD file has newlines → handled by regex \s+ fallback in step 4
  * - Multiple citations with same nlm_source_id → file read once (cached)
  */
 class CitationResolver
@@ -66,6 +67,7 @@ class CitationResolver
         return new ResolvedAskResultDTO(
             answer: $askResult->answer,
             citations: new DataCollection(CitationData::class, $citations),
+            suggested: $askResult->suggested,
         );
     }
 
@@ -256,58 +258,33 @@ class CitationResolver
     /**
      * Find the position of cited_text in file content.
      *
-     * Uses strpos() for speed; falls back to preg_match() for fuzzy matching if needed.
+     * 1. Exact strpos (fast path).
+     * 2. Regex fallback: whitespace in citedTextClean is replaced with \s+ so that
+     *    newlines inside the MD bundle match the spaces NLM puts in cited_text.
+     *    Returns the byte offset directly in $fileContent — no position mapping needed.
      * Returns -1 if not found.
      */
-    private function findCitationPosition(string $fileContent, string $citedTextClean): int
-    {
-        // Try exact match first
-        $position = strpos($fileContent, $citedTextClean);
-        if ($position !== false) {
-            return $position;
-        }
-
-        // Try with reduced whitespace (NLM may alter formatting)
-        $normalizedFile = preg_replace('/\s+/', ' ', $fileContent) ?? $fileContent;
-        $normalizedCite = preg_replace('/\s+/', ' ', $citedTextClean) ?? $citedTextClean;
-
-        $position = strpos($normalizedFile, $normalizedCite);
-        if ($position !== false) {
-            // Map normalized position back to original position (approximate)
-            return $this->approximatePosition($fileContent, $normalizedFile, $position);
-        }
-
-        return -1;
+ private function findCitationPosition(string $fileContent, string $citedTextClean): int
+{
+    // Fast path: last exact match  (было: strpos → первое, теперь strrpos → последнее)
+    $position = strrpos($fileContent, $citedTextClean);
+    if ($position !== false) {
+        return $position;
     }
 
-    /**
-     * Approximate original position from normalized position.
-     *
-     * Walks both strings up to $normalizedPos, counting chars in original.
-     * Returns approximate position in original string.
-     */
-    private function approximatePosition(string $original, string $normalized, int $normalizedPos): int
-    {
-        $origPos = 0;
-        $normPos = 0;
+    // Fallback: build a pattern where every whitespace sequence in the cited text
+    // can match any whitespace (including \n) in the file.
+    $escaped = preg_quote($citedTextClean, '/');
+    $pattern = '/'.preg_replace('/\s+/', '\\s+', $escaped).'/u';
 
-        while ($normPos < $normalizedPos && $origPos < strlen($original)) {
-            if ($normalized[$normPos] === $original[$origPos]) {
-                $normPos++;
-                $origPos++;
-            } else {
-                // Skip extra whitespace in original
-                if (ctype_space($original[$origPos]) && ! ctype_space($normalized[$normPos])) {
-                    $origPos++;
-                } else {
-                    // Mismatch we can't resolve, return best guess
-                    break;
-                }
-            }
-        }
-
-        return $origPos;
+    // было: preg_match() → первое совпадение
+    // стало: preg_match_all() → берём последнее совпадение через end()
+    if (preg_match_all($pattern, $fileContent, $matches, PREG_OFFSET_CAPTURE) >= 1) {
+        return (int) end($matches[0])[1];
     }
+
+    return -1;
+}
 
     /**
      * Extract Base64URL item ID from bundle file.

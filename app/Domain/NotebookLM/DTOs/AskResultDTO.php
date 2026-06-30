@@ -17,6 +17,8 @@ class AskResultDTO extends Data
         public bool $is_follow_up,
         /** @var ChatReferenceDTO[] */
         public DataCollection $references,
+        /** @var SuggestedTopicDTO[] */
+        public DataCollection $suggested = new DataCollection(SuggestedTopicDTO::class, []),
     ) {}
 
     public function resolve()

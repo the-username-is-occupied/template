@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Domain\NotebookLM\DTOs\AskResultDTO;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -41,5 +42,9 @@ class ChatMessage extends Model
     public function techAccount(): BelongsTo
     {
         return $this->belongsTo(TechAccount::class);
+    }
+
+    public function askDto(){
+        return AskResultDTO::from($this->result);
     }
 }
