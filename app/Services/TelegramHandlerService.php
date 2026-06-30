@@ -4,12 +4,9 @@ declare(strict_types=1);
 
 namespace App\Services;
 
-use App\Domain\Citations\DTOs\ResolvedAskResultDTO;
-use App\Domain\NotebookLM\DTOs\AskResultDTO;
 use App\Models\ChatMessage;
 use App\Models\Notebook;
 use App\Services\TelegramBot\DatabaseMenu;
-use Database\Factories\AskResultDTOFactory;
 use Illuminate\Support\Facades\Log;
 use SergiX44\Nutgram\Nutgram;
 use SergiX44\Nutgram\Telegram\Properties\MessageType;
@@ -93,15 +90,19 @@ class TelegramHandlerService
     public function handleSuggested(Nutgram $bot, string $q)
     {
 
+    // $q = 019f1504-56cf-7375-b661-c856cdb1ff60:1;
         try {
 
             $bot->answerCallbackQuery();
+            $nubmer = (int) explode(':', $q)[1];
+            $msg = ChatMessage::find(explode(':', $q)[0]);
+            $txt = $msg->askDto()->suggested[$nubmer-1]->question;
             $bot->sendMessage(
-                text: '_Вопрос номер такой то_',
+                text: $this->prepareTelegramMarkdown('_'.$txt.'_'),
                 parse_mode: 'MarkdownV2' // Используем Markdown для форматирования
             );
 
-            $this->handleTextMessage($bot);
+            $this->handleTextMessage($bot, $txt);
         } catch (Throwable $e) {
             Log::error($e->getMessage());
             throw $e;
@@ -115,29 +116,24 @@ class TelegramHandlerService
     private function handleTextMessage(Nutgram $bot, ?string $q = null): void
     {
         try {
-            $question = $bot->message()->text ?? $q;
-            $resolved = app()->make(AskService::class)->ask(Notebook::find('019f0e89-a41b-7357-a61c-d8d82a655cdb'), $question);
-            //    $resolved = app()->make(CitationResolver::class)->resolve(AskResultDTOFactory::test());
-        //    $resolved = AskResultDTO::from(ChatMessage::latest()->first()->result)->resolve();
+            $question = $q ?? $bot->message()->text;
+            $msg = app()->make(AskService::class)->ask(Notebook::find('019f0e89-a41b-7357-a61c-d8d82a655cdb'), $question);
+            // $msg = ChatMessage::latest()->first();
+           $resolved = $msg->askDto()->resolve();
             $myLinks = $resolved->getCitationLinks();
             $text = $resolved->answer;
 
-            $questions = [
-                'Защита от манипуляций — это навык?',
-                'Каковы типичные риторические уловки?',
-                'Что нужно знать чтобы не стать жертвой пропаганды?',
-            ];
+            $questions = collect($resolved->suggested)->map->question->toArray();
 
             // Add questions separated by ---
             $formattedQuestions = [];
             foreach ($questions as $index => $question) {
-                $questionNumber = $index + 1;
-                $formattedQuestions[] = "_{$questionNumber}. {$question}_";
+                $formattedQuestions[] = "_{$question}_";
             }
             $questionsText = "\n\n".implode("\n", $formattedQuestions);
 
-            $buttons = array_map(function ($index) {
-                return InlineKeyboardButton::make((string) $index, callback_data: 'ask:'.$index);
+            $buttons = array_map(function ($index) use ($msg) {
+                return InlineKeyboardButton::make((string) $index, callback_data: 'ask:'. $msg->id.':'.$index);
             }, range(1, 3));
 
             $keyboard = InlineKeyboardMarkup::make()->addRow(...$buttons);
