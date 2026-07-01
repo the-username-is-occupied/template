@@ -18,4 +18,13 @@ enum SourceType: string
     {
         return $this === self::File;
     }
+
+    public function label()
+    {
+        return match ($this) {
+            self::TelegramChannel, self::TelegramPost => 'Telegram',
+            self::YoutubeChannel, self::YoutubeVideo => 'Youtube',
+            default => 'Исчтоник'
+        };
+    }
 }

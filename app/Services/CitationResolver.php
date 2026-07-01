@@ -264,27 +264,27 @@ class CitationResolver
      *    Returns the byte offset directly in $fileContent — no position mapping needed.
      * Returns -1 if not found.
      */
- private function findCitationPosition(string $fileContent, string $citedTextClean): int
-{
-    // Fast path: last exact match  (было: strpos → первое, теперь strrpos → последнее)
-    $position = strrpos($fileContent, $citedTextClean);
-    if ($position !== false) {
-        return $position;
+    private function findCitationPosition(string $fileContent, string $citedTextClean): int
+    {
+        // Fast path: last exact match  (было: strpos → первое, теперь strrpos → последнее)
+        $position = strrpos($fileContent, $citedTextClean);
+        if ($position !== false) {
+            return $position;
+        }
+
+        // Fallback: build a pattern where every whitespace sequence in the cited text
+        // can match any whitespace (including \n) in the file.
+        $escaped = preg_quote($citedTextClean, '/');
+        $pattern = '/'.preg_replace('/\s+/', '\\s+', $escaped).'/u';
+
+        // было: preg_match() → первое совпадение
+        // стало: preg_match_all() → берём последнее совпадение через end()
+        if (preg_match_all($pattern, $fileContent, $matches, PREG_OFFSET_CAPTURE) >= 1) {
+            return (int) end($matches[0])[1];
+        }
+
+        return -1;
     }
-
-    // Fallback: build a pattern where every whitespace sequence in the cited text
-    // can match any whitespace (including \n) in the file.
-    $escaped = preg_quote($citedTextClean, '/');
-    $pattern = '/'.preg_replace('/\s+/', '\\s+', $escaped).'/u';
-
-    // было: preg_match() → первое совпадение
-    // стало: preg_match_all() → берём последнее совпадение через end()
-    if (preg_match_all($pattern, $fileContent, $matches, PREG_OFFSET_CAPTURE) >= 1) {
-        return (int) end($matches[0])[1];
-    }
-
-    return -1;
-}
 
     /**
      * Extract Base64URL item ID from bundle file.

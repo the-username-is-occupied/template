@@ -18,7 +18,7 @@ class TelegramSessionService
             return $this->clearActiveBase($tgUserId);
         }
 
-        if (Notebook::query()->where('id', $baseId)->exists()) {
+        if (! Notebook::query()->where('id', $baseId)->exists()) {
             return $this->clearActiveBase($tgUserId);
         }
 
@@ -58,6 +58,4 @@ class TelegramSessionService
             ['active_base_id' => null]
         );
     }
-
-    public function ask() {}
 }

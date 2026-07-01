@@ -107,4 +107,9 @@ class ContentSource extends Model
     {
         return $query->where('review_status', ReviewStatus::Approved);
     }
+
+    public function scopeWithItemsCount(Builder $query)
+    {
+        return $query->withCount('originalItems');
+    }
 }

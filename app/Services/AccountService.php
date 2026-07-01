@@ -7,6 +7,7 @@ namespace App\Services;
 use App\Enums\TechAccountStatus;
 use App\Exceptions\DailyLimitExceededException;
 use App\Models\TechAccount;
+use App\Models\TechAccountUsage;
 use App\Models\TechNotebook;
 use Illuminate\Support\Facades\DB;
 
@@ -162,5 +163,14 @@ class AccountService
         }
 
         return $account;
+    }
+
+    public function incrementAskCount(TechAccount $account)
+    {
+        TechAccountUsage::upsert(
+            [['tech_account_id' => $account->id, 'date' => today(), 'count' => 1]],
+            ['tech_account_id', 'date'],
+            ['count' => DB::raw('tech_account_usages.count + 1')]
+        );
     }
 }

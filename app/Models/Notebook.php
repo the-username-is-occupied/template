@@ -92,7 +92,7 @@ class Notebook extends Model
 
     public function scopeHasSlug(Builder $q): Builder
     {
-        return $q->isNotNull('slug');
+        return $q->whereNotNull('slug');
     }
 
     public function nlm(?TechAccount $account = null)
@@ -102,7 +102,6 @@ class Notebook extends Model
 
     public function ask(string $q)
     {
-
         return app()->make(AskService::class)->ask($this, $q);
     }
 }

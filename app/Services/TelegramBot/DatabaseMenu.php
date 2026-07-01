@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace App\Services\TelegramBot;
 
+use App\Models\ContentSource;
+use App\Models\Notebook;
+use App\Services\TelegramSessionService;
 use Illuminate\Support\Facades\Log;
 use SergiX44\Nutgram\Conversations\InlineMenu;
 use SergiX44\Nutgram\Nutgram;
@@ -31,7 +34,7 @@ class DatabaseMenu extends InlineMenu
                 // и сохранит "db_id:XX" внутри callbackQuery
                 $this->addButtonRow(
                     InlineKeyboardButton::make(
-                        text: $db['name'],
+                        text: $db['title'].' ('.$db['slug'].')',
                         callback_data: "db_id:{$db['id']}@selectDatabase"
                     )
                 );
@@ -53,41 +56,59 @@ class DatabaseMenu extends InlineMenu
 
         // Получаем callback_data нажатой кнопки
         $callbackData = $bot->callbackQuery()->data;
+        Log::info('DatabaseMenu: $callbackData = '.$callbackData);
+        try {
+            if (preg_match('/^db_id:(.+)$/', $callbackData, $matches)) {
+                $dbId = $matches[1];
 
-        if (preg_match('/^db_id:(\d+)$/', $callbackData, $matches)) {
-            $dbId = $matches[1];
+                $notebook = Notebook::find($dbId);
 
-            // Твоя готовая функция активации
-            $this->activateDatabaseForUser($bot->userId(), $dbId);
+                if (! $notebook) {
+                    $bot->sendMessage('Ошибка: база знаний не найдена.');
 
-            // Всплывающее уведомление в Telegram
-            $bot->answerCallbackQuery(
-                text: 'База знаний успешно активирована!',
-                show_alert: false
-            );
+                }
 
-            // Обновляем сообщение, фиксируя выбор и убирая кнопки
-            $this->menuText("Активная база знаний успешно изменена на ID: {$dbId}")
-                ->clearButtons()
-                ->showMenu();
+                $this->activateDatabaseForUser($bot->userId(), $dbId);
 
-            // Закрываем контекст меню
-            $this->end();
+                $bot->answerCallbackQuery();
+
+                $this->end();
+
+                static::sendApply($bot, $notebook);
+            } else {
+                $bot->sendMessage('Пожалуйста, выберите базу знаний');
+            }
+        } catch (\Throwable $e) {
+            Log::error('DatabaseMenu КРИТИЧЕСКАЯ ОШИБКА: '.$e->getMessage(), [
+                'trace' => $e->getTraceAsString(),
+            ]);
         }
+
+    }
+
+    public static function sendApply(Nutgram $bot, Notebook $notebook)
+    {
+
+        $notebook = Notebook::query()
+            ->with(['contentSources' => fn ($i) => $i->withItemsCount()])
+            ->find($notebook->id);
+
+        $sources = $notebook->contentSources
+            ->map(fn (ContentSource $i) => sprintf('%s: %s (%s)', $i->type->label(), $i->original_items_count, $i->url))->join("\n");
+
+        $msg = sprintf("Активная база знаний успешно изменена\n\n%s\n\n%s", $notebook->title, $sources);
+        $bot->sendMessage($msg);
     }
 
     // Твои методы
     private function getDatabasesList(): array
     {
         // Замени на реальное получение данных из Laravel модели/сервиса
-        return [
-            ['id' => 12, 'name' => 'База по Laravel'],
-            ['id' => 15, 'name' => 'База по AI & RAG'],
-        ];
+        return Notebook::query()->hasSlug()->select(['id', 'title', 'slug'])->get()->toArray();
     }
 
     private function activateDatabaseForUser($userId, $dbId): void
     {
-        // Твоя логика активации
+        app()->make(TelegramSessionService::class)->setActiveBase($userId, (string) $dbId);
     }
 }

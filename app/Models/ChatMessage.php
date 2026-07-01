@@ -44,7 +44,8 @@ class ChatMessage extends Model
         return $this->belongsTo(TechAccount::class);
     }
 
-    public function askDto(){
+    public function askDto()
+    {
         return AskResultDTO::from($this->result);
     }
 }
