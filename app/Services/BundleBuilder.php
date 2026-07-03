@@ -75,6 +75,12 @@ class BundleBuilder
                 $this->performPrimaryIndexing($notebook, $items);
             }
         });
+
+        // Wait for all uploaded sources to be ready before generating description
+        $this->waitForBundleSources($notebook);
+
+        // Set notebook description after sources are ready
+        $notebook->setDescription();
     }
 
     /**
@@ -386,5 +392,42 @@ class BundleBuilder
         Storage::disk('bundles')->put($bundle->file_path, '');
 
         return $bundle;
+    }
+
+    /**
+     * Wait for all bundle sources to be ready in NLM after upload.
+     */
+    private function waitForBundleSources(Notebook $notebook): void
+    {
+        $techAccount = $notebook->techAccount;
+
+        if ($techAccount === null || $notebook->nlm_notebook_id === null) {
+            return;
+        }
+
+        $sourceIds = $notebook->mdBundles()
+            ->whereNotNull('nlm_source_id')
+            ->pluck('nlm_source_id')
+            ->toArray();
+
+        if ($sourceIds === []) {
+            return;
+        }
+
+        Log::info('Waiting for bundle sources to be ready', [
+            'notebook_id' => $notebook->id,
+            'source_ids' => $sourceIds,
+        ]);
+
+        $this->notebookLMService->waitForSources(
+            $techAccount->id,
+            $notebook->nlm_notebook_id,
+            $sourceIds,
+            ['timeout' => 120.0],
+        );
+
+        Log::info('All bundle sources are ready', [
+            'notebook_id' => $notebook->id,
+        ]);
     }
 }

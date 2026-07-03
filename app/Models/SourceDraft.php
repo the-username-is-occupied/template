@@ -6,6 +6,7 @@ namespace App\Models;
 
 use App\Enums\SourceDraftStatus;
 use App\Enums\SourceType;
+use App\Services\SourceService;
 use Database\Factories\SourceDraftFactory;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -63,5 +64,9 @@ class SourceDraft extends Model
     public function contentSource(): BelongsTo
     {
         return $this->belongsTo(ContentSource::class);
+    }
+
+    public function index(){
+        app()->make(SourceService::class)->startIndexing($this);
     }
 }

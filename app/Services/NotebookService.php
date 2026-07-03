@@ -9,12 +9,12 @@ use App\Models\Notebook;
 use App\Models\TechAccount;
 use App\Models\User;
 
-class NotebookService{
-
+class NotebookService
+{
     public function create(string $title, TechAccount $techAccount, User $user): Notebook
     {
         $notebookLMService = app(NotebookLMService::class);
-       
+
         $notebookDTO = $notebookLMService->createNotebook(
             $techAccount->id,
             $title
