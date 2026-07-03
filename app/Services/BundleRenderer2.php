@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services;
 
+use App\Models\ContentSource;
 use App\Models\OriginalItem;
 use Illuminate\Support\Collection;
 
@@ -22,13 +23,14 @@ class BundleRenderer2
         $parts = $items->map(function (OriginalItem $item): string {
 
             return collect([
-                sprintf('# %s', strip_tags($item->getTitle())),
+                sprintf('#%s', $item->id),
                 '**Метаданные:**',
+                
+                sprintf('* **title:** %s', strip_tags($item->getTitle())),
                 sprintf('* **published_date:** %s', $item->published_at?->toIso8601String() ?? ''),
                 ...$this->metaFormat($item->getMetaArray()->toArray()),
-                sprintf('* **internal_id:**  %s', $item->id),
-                addslashes(strip_tags("\n".$item->full_text ?? '')),
-                "\n---",
+                '',
+                addslashes(strip_tags($item->full_text ?? '')),
             ])->join("\n");
         });
 

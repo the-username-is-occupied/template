@@ -39,8 +39,8 @@ class AskService
                 return;
             }
 
-            // $msg = app()->make(NLMAskService::class)->ask($notebook, $question);
-            $msg = ChatMessage::find('019f2847-49d5-70ce-aa3d-0f3171524451');
+            $msg = app()->make(NLMAskService::class)->ask($notebook, $question);
+            // $msg = ChatMessage::find("019f2893-1ad3-728b-b5f0-2dd9aae6f05d");
 
             $resolved = $msg->askDto()->resolve();
             $myLinks = $resolved->getCitationLinks();

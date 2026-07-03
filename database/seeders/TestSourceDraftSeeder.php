@@ -37,7 +37,7 @@ class TestSourceDraftSeeder extends Seeder
         $this->command->info('⏳ Creating notebook in NLM...');
         $notebookDTO = $notebookLMService->createNotebook(
             $techAccount->id,
-            'Notebook for nastya_docs Channel'
+            'bchlaw Channel'
         );
         $nlmNotebookId = $notebookDTO->id;
 
@@ -50,7 +50,7 @@ class TestSourceDraftSeeder extends Seeder
             'user_id' => $user->id,
             'tech_account_id' => $techAccount->id,
             'nlm_notebook_id' => $nlmNotebookId,
-            'title' => 'Notebook for bchlaw Channel',
+            'title' => 'bchlaw Channel',
         ]);
 
         $this->command->info("✓ Created notebook: {$notebook->title} (ID: {$notebook->id})");
@@ -108,9 +108,9 @@ class TestSourceDraftSeeder extends Seeder
         }
 
         $scrapeConfig = [
-            'limit' => 500,
-            'chunk_limit' => 200,
-            'workers' => 3,
+            'limit' => 200,
+            'chunk_limit' => 100,
+            'workers' => 2,
         ];
 
         $sourceService = app(SourceService::class);

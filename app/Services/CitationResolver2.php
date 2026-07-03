@@ -71,10 +71,11 @@ class CitationResolver2
             // Step 0: Clean metadata from cited_text
             $citedTextClean = $this->cleanMetadata($reference->cited_text);
 
-            // Step1: Detect strategy - check if cited_text contains internal_id pattern
+            // Step1: Detect strategy - check if cited_text starts with UUID header pattern
+            // New format: # {UUID} at the beginning
             // UUID pattern: [0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}
-            if (preg_match('/\* \*\*internal_id:\*\* ([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/i', $reference->cited_text, $matches) === 1) {
-                // Strategy A: cited_text contains internal_id → extract directly
+            if (preg_match('/^#\s*([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/im', $reference->cited_text, $matches) === 1) {
+                // Strategy A: cited_text starts with #UUID header → extract directly
                 $itemId = $matches[1];
             } else {
                 // Strategy B: Full-text search (steps 2-4)
@@ -252,10 +253,10 @@ class CitationResolver2
     }
 
     /**
-     * Extract internal_id from bundle file.
+     * Extract item ID (UUID) from bundle file.
      *
-     * Scans backward from $position to find the nearest metadata section,
-     * then extracts the ID from `* **internal_id:** {uuid}`.
+     * Scans backward from $position to find the nearest header `#{UUID}`,
+     * then extracts the UUID from that header.
      *
      * @return string|null UUID string or null if not found
      */
@@ -264,29 +265,18 @@ class CitationResolver2
         // Get the portion of file before the match position
         $before = substr($fileContent, 0, $position);
 
-        // Strategy 1: Find the last occurrence of `* **internal_id:**` before the position
-        // The metadata format is: * **internal_id:**  {uuid} (two spaces after colon in BundleRenderer2)
+        // Strategy 1: Find the last occurrence of `# {UUID}` header before the position
+        // New format: # {UUID} at the beginning of each item
         // UUID pattern: [0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}
-        if (preg_match_all('/\*\s+\*\*internal_id:\*\*\s+([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/im', $before, $matches) > 0) {
-            $itemId = end($matches[1]);
+        if (preg_match_all('/^#\s*([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/im', $before, $matches, PREG_OFFSET_CAPTURE) > 0) {
+            // Get the last match (closest to the citation position)
+            $lastMatch = end($matches[1]);
+            $itemId = $lastMatch[0];
 
             return $itemId;
         }
 
-        // Strategy 2: Try to find the item header (# Title) and then look for internal_id after it
-        // This handles cases where the citation is far from the metadata
-        if (preg_match_all('/^# .+$/m', $before, $headerMatches, PREG_OFFSET_CAPTURE) > 0) {
-            $lastHeaderPos = (int) end($headerMatches[0])[1];
-            $sectionAfterHeader = substr($fileContent, $lastHeaderPos, $position - $lastHeaderPos);
-
-            if (preg_match('/\*\s+\*\*internal_id:\*\*\s+([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/im', $sectionAfterHeader, $sectionMatch) === 1) {
-                $itemId = $sectionMatch[1];
-
-                return $itemId;
-            }
-        }
-
-        Log::warning('CitationResolver2: extractItemId - pattern not found with any strategy', [
+        Log::warning('CitationResolver2: extractItemId - UUID header not found', [
             'position' => $position,
             'last_2000_chars' => substr($before, -2000),
         ]);
