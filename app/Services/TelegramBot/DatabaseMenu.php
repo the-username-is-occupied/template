@@ -89,6 +89,8 @@ class DatabaseMenu extends InlineMenu
     public static function sendApply(Nutgram $bot, Notebook $notebook)
     {
 
+        // $fmt = app()->make(TelegramMessageFormatterService::class);
+
         $notebook = Notebook::query()
             ->with(['contentSources' => fn ($i) => $i->withItemsCount()])
             ->find($notebook->id);
@@ -96,8 +98,9 @@ class DatabaseMenu extends InlineMenu
         $sources = $notebook->contentSources
             ->map(fn (ContentSource $i) => sprintf('%s: %s (%s)', $i->type->label(), $i->original_items_count, $i->url))->join("\n");
 
-        $msg = sprintf("Активная база знаний успешно изменена\n\n%s\n\n%s", $notebook->title, $sources);
-        $bot->sendMessage($msg);
+            $desc = $notebook->description ? $notebook->description->summary : '';
+        $msg = sprintf("Активная база знаний успешно изменена\n\n%s\n\n%s\n\n%s", $notebook->title, $desc, $sources);
+        $bot->sendMessage(text: $msg);
     }
 
     // Твои методы

@@ -8,6 +8,7 @@ use App\Domain\NotebookLM\DTOs\AskResultDTO;
 use App\Domain\NotebookLM\DTOs\NotebookDescriptionDTO;
 use App\Domain\NotebookLM\DTOs\NotebookDTO;
 use App\Domain\NotebookLM\DTOs\NotebookMetadataDTO;
+use App\Domain\NotebookLM\DTOs\SettingsDTO;
 use App\Domain\NotebookLM\DTOs\ShareStatusDTO;
 use App\Domain\NotebookLM\DTOs\SourceDTO;
 use App\Domain\NotebookLM\DTOs\SourceFulltextDTO;
@@ -274,6 +275,27 @@ class NotebookLMServiceDecorator
     public function setPrivate(string $notebookId): ShareStatusDTO
     {
         return $this->service->setPrivate($this->account->id, $notebookId);
+    }
+
+    
+    // =========================================================================
+    // Settings
+    // =========================================================================
+
+    /**
+     * Get account settings, limits, and tier.
+     */
+    public function getSettings(): SettingsDTO
+    {
+        return $this->service->getSettings($this->account->id);
+    }
+
+    /**
+     * Set the output language for the account.
+     */
+    public function setOutputLanguage(string $language): bool
+    {
+        return $this->service->setOutputLanguage($this->account->id, $language);
     }
 
     // =========================================================================

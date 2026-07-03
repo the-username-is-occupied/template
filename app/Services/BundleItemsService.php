@@ -28,7 +28,7 @@ class BundleItemsService
                 'position' => $index + 1,
             ]);
 
-            $item->update(['md_bundle_id' => $bundle->id]);
+            // $item->update(['md_bundle_id' => $bundle->id]);
 
             $bundleItems->push($bundleItem);
         });

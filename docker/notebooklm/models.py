@@ -188,7 +188,7 @@ class AccountTier(BaseModel):
 
 
 class SettingsResponse(BaseResponse):
-    output_language: str = Field(..., description="Current output language")
+    output_language: Optional[str] = Field(None, description="Current output language")
     account_limits: AccountLimits = Field(..., description="Account limits")
     account_tier: AccountTier = Field(..., description="Account tier info")
 

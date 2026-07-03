@@ -36,6 +36,7 @@ class TechAccountService
         ])->save();
 
         $this->notebookLMService->initializeAccount((string) $account->id);
+        $this->notebookLMService->setOutputLanguage((string) $account->id, 'ru');
 
         return $account;
     }

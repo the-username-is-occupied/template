@@ -68,7 +68,7 @@ class TelegramMessageFormatterService
      */
     public function prepareCompleteMessage(string $text, array $links = []): string
     {
-        return $this->prepareTelegramMarkdown($text, $links);
+        return $this->prepareTelegramMarkdown($text.self::AI_SIGNATURE, $links);
     }
 
     /**

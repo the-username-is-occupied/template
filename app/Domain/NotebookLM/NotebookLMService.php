@@ -4,11 +4,14 @@ declare(strict_types=1);
 
 namespace App\Domain\NotebookLM;
 
+use App\Domain\NotebookLM\DTOs\AccountLimitsDTO;
+use App\Domain\NotebookLM\DTOs\AccountTierDTO;
 use App\Domain\NotebookLM\DTOs\AskResultDTO;
 use App\Domain\NotebookLM\DTOs\NotebookDescriptionDTO;
 use App\Domain\NotebookLM\DTOs\NotebookDTO;
 use App\Domain\NotebookLM\DTOs\NotebookMetadataDTO;
 use App\Domain\NotebookLM\DTOs\NotebookMetadataSourceDTO;
+use App\Domain\NotebookLM\DTOs\SettingsDTO;
 use App\Domain\NotebookLM\DTOs\SharedUserDTO;
 use App\Domain\NotebookLM\DTOs\ShareStatusDTO;
 use App\Domain\NotebookLM\DTOs\SourceDTO;
@@ -387,6 +390,34 @@ class NotebookLMService
         $response = $this->post("/accounts/{$accountId}/notebooks/{$notebookId}/sharing/private");
 
         return $this->makeShareStatusDTO($response['status']);
+    }
+
+    // =========================================================================
+    // Settings
+    // =========================================================================
+
+    /**
+     * Get account settings, limits, and tier.
+     */
+    public function getSettings(string $accountId): SettingsDTO
+    {
+        $response = $this->get("/accounts/{$accountId}/settings");
+
+        // Cast nested objects to DTOs
+        $response['account_limits'] = AccountLimitsDTO::from($response['account_limits']);
+        $response['account_tier'] = AccountTierDTO::from($response['account_tier']);
+
+        return SettingsDTO::from($response);
+    }
+
+    /**
+     * Set the output language for the account.
+     */
+    public function setOutputLanguage(string $accountId, string $language): bool
+    {
+        $response = $this->post("/accounts/{$accountId}/settings/language/{$language}");
+
+        return $response['success'];
     }
 
     // =========================================================================

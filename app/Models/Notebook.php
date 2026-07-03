@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Domain\NotebookLM\DTOs\NotebookDescriptionDTO;
 use App\Domain\NotebookLM\NotebookNLMDecorator;
 use App\Services\AskService;
 use Illuminate\Database\Eloquent\Builder;
@@ -33,6 +34,7 @@ class Notebook extends Model
         'slug',
         'system_prompt',
         'status',
+        'description',
     ];
 
     protected function casts(): array
@@ -45,6 +47,7 @@ class Notebook extends Model
             'slug' => 'string',
             'system_prompt' => 'string',
             'status' => 'string',
+            'description' => 'array',
         ];
     }
 
@@ -103,5 +106,15 @@ class Notebook extends Model
     public function ask(string $q)
     {
         return app()->make(AskService::class)->ask($this, $q);
+    }
+
+    public function getDescriptionAttribute($value)
+    {
+        return NotebookDescriptionDTO::from(json_decode($value, true));
+    }
+    public function setDescription(){
+        $dto = $this->nlm()->getNotebookDescription();
+        $this->description = $dto->toArray();
+        $this->save();
     }
 }

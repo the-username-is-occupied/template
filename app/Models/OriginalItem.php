@@ -4,11 +4,13 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Enums\SourceType;
 use Database\Factories\OriginalItemFactory;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Collection;
 
@@ -61,9 +63,9 @@ class OriginalItem extends Model
         return $this->belongsTo(self::class, 'parent_item_id');
     }
 
-    public function bundle(): BelongsTo
+    public function bundles(): BelongsToMany
     {
-        return $this->belongsTo(MdBundle::class, 'md_bundle_id');
+        return $this->belongsToMany(MdBundle::class, 'bundle_items', 'original_item_id', 'bundle_id');
     }
 
     public function childItems(): HasMany
@@ -99,5 +101,41 @@ class OriginalItem extends Model
         return static::forNotebooksWithUnbundledItems()
             ->distinct()
             ->pluck('notebook_content_sources.notebook_id');
+    }
+
+    public function getTitle()
+    {
+
+        return match ($this->contentSource->type) {
+            SourceType::TelegramChannel => $this->source_url ? 'Пост #'.basename($this->source_url) : $this->title,
+            SourceType::YoutubeChannel, SourceType::YoutubeVideo => $this->title ?? 'Видео',
+            default => $this->title
+        };
+    }
+
+    public function getType()
+    {
+        return match ($this->contentSource->type) {
+            SourceType::TelegramChannel => 'telegram_post',
+            SourceType::YoutubeChannel, SourceType::YoutubeVideo => 'youtube_video',
+            default => ''
+        };
+    }
+
+    public function getMetaArray()
+    {
+        return (match ($this->contentSource->type) {
+            SourceType::TelegramChannel => collect($this->metadata)
+                ->map(function ($value, $key) {
+                    if ($key === 'reactions') {
+                        return collect($value)
+                            ->map(fn ($reaction) => "{$reaction['emoji']}({$reaction['count']})")
+                            ->implode(', ');
+                    }
+
+                    return $value;
+                }),
+            default => collect([])
+        })->filter(fn($i,$k) => $k != 'type')->merge(['type' => $this->getType()]);
     }
 }
