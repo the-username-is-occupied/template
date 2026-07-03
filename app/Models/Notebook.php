@@ -130,4 +130,27 @@ class Notebook extends Model
 
         $this->nlm()->configure($this->system_prompt);
     }
+
+    public function deleteNotebook(): bool
+    {
+        $this->nlm()->deleteNotebook();
+
+        foreach ($this->contentSources as $contentSource) {
+            $contentSource->originalItems()->delete();
+            $contentSource->sourceDrafts()->detach();
+            $contentSource->mdBundles()->detach();
+            $contentSource->chats()->detach();
+            $contentSource->delete();
+        }
+        $this->contentSources()->detach();
+        $this->mdBundles()->delete();
+        $this->sourceDrafts()->delete();
+
+        return $this->delete();
+    }
+
+     public function clean()
+    {
+        $this->techAccount()->first()->service()->cleanupNotebookSources($this->id);
+    }
 }

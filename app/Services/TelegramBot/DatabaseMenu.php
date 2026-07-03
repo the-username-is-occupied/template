@@ -23,7 +23,7 @@ class DatabaseMenu extends InlineMenu
             // Устанавливаем СТРОГО чистый текст без спецсимволов и эмодзи
             Log::info('DatabaseMenu: метод start вызван');
 
-            $this->menuText('Выберите активную базу знаний из списка:');
+            $this->menuText('Выберите базу знаний из списка:');
 
             // Ваши базы данных
             $databases = $this->getDatabasesList();
@@ -88,21 +88,26 @@ class DatabaseMenu extends InlineMenu
 
     public static function sendApply(Nutgram $bot, Notebook $notebook): void
     {
+
+        $formatter = app()->make(TelegramMessageFormatterService::class);
+
         $notebook = Notebook::query()
             ->with(['contentSources' => fn ($i) => $i->withItemsCount()])
             ->find($notebook->id);
 
         $sources = $notebook->contentSources
-            ->map(fn (ContentSource $i) => sprintf('%s: %s (%s)', $i->type->label(), $i->original_items_count, $i->url))->join("\n");
+            ->map(fn (ContentSource $i) => sprintf('[%s](%s) - %s', $i->type->label(), $i->url, pluralize($i->original_items_count, ['источник', 'источника', 'источников'])))->join("\n");
 
-        $desc = $notebook->description ? $notebook->description->summary : '';
-        $msg = sprintf("Активная база знаний успешно изменена\n\n%s\n\n%s\n\n%s", $notebook->title, $desc, $sources);
-        $bot->sendMessage(text: $msg);
+        $msg = sprintf("%s\n\n%s\n\n%s",
+            $notebook->title,
+            $notebook->description->summary,
+            $sources
+        );
+        $bot->sendMessage(text: $formatter->formatAnswer($msg), parse_mode: 'MarkdownV2');
 
         // Send suggested topics from notebook description if available
         $topics = $notebook->description?->suggested_topics ?? [];
         if ($topics !== []) {
-            $formatter = app()->make(TelegramMessageFormatterService::class);
             $questionsText = $formatter->formatDescriptionQuestions($topics);
             $keyboard = $formatter->createDescriptionQuestionsKeyboard($notebook->id, $topics);
 

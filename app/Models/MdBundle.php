@@ -92,4 +92,11 @@ class MdBundle extends Model
     {
         return $query->where('type', MdBundleType::FrozenFull);
     }
+
+    public function deleteBundle()
+    {
+        $this->bundleItems()->delete();
+
+        return $this->delete();
+    }
 }
