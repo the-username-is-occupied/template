@@ -277,7 +277,6 @@ class NotebookLMServiceDecorator
         return $this->service->setPrivate($this->account->id, $notebookId);
     }
 
-    
     // =========================================================================
     // Settings
     // =========================================================================

@@ -32,24 +32,31 @@ class TestSourceDraftSeeder extends Seeder
         // $notebook = $techAccount->notebooks()->first();
 
         // 3. Create a notebook in NLM first
-        // $notebookLMService = app(NotebookLMService::class);
+        $notebookLMService = app(NotebookLMService::class);
 
-        // $this->command->info('⏳ Creating notebook in NLM...');
-        // $notebookDTO = $notebookLMService->createNotebook(
-        //     $techAccount->id,
-        //     'Notebook for nastya_docs Channel'
-        // );
-        // $nlmNotebookId = $notebookDTO->id;
+        $this->command->info('⏳ Creating notebook in NLM...');
+        $notebookDTO = $notebookLMService->createNotebook(
+            $techAccount->id,
+            'Notebook for nastya_docs Channel'
+        );
+        $nlmNotebookId = $notebookDTO->id;
 
-        // $this->command->info("✓ Created NLM notebook (ID: {$nlmNotebookId})");
+        $this->command->info("✓ Created NLM notebook (ID: {$nlmNotebookId})");
 
         // 4. Create a notebook for the user (with NLM notebook ID)
-        $notebook = Notebook::find('019f0e89-a41b-7357-a61c-d8d82a655cdb');
+        // $notebook = Notebook::find('019f0e89-a41b-7357-a61c-d8d82a655cdb');
+
+        $notebook = Notebook::create([
+            'user_id' => $user->id,
+            'tech_account_id' => $techAccount->id,
+            'nlm_notebook_id' => $nlmNotebookId,
+            'title' => 'Notebook for bchlaw Channel',
+        ]);
 
         $this->command->info("✓ Created notebook: {$notebook->title} (ID: {$notebook->id})");
 
         // 5. Create SourceDraft for tolk_tolk channel
-        $rawInput = 'https://www.youtube.com/@nastya_docs';
+        $rawInput = 'https://t.me/bchlaw';
 
         $draftService = app(SourceDraftService::class);
         $drafts = $draftService->create($user, $notebook, $rawInput);
@@ -101,8 +108,8 @@ class TestSourceDraftSeeder extends Seeder
         }
 
         $scrapeConfig = [
-            'limit' => 45,
-            'chunk_limit' => 500,
+            'limit' => 500,
+            'chunk_limit' => 200,
             'workers' => 3,
         ];
 

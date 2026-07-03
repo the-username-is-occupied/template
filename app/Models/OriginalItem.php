@@ -136,6 +136,6 @@ class OriginalItem extends Model
                     return $value;
                 }),
             default => collect([])
-        })->filter(fn($i,$k) => $k != 'type')->merge(['type' => $this->getType()]);
+        })->filter(fn ($i, $k) => $k != 'type')->merge(['type' => $this->getType()]);
     }
 }

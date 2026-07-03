@@ -29,7 +29,7 @@ class BundleBuilder
     private const FROZEN_FULL_MAX_WORDS = 480_000;
 
     public function __construct(
-        private readonly BundleRenderer $renderer,
+        private readonly BundleRenderer2 $renderer,
         private readonly BundleItemsService $bundleItemsService,
         private readonly WordCounter $wordCounter,
         private readonly NotebookLMService $notebookLMService,

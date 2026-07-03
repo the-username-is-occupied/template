@@ -112,7 +112,9 @@ class Notebook extends Model
     {
         return NotebookDescriptionDTO::from(json_decode($value, true));
     }
-    public function setDescription(){
+
+    public function setDescription()
+    {
         $dto = $this->nlm()->getNotebookDescription();
         $this->description = $dto->toArray();
         $this->save();

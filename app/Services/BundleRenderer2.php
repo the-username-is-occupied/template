@@ -9,12 +9,15 @@ use Illuminate\Support\Collection;
 
 class BundleRenderer2
 {
-     /**
+    /**
      * Render a collection of OriginalItem into a Markdown string.
      */
     public function render(Collection $items): string
     {
-        $items->loadMissing(['contentSource']);
+        $items = OriginalItem::query()
+            ->with('contentSource')
+            ->whereIn('id', $items->pluck('id'))
+            ->get();
 
         $parts = $items->map(function (OriginalItem $item): string {
 

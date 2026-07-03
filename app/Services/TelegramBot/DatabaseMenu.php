@@ -98,7 +98,7 @@ class DatabaseMenu extends InlineMenu
         $sources = $notebook->contentSources
             ->map(fn (ContentSource $i) => sprintf('%s: %s (%s)', $i->type->label(), $i->original_items_count, $i->url))->join("\n");
 
-            $desc = $notebook->description ? $notebook->description->summary : '';
+        $desc = $notebook->description ? $notebook->description->summary : '';
         $msg = sprintf("Активная база знаний успешно изменена\n\n%s\n\n%s\n\n%s", $notebook->title, $desc, $sources);
         $bot->sendMessage(text: $msg);
     }
