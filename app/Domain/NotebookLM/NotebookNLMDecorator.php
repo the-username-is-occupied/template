@@ -220,6 +220,11 @@ class NotebookNLMDecorator
         return $this->decorator->askQuestion($this->notebook->nlm_notebook_id, $question, $options);
     }
 
+    public function configure(string $prompt): bool
+    {
+        return $this->decorator->configure($this->notebook->nlm_notebook_id, $prompt);
+    }
+
     // =========================================================================
     // Sharing
     // =========================================================================

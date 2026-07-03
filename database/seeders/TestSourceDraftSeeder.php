@@ -4,15 +4,13 @@ declare(strict_types=1);
 
 namespace Database\Seeders;
 
-use App\Domain\NotebookLM\NotebookLMService;
 use App\Enums\SourceDraftStatus;
-use App\Models\Notebook;
 use App\Models\TechAccount;
 use App\Models\User;
 use App\Services\SourceDraftService;
 use App\Services\SourceService;
 use Illuminate\Database\Seeder;
-
+use \App\Services\NotebookService;
 class TestSourceDraftSeeder extends Seeder
 {
     public function run(): void
@@ -29,29 +27,14 @@ class TestSourceDraftSeeder extends Seeder
 
         $this->command->info("✓ Using TechAccount: {$techAccount->name} (ID: {$techAccount->id})");
 
-        // $notebook = $techAccount->notebooks()->first();
-
-        // 3. Create a notebook in NLM first
-        $notebookLMService = app(NotebookLMService::class);
-
-        $this->command->info('⏳ Creating notebook in NLM...');
-        $notebookDTO = $notebookLMService->createNotebook(
-            $techAccount->id,
-            'bchlaw Channel'
-        );
-        $nlmNotebookId = $notebookDTO->id;
-
-        $this->command->info("✓ Created NLM notebook (ID: {$nlmNotebookId})");
-
         // 4. Create a notebook for the user (with NLM notebook ID)
         // $notebook = Notebook::find('019f0e89-a41b-7357-a61c-d8d82a655cdb');
 
-        $notebook = Notebook::create([
-            'user_id' => $user->id,
-            'tech_account_id' => $techAccount->id,
-            'nlm_notebook_id' => $nlmNotebookId,
-            'title' => 'bchlaw Channel',
-        ]);
+        $notebook = app()->make(NotebookService::class)->create(
+            'Алексей Башук (bchlaw)',
+            $techAccount,
+            $user
+        );
 
         $this->command->info("✓ Created notebook: {$notebook->title} (ID: {$notebook->id})");
 

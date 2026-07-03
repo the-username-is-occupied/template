@@ -358,6 +358,16 @@ class NotebookLMService
         return AskResultDTO::from($response['result']);
     }
 
+    public function configure(string $accountId, string $notebookId, string $prompt): bool
+    {
+
+        $response = $this->send('post', "/accounts/{$accountId}/notebooks/{$notebookId}/chat/configure", [
+            'custom_prompt' => $prompt,
+        ]);
+
+        return $response['success'];
+    }
+
     // =========================================================================
     // Sharing
     // =========================================================================

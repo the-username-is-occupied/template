@@ -1,7 +1,7 @@
 """ChatAPI endpoints — wraps notebooklm-py ChatAPI."""
 from fastapi import APIRouter, Request
-
-from models import AskRequest, AskResponse, AskResult, ChatReference
+from notebooklm import ChatGoal, ChatResponseLength
+from models import AskRequest, AskResponse, AskResult, ChatReference, ConfigureChatRequest
 from pool import get_client
 from api.utils import elapsed_ms, pick
 
@@ -63,4 +63,21 @@ async def delete_conversation(
     """Delete a conversation."""
     client = get_client(account_id)
     await client.chat.delete_conversation(notebook_id, conversation_id)
+    return {"response_time_ms": elapsed_ms(request), "success": True}
+
+@router.post("/notebooks/{notebook_id}/chat/configure")
+async def configure_chat(
+    request: Request,
+    account_id: str,
+    notebook_id: str,
+    body: ConfigureChatRequest,
+):
+    """Configure chat settings."""
+    client = get_client(account_id)
+    await client.chat.configure(
+        notebook_id=notebook_id,
+        goal=ChatGoal.CUSTOM,
+        response_length=ChatResponseLength.DEFAULT,
+        custom_prompt=body.custom_prompt
+    )
     return {"response_time_ms": elapsed_ms(request), "success": True}

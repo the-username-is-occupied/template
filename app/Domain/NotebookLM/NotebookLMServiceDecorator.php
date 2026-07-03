@@ -249,6 +249,11 @@ class NotebookLMServiceDecorator
         return $this->service->askQuestion($this->account->id, $notebookId, $question, $options);
     }
 
+    public function configure(string $notebookId, string $prompt): bool
+    {
+        return $this->service->configure($this->account->id, $notebookId, $prompt);
+    }
+
     // =========================================================================
     // Sharing
     // =========================================================================

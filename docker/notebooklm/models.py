@@ -142,6 +142,10 @@ class SourceFreshnessResponse(BaseResponse):
 # Chat
 # ---------------------------------------------------------------------------
 
+class ConfigureChatRequest(BaseModel):
+    custom_prompt: str = Field(..., description="Custom system prompt for the chat")
+
+
 class AskRequest(BaseModel):
     notebook_id: str = Field(..., description="Notebook ID")
     question: str = Field(..., description="Question to ask")
