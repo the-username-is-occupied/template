@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\TelegramBot;
 
+use App\Domain\NotebookLM\DTOs\SuggestedTopicDTO;
 use SergiX44\Nutgram\Telegram\Types\Keyboard\InlineKeyboardButton;
 use SergiX44\Nutgram\Telegram\Types\Keyboard\InlineKeyboardMarkup;
 
@@ -36,7 +37,7 @@ class TelegramMessageFormatterService
     }
 
     /**
-     * Create an inline keyboard for suggested questions
+     * Create an inline keyboard for suggested questions from ChatMessage
      *
      * @param  array<int, string>  $questions
      */
@@ -51,6 +52,40 @@ class TelegramMessageFormatterService
         );
 
         return InlineKeyboardMarkup::make()->addRow(...$buttons);
+    }
+
+    /**
+     * Create an inline keyboard for suggested topics from Notebook description
+     *
+     * @param  array<int, SuggestedTopicDTO>  $topics
+     */
+    public function createDescriptionQuestionsKeyboard(string $notebookId, array $topics): InlineKeyboardMarkup
+    {
+        $buttons = array_map(
+            fn (int $index) => InlineKeyboardButton::make(
+                (string) ($index + 1),
+                callback_data: 'ask_desc:'.$notebookId.':'.($index + 1)
+            ),
+            range(0, min(2, count($topics) - 1))
+        );
+
+        return InlineKeyboardMarkup::make()->addRow(...$buttons);
+    }
+
+    /**
+     * Format suggested topics from Notebook description as italic text with numbers
+     *
+     * @param  array<int, SuggestedTopicDTO>  $topics
+     */
+    public function formatDescriptionQuestions(array $topics): string
+    {
+        $formatted = [];
+        foreach ($topics as $index => $topic) {
+            $num = $index + 1;
+            $formatted[] = "_{$num}. {$topic->question}_";
+        }
+
+        return $this->prepareTelegramMarkdown("\n\n".implode("\n", $formatted));
     }
 
     /**

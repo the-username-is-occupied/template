@@ -86,11 +86,8 @@ class DatabaseMenu extends InlineMenu
 
     }
 
-    public static function sendApply(Nutgram $bot, Notebook $notebook)
+    public static function sendApply(Nutgram $bot, Notebook $notebook): void
     {
-
-        // $fmt = app()->make(TelegramMessageFormatterService::class);
-
         $notebook = Notebook::query()
             ->with(['contentSources' => fn ($i) => $i->withItemsCount()])
             ->find($notebook->id);
@@ -101,12 +98,25 @@ class DatabaseMenu extends InlineMenu
         $desc = $notebook->description ? $notebook->description->summary : '';
         $msg = sprintf("Активная база знаний успешно изменена\n\n%s\n\n%s\n\n%s", $notebook->title, $desc, $sources);
         $bot->sendMessage(text: $msg);
+
+        // Send suggested topics from notebook description if available
+        $topics = $notebook->description?->suggested_topics ?? [];
+        if ($topics !== []) {
+            $formatter = app()->make(TelegramMessageFormatterService::class);
+            $questionsText = $formatter->formatDescriptionQuestions($topics);
+            $keyboard = $formatter->createDescriptionQuestionsKeyboard($notebook->id, $topics);
+
+            $bot->sendMessage(
+                text: $questionsText,
+                reply_markup: $keyboard,
+                parse_mode: 'MarkdownV2',
+            );
+        }
     }
 
     // Твои методы
     private function getDatabasesList(): array
     {
-        // Замени на реальное получение данных из Laravel модели/сервиса
         return Notebook::query()->hasSlug()->select(['id', 'title', 'slug'])->get()->toArray();
     }
 

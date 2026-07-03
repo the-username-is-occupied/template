@@ -56,6 +56,10 @@ class TelegramHandlerService
                 $this->handleSuggested($bot, $q);
             });
 
+            $this->bot->onCallbackQueryData('ask_desc:{q}', function (Nutgram $bot, string $q) {
+                $this->handleDescriptionSuggested($bot, $q);
+            });
+
             $this->bot->onMessageType(MessageType::TEXT, function (Nutgram $bot) {
                 $this->handleTextMessage($bot);
             });
@@ -115,6 +119,49 @@ class TelegramHandlerService
 
                 return;
             }
+
+            $formattedText = $this->formatter->formatAnswer('_'.$txt.'_');
+
+            $bot->sendMessage(
+                text: $formattedText,
+                parse_mode: 'MarkdownV2'
+            );
+
+            $this->handleTextMessage($bot, $txt);
+        } catch (Throwable $e) {
+            Log::error($e->getMessage());
+            throw $e;
+        }
+    }
+
+    /**
+     * Handle suggested question callback from notebook description
+     */
+    public function handleDescriptionSuggested(Nutgram $bot, string $q): void
+    {
+        try {
+            $bot->answerCallbackQuery();
+
+            [$notebookId, $indexStr] = explode(':', $q);
+            $number = (int) $indexStr;
+
+            $notebook = Notebook::find($notebookId);
+            if (! $notebook) {
+                Log::warning("Notebook not found for ID: {$notebookId}");
+
+                return;
+            }
+
+            $topics = $notebook->description?->suggested_topics ?? [];
+            $topic = $topics[$number - 1] ?? null;
+
+            if (! $topic) {
+                Log::warning("Suggested topic not found for index: {$number}");
+
+                return;
+            }
+
+            $txt = $topic->question;
 
             $formattedText = $this->formatter->formatAnswer('_'.$txt.'_');
 

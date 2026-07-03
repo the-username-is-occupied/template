@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Domain\NotebookLM\DTOs;
 
-use App\Services\CitationResolver;
+use App\Services\CitationResolver2 as CitationResolver;
 use Spatie\LaravelData\Data;
 use Spatie\LaravelData\DataCollection;
 

@@ -66,7 +66,8 @@ class SourceDraft extends Model
         return $this->belongsTo(ContentSource::class);
     }
 
-    public function index(){
+    public function index()
+    {
         app()->make(SourceService::class)->startIndexing($this);
     }
 }

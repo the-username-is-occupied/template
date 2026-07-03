@@ -92,9 +92,9 @@ class TestSourceDraftSeeder extends Seeder
         }
 
         $scrapeConfig = [
-            'limit' => 200,
-            'chunk_limit' => 100,
-            'workers' => 2,
+            'limit' => 500,
+            'chunk_limit' => 200,
+            'workers' => 3,
         ];
 
         $sourceService = app(SourceService::class);
