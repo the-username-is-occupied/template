@@ -149,7 +149,7 @@ class Notebook extends Model
         return $this->delete();
     }
 
-     public function clean()
+    public function clean()
     {
         $this->techAccount()->first()->service()->cleanupNotebookSources($this->id);
     }

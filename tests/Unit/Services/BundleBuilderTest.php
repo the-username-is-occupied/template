@@ -15,14 +15,14 @@ use App\Models\MdBundle;
 use App\Models\Notebook;
 use App\Models\OriginalItem;
 use App\Services\BundleBuilder;
-use App\Services\BundleRenderer2;
 use App\Services\BundleItemsService;
+use App\Services\BundleRenderer2;
 use App\Services\WordCounter;
-use Mockery;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use Mockery;
 use Tests\TestCase;
 
 final class BundleBuilderTest extends TestCase
@@ -51,10 +51,10 @@ final class BundleBuilderTest extends TestCase
         $renderer = new BundleRenderer2;
         $bundleItemsService = new BundleItemsService;
         $wordCounter = new WordCounter;
-        
+
         // Create a mock that doesn't call the real implementation
-        $notebookLMService = \Mockery::mock(NotebookLMService::class);
-        
+        $notebookLMService = Mockery::mock(NotebookLMService::class);
+
         // NLM is mocked — no actual calls expected in unit tests
         $notebookLMService->shouldReceive('addSourceFile')
             ->andReturn(new SourceDTO(
@@ -71,7 +71,7 @@ final class BundleBuilderTest extends TestCase
 
         $notebookLMService->shouldReceive('waitForSources')
             ->andReturn([]);
-            
+
         // Also mock getNotebookDescription to avoid the setDescription() call failing
         $notebookLMService->shouldReceive('getNotebookDescription')
             ->andReturn(new NotebookDescriptionDTO(

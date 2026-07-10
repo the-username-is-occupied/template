@@ -16,11 +16,12 @@ class AccountService
     /**
      * Get available tech notebook with most free slots
      */
-    public function getAvailableTechNotebook(string $type): ?TechNotebook
+    public function getAvailableTechNotebook(string $type, array $excludeIds = []): ?TechNotebook
     {
         return TechNotebook::where('type', $type)
             ->whereIn('status', ['idle', 'busy'])
             ->whereRaw('sources_count < max_sources')
+            ->when(! empty($excludeIds), fn ($q) => $q->whereNotIn('id', $excludeIds))
             ->orderByRaw('max_sources - sources_count DESC')
             ->first();
     }
@@ -31,7 +32,6 @@ class AccountService
     public function acquireTechNotebookLock(TechNotebook $notebook, string $lockKey): bool
     {
         return DB::transaction(function () use ($notebook, $lockKey) {
-            // Reload with pessimistic lock
             $lockedNotebook = TechNotebook::where('id', $notebook->id)
                 ->lockForUpdate()
                 ->first();
@@ -40,22 +40,23 @@ class AccountService
                 return false;
             }
 
-            // Check if already locked
             if ($lockedNotebook->locked_at !== null && $lockedNotebook->locked_by !== null) {
-                // Check if lock is stale (older than 15 minutes)
-                if ($lockedNotebook->locked_at->diffInMinutes(now()) > 15) {
-                    // Force release stale lock
+                $isOwnDanglingLock = $lockedNotebook->locked_by === $lockKey;
+                $isStale = $lockedNotebook->locked_at->diffInMinutes(now()) > 15;
+
+                if ($isOwnDanglingLock || $isStale) {
+                    // Свой же зависший лок от убитого предыдущего запуска — забираем сразу,
+                    // не дожидаясь 15-минутного окна staleness.
                     $lockedNotebook->update([
                         'locked_at' => null,
                         'locked_by' => null,
                         'status' => 'idle',
                     ]);
                 } else {
-                    return false; // Still locked by someone else
+                    return false; // занято реально другим воркером
                 }
             }
 
-            // Acquire lock
             $lockedNotebook->update([
                 'locked_at' => now(),
                 'locked_by' => $lockKey,

@@ -20,7 +20,7 @@ RUN python -m pip install --no-cache-dir \
     && mkdir -p /root/.notebooklm /workspace /app
 
 RUN python -m pip install --no-cache-dir \
-    "git+https://github.com/Leslielu/notebooklm-py.git@fix/md-upload-content-type"
+    "notebooklm-py"
 
 WORKDIR /app
 

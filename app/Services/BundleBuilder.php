@@ -78,7 +78,7 @@ class BundleBuilder
 
         // Wait for all uploaded sources to be ready before generating description
         $this->waitForBundleSources($notebook);
-        
+
         // Set notebook description after sources are ready
         $notebook->setDescription();
     }

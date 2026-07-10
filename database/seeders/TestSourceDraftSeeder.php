@@ -30,18 +30,18 @@ class TestSourceDraftSeeder extends Seeder
         $this->command->info("✓ Using TechAccount: {$techAccount->name} (ID: {$techAccount->id})");
 
         // 4. Create a notebook for the user (with NLM notebook ID)
-        // $notebook = Notebook::find('019f2989-1dd4-72c4-96ce-a9697930f8b7');
+        $notebook = Notebook::find('019f28ef-8134-7154-a3e0-6567e7e05fea');
 
-        $notebook = app()->make(NotebookService::class)->create(
-            'Толкователь',
-            $techAccount,
-            $user
-        );
+        // $notebook = app()->make(NotebookService::class)->create(
+        //     'Толкователь',
+        //     $techAccount,
+        //     $user
+        // );
 
         $this->command->info("✓ Created notebook: {$notebook->title} (ID: {$notebook->id})");
 
         // 5. Create SourceDraft for tolk_tolk channel
-        $rawInput = 'https://t.me/tolk_tolk';
+        $rawInput = 'https://www.youtube.com/@bchlaw';
 
         $draftService = app(SourceDraftService::class);
         $drafts = $draftService->create($user, $notebook, $rawInput);

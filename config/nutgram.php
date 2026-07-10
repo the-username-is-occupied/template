@@ -8,7 +8,16 @@ return [
     'safe_mode' => env('APP_ENV', 'local') === 'production',
 
     // Extra or specific configurations
-    'config' => [],
+    'config' => [
+        'client_timeout' => 25, // должен быть заметно больше polling.timeout
+        'polling' => [
+            'timeout' => 10,
+            'limit' => 100,
+        ],
+        'client_options' => [
+            'connect_timeout' => 5,
+        ],
+    ],
 
     // Set if the service provider should automatically load
     // handlers from /routes/telegram.php

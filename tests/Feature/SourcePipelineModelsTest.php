@@ -46,7 +46,7 @@ final class SourcePipelineModelsTest extends TestCase
         $item = OriginalItem::factory()->create();
         $bundled = OriginalItem::factory()->create();
         $bundle = MdBundle::factory()->create();
-        
+
         // Attach using BundleItem model to ensure UUID is generated
         BundleItem::create([
             'bundle_id' => $bundle->id,
