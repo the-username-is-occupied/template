@@ -84,7 +84,6 @@ final class BundleConsolidationServiceTest extends TestCase
                 'original_item_id' => $item->id,
                 'position' => $index + 1,
             ]);
-            $item->update(['md_bundle_id' => $bundle1->id]);
         }
 
         foreach ($items2 as $index => $item) {
@@ -92,7 +91,6 @@ final class BundleConsolidationServiceTest extends TestCase
                 'original_item_id' => $item->id,
                 'position' => $index + 1,
             ]);
-            $item->update(['md_bundle_id' => $bundle2->id]);
         }
 
         // Mock NLM service response
@@ -159,7 +157,6 @@ final class BundleConsolidationServiceTest extends TestCase
                 'original_item_id' => $item->id,
                 'position' => $index + 1,
             ]);
-            $item->update(['md_bundle_id' => $bundle1->id]);
         }
 
         foreach ($items->skip(2) as $index => $item) {
@@ -167,7 +164,6 @@ final class BundleConsolidationServiceTest extends TestCase
                 'original_item_id' => $item->id,
                 'position' => $index + 1,
             ]);
-            $item->update(['md_bundle_id' => $bundle2->id]);
         }
 
         // Mock NLM service

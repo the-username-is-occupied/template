@@ -78,7 +78,7 @@ class BundleBuilder
 
         // Wait for all uploaded sources to be ready before generating description
         $this->waitForBundleSources($notebook);
-
+        
         // Set notebook description after sources are ready
         $notebook->setDescription();
     }
@@ -92,7 +92,9 @@ class BundleBuilder
         $accWords = 0;
 
         foreach ($items as $item) {
-            $itemWords = $item->word_count ?? $this->wordCounter->count($item->full_text ?? '');
+            // Count words from rendered content (including metadata) to ensure accurate sizing
+            $renderedItem = $this->renderer->render(collect([$item]));
+            $itemWords = $this->wordCounter->count($renderedItem);
 
             if ($accumulator->isNotEmpty() && $accWords + $itemWords >= self::FROZEN_FULL_MAX_WORDS) {
                 $this->createBundleAndUpload($notebook, $accumulator, MdBundleType::FrozenFull);
@@ -134,7 +136,9 @@ class BundleBuilder
             ?? $this->createEmptyBundle($notebook, MdBundleType::ActiveDelta);
 
         foreach ($items as $item) {
-            $itemWords = $item->word_count ?? $this->wordCounter->count($item->full_text ?? '');
+            // Count words from rendered content (including metadata) to ensure accurate sizing
+            $renderedItem = $this->renderer->render(collect([$item]));
+            $itemWords = $this->wordCounter->count($renderedItem);
 
             if (($delta->word_count ?? 0) + $itemWords > self::ACTIVE_DELTA_MAX_WORDS) {
                 $this->flushDeltaToQuarter($notebook, $delta);
@@ -180,8 +184,6 @@ class BundleBuilder
         $maxPosition = $quarter->bundleItems()->max('position') ?? 0;
 
         foreach ($deltaItems as $i => $item) {
-            $item->update(['md_bundle_id' => $quarter->id]);
-
             $delta->bundleItems()
                 ->where('original_item_id', $item->id)
                 ->update([
@@ -189,6 +191,15 @@ class BundleBuilder
                     'position' => $maxPosition + $i + 1,
                 ]);
         }
+
+        // Recalculate quarter word count from rendered content
+        $allQuarterItems = $quarter->bundleItems()
+            ->with('originalItem')
+            ->orderBy('position')
+            ->get()
+            ->pluck('originalItem');
+        $quarterContent = $this->renderer->render($allQuarterItems);
+        $quarter->update(['word_count' => $this->wordCounter->count($quarterContent)]);
 
         $quarter->increment('word_count', $deltaWordCount);
 
@@ -250,8 +261,8 @@ class BundleBuilder
 
         $this->bundleItemsService->attachItems($bundle, $items);
 
-        $wordCount = $items->sum(fn (OriginalItem $item) => $item->word_count ?? $this->wordCounter->count($item->full_text ?? ''));
         $content = $this->renderer->render($items);
+        $wordCount = $this->wordCounter->count($content);
 
         $bundle->update(['word_count' => $wordCount]);
 

@@ -165,8 +165,7 @@ class CitationResolver2
         if ($position === -1) {
             Log::warning('CitationResolver2: cited_text not found in bundle file', [
                 'nlm_source_id' => $reference->source_id,
-                'cited_text_snippet' => substr($citedTextClean, 0, 100),
-                'file_snippet' => substr($fileContent, 0, 500),
+                'cited_text_snippet' => substr($citedTextClean, 0, 100)
             ]);
 
             return null;

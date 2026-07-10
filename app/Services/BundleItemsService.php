@@ -28,9 +28,6 @@ class BundleItemsService
                 'position' => $index + 1,
             ]);
 
-            // Помечаем item как bundled, чтобы исключить его из повторной обработки
-            $item->update(['md_bundle_id' => $bundle->id]);
-
             $bundleItems->push($bundleItem);
         });
 

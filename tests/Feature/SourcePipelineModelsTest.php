@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Feature;
 
 use App\Enums\ReviewStatus;
+use App\Models\BundleItem;
 use App\Models\ContentSource;
 use App\Models\MdBundle;
 use App\Models\Notebook;
@@ -43,11 +44,19 @@ final class SourcePipelineModelsTest extends TestCase
     public function test_original_item_unbundled_scope(): void
     {
         $item = OriginalItem::factory()->create();
-        $bundled = OriginalItem::factory()->create(['md_bundle_id' => MdBundle::factory()]);
+        $bundled = OriginalItem::factory()->create();
+        $bundle = MdBundle::factory()->create();
+        
+        // Attach using BundleItem model to ensure UUID is generated
+        BundleItem::create([
+            'bundle_id' => $bundle->id,
+            'original_item_id' => $bundled->id,
+            'position' => 1,
+        ]);
 
         $this->assertTrue($item->is($item->fresh()));
         $this->assertSame(1, OriginalItem::unbundled()->count());
-        $this->assertSame(1, OriginalItem::whereNotNull('md_bundle_id')->count());
+        $this->assertSame(1, OriginalItem::whereHas('bundles')->count());
     }
 
     public function test_md_bundle_scopes_and_relations(): void

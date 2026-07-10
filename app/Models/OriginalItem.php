@@ -38,7 +38,6 @@ class OriginalItem extends Model
         'published_at',
         'word_count',
         'metadata',
-        'md_bundle_id',
     ];
 
     protected function casts(): array
@@ -46,7 +45,6 @@ class OriginalItem extends Model
         return [
             'content_source_id' => 'string',
             'parent_item_id' => 'string',
-            'md_bundle_id' => 'string',
             'published_at' => 'datetime',
             'word_count' => 'integer',
             'metadata' => 'array',
@@ -80,7 +78,7 @@ class OriginalItem extends Model
 
     public function scopeUnbundled($query)
     {
-        return $query->whereNull('md_bundle_id');
+        return $query->whereDoesntHave('bundles');
     }
 
     /**

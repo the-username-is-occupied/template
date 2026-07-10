@@ -141,9 +141,6 @@ class BundleConsolidationService
                     'original_item_id' => $item->id,
                     'position' => $position,
                 ]);
-
-                // Update original_item reference
-                $item->update(['md_bundle_id' => $target->id]);
             }
 
             $target->update(['word_count' => $totalWordCount]);

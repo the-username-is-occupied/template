@@ -9,6 +9,7 @@ use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Log;
+use SergiX44\Nutgram\Nutgram;
 
 class TelegramAskJob implements ShouldQueue
 {
@@ -31,6 +32,20 @@ class TelegramAskJob implements ShouldQueue
         } catch (\Throwable $e) {
             Log::error('Ошибка в Job при отправке ответа в ТГ: '.$e->getMessage());
             // Если нужно, чтобы очередь попробовала запустить задачу снова:
+
+            $bot = app()->make(Nutgram::class);
+            if ($this->placeholderId) {
+                $bot->deleteMessage(
+                    chat_id: $this->user_id,
+                    message_id: $this->placeholderId
+                );
+            }
+
+            $bot->sendMessage(
+                text: '⚠️ Произошла ошибка при обработке вашего запроса\\. Пожалуйста\\, попробуйте снова позже\\.',
+                parse_mode: 'MarkdownV2',
+                chat_id: $this->user_id
+            );
             $this->fail($e);
         }
     }

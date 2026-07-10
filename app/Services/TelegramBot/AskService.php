@@ -27,7 +27,6 @@ class AskService
     {
 
         try {
-
             $notebook = $this->sessionService->getActiveBase($user_id);
             if (! $notebook) {
 
@@ -40,7 +39,7 @@ class AskService
             }
 
             $msg = app()->make(NLMAskService::class)->ask($notebook, $question);
-            // $msg = ChatMessage::find("019f2893-1ad3-728b-b5f0-2dd9aae6f05d");
+            // $msg = ChatMessage::find("019f4928-9e12-73fb-8fec-944708c5290d");
 
             $resolved = $msg->askDto()->resolve();
             $myLinks = $resolved->getCitationLinks();
