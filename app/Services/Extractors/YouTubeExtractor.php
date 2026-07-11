@@ -5,13 +5,17 @@ declare(strict_types=1);
 namespace App\Services\Extractors;
 
 use App\Contracts\SourceExtractorInterface;
+use App\Domain\NotebookLM\DTOs\SourceDTO;
+use App\Domain\NotebookLM\DTOs\SourceFulltextDTO;
 use App\Domain\NotebookLM\NotebookLMService;
 use App\Events\ExtractionDone;
 use App\Models\ContentSource;
 use App\Models\OriginalItem;
+use App\Models\TechNotebook;
 use App\Services\AccountService;
 use App\Services\WordCounter;
 use Illuminate\Support\Facades\Log;
+use Throwable;
 
 class YouTubeExtractor implements SourceExtractorInterface
 {
@@ -158,7 +162,7 @@ class YouTubeExtractor implements SourceExtractorInterface
             );
 
             $this->extractTranscripts($source, $notebook, $urlBySourceId);
-        } catch (\Throwable $e) {
+        } catch (Throwable $e) {
             Log::error($e->getMessage());
         } finally {
             $this->cleanupNotebookSources($notebook, $sourceIds);
@@ -166,54 +170,79 @@ class YouTubeExtractor implements SourceExtractorInterface
     }
 
     /**
-     * Adds each URL as a source in the notebook individually, so that a single bad
-     * URL doesn't abort the whole batch. Failing URLs are logged and skipped.
+     * Adds all URLs in the batch to the notebook in parallel (via Http::pool under the
+     * hood), so a slow or bad URL no longer serializes the whole batch. Failing URLs
+     * are logged and skipped, same as before.
      *
      * @param  array<int, string>  $batchUrls
      * @return array<int|string, string> map of sourceId => url, for successfully added sources
      */
-    private function addSourcesToNotebook($notebook, array $batchUrls): array
+    private function addSourcesToNotebook(TechNotebook $notebook, array $batchUrls): array
     {
+        $poolResults = $this->notebookLMService->addSourceUrlsPool(
+            $notebook->account_id,
+            $notebook->notebook_id,
+            $batchUrls,
+            $notebook->getAvailableSlots()
+        );
+
         $urlBySourceId = [];
+        $successCount = 0;
 
-        foreach ($batchUrls as $url) {
-            try {
-                $sourceDto = $this->notebookLMService->addSourceUrl(
-                    $notebook->account_id,
-                    $notebook->notebook_id,
-                    $url
-                );
+        foreach (array_values($batchUrls) as $index => $url) {
+            $result = $poolResults[$index] ?? null;
 
-                $urlBySourceId[$sourceDto->id] = $url;
-                $this->accountService->incrementSourcesCount($notebook, 1);
-            } catch (\Throwable $e) {
-                Log::error("Failed to add source URL {$url}: ".$e->getMessage());
+            if (! $result instanceof SourceDTO) {
+                $message = $result instanceof Throwable ? $result->getMessage() : 'Unknown error';
+                Log::error("Failed to add source URL {$url}: {$message}");
 
                 continue;
             }
+
+            $urlBySourceId[$result->id] = $url;
+            $successCount++;
+        }
+
+        if ($successCount > 0) {
+            $this->accountService->incrementSourcesCount($notebook, $successCount);
         }
 
         return $urlBySourceId;
     }
 
     /**
+     * Fetches full text for all sources in parallel (via Http::pool under the hood).
+     * A failure on one source no longer blocks the rest from being extracted.
+     *
      * @param  array<int|string, string>  $urlBySourceId  map of sourceId => url
      */
-    private function extractTranscripts(ContentSource $source, $notebook, array $urlBySourceId): void
+    private function extractTranscripts(ContentSource $source, TechNotebook $notebook, array $urlBySourceId): void
     {
+        $sourceIds = array_keys($urlBySourceId);
+
+        $poolResults = $this->notebookLMService->getSourceFulltextsPool(
+            $notebook->account_id,
+            $notebook->notebook_id,
+            $sourceIds,
+            $notebook->getAvailableSlots()
+        );
+
         foreach ($urlBySourceId as $sourceId => $url) {
-            $fulltextDto = $this->notebookLMService->getSourceFulltext(
-                $notebook->account_id,
-                $notebook->notebook_id,
-                $sourceId
-            );
+            $result = $poolResults[$sourceId] ?? null;
+
+            if (! $result instanceof SourceFulltextDTO) {
+                $message = $result instanceof Throwable ? $result->getMessage() : 'Unknown error';
+                Log::error("Failed to fetch fulltext for source {$sourceId} ({$url}): {$message}");
+
+                continue;
+            }
 
             OriginalItem::create([
                 'content_source_id' => $source->id,
-                'title' => $fulltextDto->title ?? basename($url),
-                'full_text' => $fulltextDto->content,
+                'title' => $result->title ?? basename($url),
+                'full_text' => $result->content,
                 'source_url' => $url,
-                'word_count' => $this->wordCounter->count($fulltextDto->content),
+                'word_count' => $this->wordCounter->count($result->content),
                 'metadata' => [
                     'source_id' => $sourceId,
                     'notebook_id' => $notebook->notebook_id,
@@ -223,24 +252,29 @@ class YouTubeExtractor implements SourceExtractorInterface
     }
 
     /**
+     * Deletes all sources for the batch in parallel (via Http::pool under the hood).
+     *
      * @param  array<int, int|string>  $sourceIds
      */
-    private function cleanupNotebookSources($notebook, array $sourceIds): void
+    private function cleanupNotebookSources(TechNotebook $notebook, array $sourceIds): void
     {
-        foreach ($sourceIds as $sourceId) {
-            try {
-                $this->notebookLMService->deleteSource(
-                    $notebook->account_id,
-                    $notebook->notebook_id,
-                    $sourceId
-                );
-            } catch (\Exception $e) {
-                Log::error("Failed to delete source {$sourceId}: ".$e->getMessage());
+        if (empty($sourceIds)) {
+            return;
+        }
+
+        $poolResults = $this->notebookLMService->deleteSourcesPool(
+            $notebook->account_id,
+            $notebook->notebook_id,
+            $sourceIds,
+            $notebook->getAvailableSlots()
+        );
+
+        foreach ($poolResults as $sourceId => $result) {
+            if ($result instanceof Throwable) {
+                Log::error("Failed to delete source {$sourceId}: ".$result->getMessage());
             }
         }
 
-        if (! empty($sourceIds)) {
-            $this->accountService->decrementSourcesCount($notebook, count($sourceIds));
-        }
+        $this->accountService->decrementSourcesCount($notebook, count($sourceIds));
     }
 }

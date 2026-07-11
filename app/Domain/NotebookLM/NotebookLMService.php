@@ -17,10 +17,13 @@ use App\Domain\NotebookLM\DTOs\ShareStatusDTO;
 use App\Domain\NotebookLM\DTOs\SourceDTO;
 use App\Domain\NotebookLM\DTOs\SourceFulltextDTO;
 use App\Domain\NotebookLM\DTOs\SuggestedTopicDTO;
+use Closure;
 use Illuminate\Http\Client\PendingRequest;
+use Illuminate\Http\Client\Pool;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
+use Throwable;
 
 /**
  * Service for communicating with NotebookLM FastAPI service.
@@ -36,10 +39,13 @@ class NotebookLMService
 
     protected int $timeout;
 
+    protected int $poolConcurrency;
+
     public function __construct()
     {
         $this->baseUrl = config('notebook-lm.url', 'http://notebooklm:8000');
         $this->timeout = config('notebook-lm.timeout', 30);
+        $this->poolConcurrency = (int) config('notebook-lm.pool_concurrency', 10);
     }
 
     public function getBaseUrl(): string
@@ -153,6 +159,51 @@ class NotebookLMService
     }
 
     /**
+     * Get full text for multiple sources in parallel, using Http::pool().
+     *
+     * Requests are chunked by `notebook-lm.pool_concurrency` to avoid opening
+     * too many concurrent connections to the FastAPI service at once.
+     *
+     * @param  string[]  $sourceIds
+     * @return array<string, SourceFulltextDTO|Throwable> map of sourceId => result.
+     *                                                    A Throwable means that particular request failed;
+     *                                                    callers should handle per-item failures individually.
+     */
+    public function getSourceFulltextsPool(string $accountId, string $notebookId, array $sourceIds, ?int $concurrency = null): array
+    {
+        $concurrency = $concurrency ?? $this->poolConcurrency;
+        $results = [];
+
+        foreach (array_chunk($sourceIds, max(1, $concurrency)) as $chunk) {
+            $path = fn (string $sourceId) => "/accounts/{$accountId}/notebooks/{$notebookId}/sources/{$sourceId}/fulltext";
+
+            $responses = Http::pool(function (Pool $pool) use ($chunk, $path) {
+                $requests = [];
+
+                foreach ($chunk as $sourceId) {
+                    $requests[] = $pool->as((string) $sourceId)
+                        ->timeout($this->timeout)
+                        ->get($this->baseUrl.$path($sourceId));
+                }
+
+                return $requests;
+            });
+
+            foreach ($chunk as $sourceId) {
+                $response = $responses[(string) $sourceId] ?? null;
+
+                $results[$sourceId] = $this->resolvePoolResponse(
+                    $response,
+                    $path($sourceId),
+                    fn (array $body) => SourceFulltextDTO::from($body)
+                );
+            }
+        }
+
+        return $results;
+    }
+
+    /**
      * Get AI-generated summary and keywords for a source.
      *
      * @return array{summary: string, keywords: string}
@@ -170,6 +221,51 @@ class NotebookLMService
         $response = $this->post("/accounts/{$accountId}/notebooks/{$notebookId}/sources/url", ['url' => $url]);
 
         return SourceDTO::from($response['source']);
+    }
+
+    /**
+     * Add multiple URL sources in parallel, using Http::pool().
+     *
+     * Requests are chunked by `notebook-lm.pool_concurrency` to avoid opening
+     * too many concurrent connections to the FastAPI service at once.
+     *
+     * @param  string[]  $urls
+     * @return array<int, SourceDTO|Throwable> map of original array index => result.
+     *                                         A Throwable means that particular URL failed to be added;
+     *                                         callers should handle per-item failures individually.
+     */
+    public function addSourceUrlsPool(string $accountId, string $notebookId, array $urls, ?int $concurrency = null): array
+    {
+        $concurrency = $concurrency ?? $this->poolConcurrency;
+        $urls = array_values($urls);
+        $results = [];
+        $path = "/accounts/{$accountId}/notebooks/{$notebookId}/sources/url";
+
+        foreach (array_chunk($urls, max(1, $concurrency), true) as $chunk) {
+            $responses = Http::pool(function (Pool $pool) use ($chunk, $path) {
+                $requests = [];
+
+                foreach ($chunk as $index => $url) {
+                    $requests[] = $pool->as((string) $index)
+                        ->timeout($this->timeout)
+                        ->post($this->baseUrl.$path, ['url' => $url]);
+                }
+
+                return $requests;
+            });
+
+            foreach ($chunk as $index => $url) {
+                $response = $responses[(string) $index] ?? null;
+
+                $results[$index] = $this->resolvePoolResponse(
+                    $response,
+                    $path,
+                    fn (array $body) => SourceDTO::from($body['source'])
+                );
+            }
+        }
+
+        return $results;
     }
 
     /**
@@ -227,6 +323,48 @@ class NotebookLMService
     }
 
     /**
+     * Delete multiple sources in parallel, using Http::pool().
+     *
+     * @param  array<int, int|string>  $sourceIds
+     * @return array<int|string, bool|Throwable> map of sourceId => result.
+     *                                           A Throwable means that particular delete failed;
+     *                                           callers should handle per-item failures individually.
+     */
+    public function deleteSourcesPool(string $accountId, string $notebookId, array $sourceIds, ?int $concurrency = null): array
+    {
+        $concurrency = $concurrency ?? $this->poolConcurrency;
+        $results = [];
+
+        foreach (array_chunk($sourceIds, max(1, $concurrency)) as $chunk) {
+            $path = fn (int|string $sourceId) => "/accounts/{$accountId}/notebooks/{$notebookId}/sources/{$sourceId}";
+
+            $responses = Http::pool(function (Pool $pool) use ($chunk, $path) {
+                $requests = [];
+
+                foreach ($chunk as $sourceId) {
+                    $requests[] = $pool->as((string) $sourceId)
+                        ->timeout($this->timeout)
+                        ->delete($this->baseUrl.$path($sourceId));
+                }
+
+                return $requests;
+            });
+
+            foreach ($chunk as $sourceId) {
+                $response = $responses[(string) $sourceId] ?? null;
+
+                $results[$sourceId] = $this->resolvePoolResponse(
+                    $response,
+                    $path($sourceId),
+                    fn (array $body) => (bool) ($body['success'] ?? false)
+                );
+            }
+        }
+
+        return $results;
+    }
+
+    /**
      * Refresh a URL/Drive source.
      */
     public function refreshSource(string $accountId, string $notebookId, string $sourceId): bool
@@ -255,13 +393,24 @@ class NotebookLMService
     {
         $sources = $this->listSources($accountId, $notebookId);
 
+        if (empty($sources)) {
+            return true;
+        }
+
+        $sourceIds = array_map(fn ($source) => $source->id, $sources);
+        $results = $this->deleteSourcesPool($accountId, $notebookId, $sourceIds);
+
         $allDeleted = true;
 
-        foreach ($sources as $source) {
-            try {
-                $this->deleteSource($accountId, $notebookId, $source->id);
-            } catch (\Exception $e) {
-                Log::error("Failed to delete source {$source->id} from notebook {$notebookId}: ".$e->getMessage());
+        foreach ($results as $sourceId => $result) {
+            if ($result instanceof Throwable) {
+                Log::error("Failed to delete source {$sourceId} from notebook {$notebookId}: ".$result->getMessage());
+                $allDeleted = false;
+
+                continue;
+            }
+
+            if ($result !== true) {
                 $allDeleted = false;
             }
         }
@@ -529,6 +678,37 @@ class NotebookLMService
     protected function client(?int $timeout = null): PendingRequest
     {
         return Http::timeout($timeout ?? $this->timeout);
+    }
+
+    /**
+     * Resolve a single response coming out of an Http::pool() call.
+     *
+     * Pool responses can be either a Response instance or, when the underlying
+     * request itself failed (connection error, timeout, etc.), a Throwable.
+     * This normalizes both cases: on any failure (connection-level or HTTP
+     * error status), a Throwable is returned instead of being thrown, so that
+     * callers can handle per-item failures without aborting the whole batch.
+     *
+     * @return mixed the mapped success value, or a Throwable on failure
+     */
+    protected function resolvePoolResponse(mixed $response, string $path, Closure $mapper): mixed
+    {
+        try {
+            if ($response instanceof Throwable) {
+                throw $response;
+            }
+
+            if (! $response instanceof Response) {
+                throw new \RuntimeException('No response received from pooled request');
+            }
+
+            $this->logResponse($response, $path);
+            $this->handleError($response, $path);
+
+            return $mapper($response->json());
+        } catch (Throwable $e) {
+            return $e;
+        }
     }
 
     // =========================================================================

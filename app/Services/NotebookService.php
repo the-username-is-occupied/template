@@ -29,6 +29,8 @@ class NotebookService
             'title' => $title,
         ]);
 
+        $notebook->makeSharable();
+
         $notebook->setSystemPrompt();
 
         return $notebook;

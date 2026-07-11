@@ -26,6 +26,8 @@ return [
 
     'timeout' => (int) ($_ENV['NOTEBOOK_LM_TIMEOUT'] ?? 30),
 
+    'pool_concurrency' => env('NOTEBOOKLM_POOL_CONCURRENCY', 10),
+
     /*
     |--------------------------------------------------------------------------
     | Retry Attempts
