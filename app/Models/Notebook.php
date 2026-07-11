@@ -14,6 +14,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Facades\Storage;
 
 class Notebook extends Model
 {
@@ -131,26 +132,31 @@ class Notebook extends Model
         $this->nlm()->configure($this->system_prompt);
     }
 
-    public function deleteNotebook(): bool
-    {
-        $this->nlm()->deleteNotebook();
-
-        foreach ($this->contentSources as $contentSource) {
-            $contentSource->originalItems()->delete();
-            $contentSource->sourceDrafts()->detach();
-            $contentSource->mdBundles()->detach();
-            $contentSource->chats()->detach();
-            $contentSource->delete();
-        }
-        $this->contentSources()->detach();
-        $this->mdBundles()->delete();
-        $this->sourceDrafts()->delete();
-
-        return $this->delete();
-    }
-
     public function clean()
     {
-        $this->techAccount()->first()->service()->cleanupNotebookSources($this->id);
+        $this->techAccount()->first()->service()->cleanupNotebookSources($this->nlm_notebook_id);
+
+        // Получить все bundles для этого notebook
+        $bundles = $this->mdBundles()->get();
+
+        if ($bundles->isEmpty()) {
+            return;
+        }
+
+        // Удалить файлы бандлов
+        foreach ($bundles as $bundle) {
+            $bundle->bundleItems()->delete();
+            if ($bundle->file_path && Storage::disk('bundles')->exists($bundle->file_path)) {
+                Storage::disk('bundles')->delete($bundle->file_path);
+            }
+
+            $bundle->delete();
+        }
+
+        foreach ($this->contentSources()->get() as $contentSource) {
+            foreach ($contentSource->originalItems()->bundled()->cursor() as $originalItem) {
+                $originalItem->bundles()->detach();
+            }
+        }
     }
 }

@@ -92,7 +92,7 @@ class DatabaseMenu extends InlineMenu
         $formatter = app()->make(TelegramMessageFormatterService::class);
 
         $notebook = Notebook::query()
-            ->with(['contentSources' => fn ($i) => $i->withItemsCount()])
+            ->with(['contentSources' => fn ($i) => $i->withBundledItemsCount()])
             ->find($notebook->id);
 
         $sources = $notebook->contentSources

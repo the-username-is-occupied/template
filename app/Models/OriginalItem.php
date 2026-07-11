@@ -81,6 +81,11 @@ class OriginalItem extends Model
         return $query->whereDoesntHave('bundles');
     }
 
+    public function scopeBundled($query)
+    {
+        return $query->whereHas('bundles');
+    }
+
     /**
      * Scope to get items that need bundling with their notebook IDs.
      */

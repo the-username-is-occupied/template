@@ -87,6 +87,7 @@ class TechNotebook extends Model
     public function clean()
     {
         $this->account()->first()->service()->cleanupNotebookSources($this->notebook_id);
+        $this->update(['sources_count' => 0, 'status' => 'idle']);
         (new AccountService)->releaseTechNotebookLock($this);
     }
 }

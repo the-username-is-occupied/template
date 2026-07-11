@@ -53,8 +53,17 @@ class BundleBuilder
 
         $items = OriginalItem::whereIn('content_source_id', $contentSourceIds)
             ->unbundled()
-            ->orderBy('published_at')
-            ->get();
+            ->orderBy('published_at');
+
+        if (! $items->exists()) {
+            Log::info('Starting bundle build. Items to build not found', [
+                'notebook_id' => $notebook->id,
+                'content_source_ids' => $contentSourceIds->toArray(),
+                'unbundled_item_count' => 0,
+            ]);
+
+            return;
+        }
 
         Log::info('Starting bundle build', [
             'notebook_id' => $notebook->id,
@@ -62,17 +71,13 @@ class BundleBuilder
             'unbundled_item_count' => $items->count(),
         ]);
 
-        if ($items->isEmpty()) {
-            return;
-        }
-
         $hasExistingBundles = $notebook->mdBundles()->exists();
 
         DB::transaction(function () use ($notebook, $items, $hasExistingBundles): void {
-            if ($hasExistingBundles) {
-                $this->performContinuousIndexing($notebook, $items);
+            if ($hasExistingBundles && $items->sum('word_count') < 8000) {
+                $this->performContinuousIndexing($notebook, $items->get());
             } else {
-                $this->performPrimaryIndexing($notebook, $items);
+                $this->performPrimaryIndexing($notebook, $items->get());
             }
         });
 

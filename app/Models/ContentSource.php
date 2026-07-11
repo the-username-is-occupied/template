@@ -112,4 +112,11 @@ class ContentSource extends Model
     {
         return $query->withCount('originalItems');
     }
+
+    public function scopeWithBundledItemsCount(Builder $query)
+    {
+        return $query->withCount(['originalItems' => function (Builder $query) {
+            $query->bundled();
+        }]);
+    }
 }
