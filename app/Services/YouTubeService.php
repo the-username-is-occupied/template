@@ -268,12 +268,14 @@ class YouTubeService
     }
 
     /**
-     * 3. Resolve каналов по URL видео (Пакетный режим).
-     * Принимает пачку URL-адресов видео (разных типов), возвращает маппинг: [url_видео => @channel_name]
+     * 3. Resolve каналов и метаданных по URL видео (Пакетный режим).
+     * Принимает пачку URL-адресов видео (разных типов), возвращает маппинг:
+     * [url_видео => {handle, title, description, tags, channelId, channelTitle,
+     *                publishedAt, duration, viewCount, likeCount, commentCount}]
      *
-     * * @param array $urls Массив ссылок на видео (watch, shorts, live, youtu.be)
+     * @param  array  $urls  Массив ссылок на видео (watch, shorts, live, youtu.be)
      */
-    public function resolveChannelUrls(array $urls): DataCollection
+    public function resolveChannelUrls(array $urls, bool $resolveChannel = false): DataCollection
     {
         $mappings = [];
         $urlToVideoId = [];
@@ -300,25 +302,46 @@ class YouTubeService
         }
 
         if (empty($videoIds)) {
-            return ChannelUrlMappingData::collect($mappings);
+            return ChannelUrlMappingData::collect($mappings, DataCollection::class);
         }
 
-        // 2. Получаем Channel ID для каждого Video ID (пачками по 50 штук)
+        // 2. Получаем данные видео (snippet, contentDetails, statistics) пачками по 50 штук
         $videoChunks = array_chunk(array_unique($videoIds), 50);
-        $videoIdToChannelId = [];
+        $videoIdToData = [];
         $channelIds = [];
 
         foreach ($videoChunks as $chunk) {
             try {
                 $idsString = implode(',', $chunk);
-                $response = $this->youtube->videos->listVideos('snippet', ['id' => $idsString]);
+                $response = $this->youtube->videos->listVideos(
+                    'snippet,contentDetails,statistics',
+                    ['id' => $idsString]
+                );
 
                 foreach ($response->getItems() as $video) {
                     $vId = $video->getId();
-                    $cId = $video->getSnippet()->getChannelId();
+                    $snippet = $video->getSnippet();
+                    $contentDetails = $video->getContentDetails();
+                    $statistics = $video->getStatistics();
 
-                    $videoIdToChannelId[$vId] = $cId;
+                    $cId = $snippet->getChannelId();
                     $channelIds[] = $cId;
+
+                    $videoIdToData[$vId] = [
+                        'title' => $snippet->getTitle(),
+                        'description' => $snippet->getDescription(),
+                        // 'tags' => $snippet->getTags() ?: null,
+                        'channelId' => $cId,
+                        'channelTitle' => $snippet->getChannelTitle(),
+                        'publishedAt' => $snippet->getPublishedAt(),
+                        'duration' => $contentDetails?->getDuration(),
+                        'viewCount' => $statistics && $statistics->getViewCount() !== null
+                            ? (int) $statistics->getViewCount() : null,
+                        'likeCount' => $statistics && $statistics->getLikeCount() !== null
+                            ? (int) $statistics->getLikeCount() : null,
+                        'commentCount' => $statistics && $statistics->getCommentCount() !== null
+                            ? (int) $statistics->getCommentCount() : null,
+                    ];
                 }
             } catch (\Exception $e) {
                 throw new YouTubeApiException('YouTube API Error batch fetching video details: '.$e->getMessage(), 0, $e);
@@ -329,44 +352,65 @@ class YouTubeService
             throw new YouTubeApiException('No channel IDs found for the provided video URLs');
         }
 
-        // 3. Получаем Handle (@channel_name) для каждого уникального Channel ID (пачками по 50 штук)
-        $channelChunks = array_chunk(array_unique($channelIds), 50);
-        $channelIdToHandle = [];
+        if ($resolveChannel) {
 
-        foreach ($channelChunks as $chunk) {
-            try {
-                $idsString = implode(',', $chunk);
-                $response = $this->youtube->channels->listChannels('snippet', ['id' => $idsString]);
+            // 3. Получаем Handle (@channel_name) для каждого уникального Channel ID (пачками по 50 штук)
+            $channelChunks = array_chunk(array_unique($channelIds), 50);
+            $channelIdToHandle = [];
 
-                foreach ($response->getItems() as $channel) {
-                    $cId = $channel->getId();
-                    $customUrl = $channel->getSnippet()->getCustomUrl();
+            foreach ($channelChunks as $chunk) {
+                try {
+                    $idsString = implode(',', $chunk);
+                    $response = $this->youtube->channels->listChannels('snippet', ['id' => $idsString]);
 
-                    if ($customUrl) {
-                        $channelIdToHandle[$cId] = str_starts_with($customUrl, '@') ? $customUrl : '@'.$customUrl;
-                    } else {
-                        $title = $channel->getSnippet()->getTitle();
-                        $channelIdToHandle[$cId] = '@'.preg_replace('/[^a-zA-Z0-9]/', '', $title);
+                    foreach ($response->getItems() as $channel) {
+                        $cId = $channel->getId();
+                        $customUrl = $channel->getSnippet()->getCustomUrl();
+
+                        if ($customUrl) {
+                            $channelIdToHandle[$cId] = str_starts_with($customUrl, '@') ? $customUrl : '@'.$customUrl;
+                        } else {
+                            $title = $channel->getSnippet()->getTitle();
+                            $channelIdToHandle[$cId] = '@'.preg_replace('/[^a-zA-Z0-9]/', '', $title);
+                        }
                     }
+                } catch (\Exception $e) {
+                    throw new YouTubeApiException('YouTube API Error batch fetching channel handles: '.$e->getMessage(), 0, $e);
                 }
-            } catch (\Exception $e) {
-                throw new YouTubeApiException('YouTube API Error batch fetching channel handles: '.$e->getMessage(), 0, $e);
             }
         }
 
-        // 4. Склеиваем финальный маппинг: Исходный URL -> ID Видео -> ID Канала -> Хэндл (@)
+        // 4. Склеиваем финальный маппинг: Исходный URL -> ID Видео -> данные видео + Хэндл (@)
         foreach ($mappings as $mapping) {
-            if (isset($urlToVideoId[$mapping->url])) {
-                $vId = $urlToVideoId[$mapping->url];
-                if (isset($videoIdToChannelId[$vId])) {
-                    $cId = $videoIdToChannelId[$vId];
-                    if (isset($channelIdToHandle[$cId])) {
-                        $mapping->handle = $channelIdToHandle[$cId];
-                    }
-                }
+            if (! isset($urlToVideoId[$mapping->url])) {
+                continue;
+            }
+
+            $vId = $urlToVideoId[$mapping->url];
+            $mapping->videoId = $vId;
+
+            if (! isset($videoIdToData[$vId])) {
+                continue;
+            }
+
+            $data = $videoIdToData[$vId];
+
+            $mapping->title = $data['title'];
+            $mapping->description = $data['description'];
+            $mapping->tags = $data['tags'] ?? null;
+            $mapping->channelId = $data['channelId'];
+            $mapping->channelTitle = $data['channelTitle'];
+            $mapping->publishedAt = $data['publishedAt'];
+            $mapping->duration = $data['duration'];
+            $mapping->viewCount = $data['viewCount'];
+            $mapping->likeCount = $data['likeCount'];
+            $mapping->commentCount = $data['commentCount'];
+
+            if (isset($channelIdToHandle[$data['channelId']])) {
+                $mapping->handle = $channelIdToHandle[$data['channelId']];
             }
         }
 
-        return ChannelUrlMappingData::collect($mappings);
+        return ChannelUrlMappingData::collect($mappings, DataCollection::class);
     }
 }

@@ -13,7 +13,7 @@ return [
     |
     */
 
-    'url' => $_ENV['NOTEBOOK_LM_URL'] ?? 'http://notebooklm:8000',
+    'url' => env('NOTEBOOK_LM_URL', 'http://notebooklm:8000'),
 
     /*
     |--------------------------------------------------------------------------
@@ -24,9 +24,9 @@ return [
     |
     */
 
-    'timeout' => (int) ($_ENV['NOTEBOOK_LM_TIMEOUT'] ?? 30),
+    'timeout' => (int) env('NOTEBOOK_LM_TIMEOUT', 30),
 
-    'pool_concurrency' => env('NOTEBOOKLM_POOL_CONCURRENCY', 10),
+    'pool_concurrency' => env('NOTEBOOKLM_POOL_CONCURRENCY', 20),
 
     /*
     |--------------------------------------------------------------------------
@@ -37,7 +37,7 @@ return [
     |
     */
 
-    'retry_attempts' => (int) ($_ENV['NOTEBOOK_LM_RETRY_ATTEMPTS'] ?? 3),
+    'retry_attempts' => env('NOTEBOOK_LM_RETRY_ATTEMPTS', 3),
 
     'system_prompt' => 'Ты - Eolithic, AI ассистент по контенту.
 

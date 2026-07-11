@@ -14,6 +14,7 @@ use App\Models\OriginalItem;
 use App\Models\TechNotebook;
 use App\Services\AccountService;
 use App\Services\WordCounter;
+use App\Services\YouTubeOriginalItemMetadataResolver;
 use Illuminate\Support\Facades\Log;
 use Throwable;
 
@@ -31,6 +32,7 @@ class YouTubeExtractor implements SourceExtractorInterface
         private readonly AccountService $accountService,
         private readonly NotebookLMService $notebookLMService,
         private readonly WordCounter $wordCounter,
+        private readonly YouTubeOriginalItemMetadataResolver $metadataResolver,
     ) {}
 
     public function extract(ContentSource $source): void
@@ -182,8 +184,7 @@ class YouTubeExtractor implements SourceExtractorInterface
         $poolResults = $this->notebookLMService->addSourceUrlsPool(
             $notebook->account_id,
             $notebook->notebook_id,
-            $batchUrls,
-            $notebook->getAvailableSlots()
+            $batchUrls
         );
 
         $urlBySourceId = [];
@@ -223,9 +224,10 @@ class YouTubeExtractor implements SourceExtractorInterface
         $poolResults = $this->notebookLMService->getSourceFulltextsPool(
             $notebook->account_id,
             $notebook->notebook_id,
-            $sourceIds,
-            $notebook->getAvailableSlots()
+            $sourceIds
         );
+
+        $createdItems = [];
 
         foreach ($urlBySourceId as $sourceId => $url) {
             $result = $poolResults[$sourceId] ?? null;
@@ -237,17 +239,17 @@ class YouTubeExtractor implements SourceExtractorInterface
                 continue;
             }
 
-            OriginalItem::create([
+            $createdItems[] = OriginalItem::create([
                 'content_source_id' => $source->id,
                 'title' => $result->title ?? basename($url),
                 'full_text' => $result->content,
                 'source_url' => $url,
                 'word_count' => $this->wordCounter->count($result->content),
-                'metadata' => [
-                    'source_id' => $sourceId,
-                    'notebook_id' => $notebook->notebook_id,
-                ],
             ]);
+        }
+
+        if (! empty($createdItems)) {
+            $this->metadataResolver->resolveAndUpdate(collect($createdItems));
         }
     }
 
@@ -265,8 +267,7 @@ class YouTubeExtractor implements SourceExtractorInterface
         $poolResults = $this->notebookLMService->deleteSourcesPool(
             $notebook->account_id,
             $notebook->notebook_id,
-            $sourceIds,
-            $notebook->getAvailableSlots()
+            $sourceIds
         );
 
         foreach ($poolResults as $sourceId => $result) {

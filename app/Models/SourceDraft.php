@@ -6,6 +6,7 @@ namespace App\Models;
 
 use App\Enums\SourceDraftStatus;
 use App\Enums\SourceType;
+use App\Services\SourceDraftService;
 use App\Services\SourceService;
 use Database\Factories\SourceDraftFactory;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
@@ -69,5 +70,20 @@ class SourceDraft extends Model
     public function index()
     {
         app()->make(SourceService::class)->startIndexing($this);
+    }
+
+    public function confirmAndProcess(?array $scrapeConfig = null)
+    {
+        return app()->make(SourceService::class)->confirmAndProcess($this, $scrapeConfig);
+    }
+
+    public function syncNotebooks(): void
+    {
+        $this->contentSource?->notebooks()->syncWithoutDetaching($this->knowledgeBase->id);
+    }
+
+    public function fetchUrls(array $contentTypes = ['video'])
+    {
+        return app()->make(SourceDraftService::class)->loadVideoList($this, $contentTypes);
     }
 }

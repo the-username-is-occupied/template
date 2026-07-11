@@ -27,6 +27,7 @@ class BundleRenderer2
 
                 sprintf('* **title:** %s', strip_tags($item->getTitle())),
                 sprintf('* **published_date:** %s', $item->published_at?->toIso8601String() ?? ''),
+                sprintf('* **indexed_date:** %s', $item->created_at?->toIso8601String() ?? ''),
                 ...$this->metaFormat($item->getMetaArray()->toArray()),
                 '',
                 addslashes(strip_tags($item->full_text ?? '')),

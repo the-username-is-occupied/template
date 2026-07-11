@@ -13,7 +13,10 @@ use App\Models\TechNotebook;
 use App\Models\User;
 use App\Services\AccountService;
 use App\Services\Extractors\YouTubeExtractor;
+use App\Services\WordCounter;
+use App\Services\YouTubeOriginalItemMetadataResolver;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Collection;
 use Tests\TestCase;
 
 uses(TestCase::class, RefreshDatabase::class);
@@ -44,55 +47,83 @@ test('YouTube channel extraction with 3 videos in 2 batches', function () {
         ->youtube()
         ->withUrl('https://youtube.com/@testchannel')
         ->pending()
-        ->withVideoUrls([
-            'https://youtube.com/watch?v=video1',
-            'https://youtube.com/watch?v=video2',
-            'https://youtube.com/watch?v=video3',
+        ->state(fn () => [
+            'metadata' => [
+                'channel_meta' => [
+                    'video_urls' => [
+                        'https://youtube.com/watch?v=video1',
+                        'https://youtube.com/watch?v=video2',
+                        'https://youtube.com/watch?v=video3',
+                    ],
+                ],
+            ],
         ])
         ->create(['title' => 'Test Channel']);
+
+    dump($source->metadata);
 
     // Mock NotebookLMService
     $notebookLMService = Mockery::mock(NotebookLMService::class);
 
     // First batch (2 videos)
-    $notebookLMService->shouldReceive('addSourceUrl')
-        ->twice()
-        ->andReturn(
-            new SourceDTO(id: 'source-1', title: 'Video 1', url: null, created_at: now()->toISOString(), status: 'ready', kind: 'video'),
-            new SourceDTO(id: 'source-2', title: 'Video 2', url: null, created_at: now()->toISOString(), status: 'ready', kind: 'video')
-        );
+    $notebookLMService->shouldReceive('addSourceUrlsPool')
+        ->once()
+        ->andReturnUsing(function ($accountId, $notebookId, $urls, $concurrency) {
+            dump('addSourceUrlsPool first batch', $urls);
+
+            return [
+                new SourceDTO(id: 'source-1', title: 'Video 1', url: null, created_at: now()->toISOString(), status: 'ready', kind: 'video'),
+                new SourceDTO(id: 'source-2', title: 'Video 2', url: null, created_at: now()->toISOString(), status: 'ready', kind: 'video'),
+            ];
+        });
 
     $notebookLMService->shouldReceive('waitForSources')
         ->once()
         ->andReturn([]);
 
-    $notebookLMService->shouldReceive('getSourceFulltext')
-        ->twice()
-        ->andReturn(
-            new SourceFulltextDTO(source_id: 'source-1', title: 'Video 1', content: 'Transcript 1', url: null, char_count: 100),
-            new SourceFulltextDTO(source_id: 'source-2', title: 'Video 2', content: 'Transcript 2', url: null, char_count: 150)
-        );
-
-    $notebookLMService->shouldReceive('deleteSource')
-        ->twice();
-
-    // Second batch (1 video)
-    $notebookLMService->shouldReceive('addSourceUrl')
+    $notebookLMService->shouldReceive('getSourceFulltextsPool')
         ->once()
-        ->andReturn(new SourceDTO(id: 'source-3', title: 'Video 3', url: null, created_at: now()->toISOString(), status: 'ready', kind: 'video'));
+        ->andReturnUsing(function ($accountId, $notebookId, $sourceIds, $concurrency) {
+            dump('getSourceFulltextsPool first batch', $sourceIds);
 
-    $notebookLMService->shouldReceive('waitForSources')
-        ->once()
-        ->andReturn([]);
+            return [
+                'source-1' => new SourceFulltextDTO(source_id: 'source-1', title: 'Video 1', content: 'Transcript 1', url: null, char_count: 100),
+                'source-2' => new SourceFulltextDTO(source_id: 'source-2', title: 'Video 2', content: 'Transcript 2', url: null, char_count: 150),
+            ];
+        });
 
-    $notebookLMService->shouldReceive('getSourceFulltext')
-        ->once()
-        ->andReturn(new SourceFulltextDTO(source_id: 'source-3', title: 'Video 3', content: 'Transcript 3', url: null, char_count: 120));
-
-    $notebookLMService->shouldReceive('deleteSource')
+    $notebookLMService->shouldReceive('deleteSourcesPool')
         ->once();
 
-    // Mock AccountService
+    // Second batch (1 video)
+    $notebookLMService->shouldReceive('addSourceUrlsPool')
+        ->once()
+        ->andReturnUsing(function ($accountId, $notebookId, $urls, $concurrency) {
+            dump('addSourceUrlsPool second batch', $urls);
+
+            return [
+                new SourceDTO(id: 'source-3', title: 'Video 3', url: null, created_at: now()->toISOString(), status: 'ready', kind: 'video'),
+            ];
+        });
+
+    $notebookLMService->shouldReceive('waitForSources')
+        ->once()
+        ->andReturn([]);
+
+    $notebookLMService->shouldReceive('getSourceFulltextsPool')
+        ->once()
+        ->andReturnUsing(function ($accountId, $notebookId, $sourceIds, $concurrency) {
+            dump('getSourceFulltextsPool second batch', $sourceIds);
+
+            return [
+                'source-3' => new SourceFulltextDTO(source_id: 'source-3', title: 'Video 3', content: 'Transcript 3', url: null, char_count: 120),
+            ];
+        });
+
+    $notebookLMService->shouldReceive('deleteSourcesPool')
+        ->once();
+
+    // Create mocks for services
     $accountService = Mockery::mock(AccountService::class);
     $accountService->shouldReceive('getAvailableTechNotebook')
         ->andReturn($notebook);
@@ -105,18 +136,36 @@ test('YouTube channel extraction with 3 videos in 2 batches', function () {
     $accountService->shouldReceive('decrementSourcesCount')
         ->andReturn(null);
 
-    // Create extractor and run extraction
-    $extractor = new YouTubeExtractor($accountService, $notebookLMService);
+    $wordCounter = Mockery::mock(WordCounter::class);
+    $wordCounter->shouldReceive('count')
+        ->times(3)
+        ->andReturnUsing(fn (string $content) => str_word_count($content));
+
+    $metadataResolver = Mockery::mock(YouTubeOriginalItemMetadataResolver::class);
+    $metadataResolver->shouldReceive('resolveAndUpdate')
+        ->once()
+        ->with(
+            Mockery::on(fn (Collection $items) => $items->pluck('source_url')->all() === [
+                'https://youtube.com/watch?v=video1',
+                'https://youtube.com/watch?v=video2',
+                'https://youtube.com/watch?v=video3',
+            ])
+        )
+        ->andReturnUsing(fn (Collection $items) => $items);
+
+    $extractor = new YouTubeExtractor($accountService, $notebookLMService, $wordCounter, $metadataResolver);
     $extractor->extract($source);
 
     // Refresh source from database
     $source->refresh();
+    dump('error_message', $source->error_message);
 
     // Assert extraction status
     expect($source->extraction_status)->toBe(ExtractionStatus::Extracted);
 
     // Assert OriginalItems were created
     $originalItems = OriginalItem::where('content_source_id', $source->id)->get();
+    dump($originalItems->pluck('source_url')->all());
     expect($originalItems)->toHaveCount(3);
     expect($originalItems[0]->title)->toBe('Video 1');
     expect($originalItems[0]->full_text)->toBe('Transcript 1');

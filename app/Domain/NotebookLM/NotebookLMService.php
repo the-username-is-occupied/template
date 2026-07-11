@@ -44,7 +44,7 @@ class NotebookLMService
     public function __construct()
     {
         $this->baseUrl = config('notebook-lm.url', 'http://notebooklm:8000');
-        $this->timeout = config('notebook-lm.timeout', 30);
+        $this->timeout = (int) config('notebook-lm.timeout', 30);
         $this->poolConcurrency = (int) config('notebook-lm.pool_concurrency', 10);
     }
 

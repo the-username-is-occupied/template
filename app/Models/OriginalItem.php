@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Models;
 
 use App\Enums\SourceType;
+use Carbon\CarbonInterval;
 use Database\Factories\OriginalItemFactory;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -48,6 +49,7 @@ class OriginalItem extends Model
             'published_at' => 'datetime',
             'word_count' => 'integer',
             'metadata' => 'array',
+            'created_at' => 'datetime',
         ];
     }
 
@@ -138,7 +140,49 @@ class OriginalItem extends Model
 
                     return $value;
                 }),
+            SourceType::YoutubeChannel, SourceType::YoutubeVideo => collect($this->metadata['youtube'] ?? [])
+                ->filter(fn ($i, $k) => is_null($k) || ! in_array($k, ['url', 'title', 'tags', 'publishedAt', 'handle', 'videoId', 'channelId', 'channelTitle'])),
             default => collect([])
         })->filter(fn ($i, $k) => $k != 'type')->merge(['type' => $this->getType()]);
+    }
+
+    /**
+     * Конвертирует ISO 8601 duration (например "PT1H2M3S") в секунды.
+     */
+    public static function toSeconds(?string $isoDuration): ?int
+    {
+        if (! $isoDuration) {
+            return null;
+        }
+
+        try {
+            $interval = CarbonInterval::make($isoDuration);
+
+            return $interval?->totalSeconds !== null
+                ? (int) $interval->totalSeconds
+                : null;
+        } catch (\Exception) {
+            return null;
+        }
+    }
+
+    /**
+     * Конвертирует ISO 8601 duration в человекочитаемый формат: "1:02:03" или "2:03".
+     */
+    public static function toHuman(?string $isoDuration): ?string
+    {
+        $seconds = self::toSeconds($isoDuration);
+
+        if ($seconds === null) {
+            return null;
+        }
+
+        $hours = intdiv($seconds, 3600);
+        $minutes = intdiv($seconds % 3600, 60);
+        $secs = $seconds % 60;
+
+        return $hours > 0
+            ? sprintf('%d:%02d:%02d', $hours, $minutes, $secs)
+            : sprintf('%d:%02d', $minutes, $secs);
     }
 }

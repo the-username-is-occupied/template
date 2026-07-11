@@ -79,7 +79,7 @@ async def get_source_guide(request: Request, account_id: str, notebook_id: str, 
 async def add_source_url(request: Request, account_id: str, notebook_id: str, body: SourceAddUrlRequest):
     """Add a URL source."""
     client = get_client(account_id)
-    source_data = await client.sources.add_url(notebook_id, body.url)
+    source_data = await client.sources.add_url(notebook_id, body.url, wait=True, wait_timeout=240.0)
     return SourceAddUrlResponse(
         response_time_ms=elapsed_ms(request),
         source=map_source(source_data),
@@ -90,7 +90,7 @@ async def add_source_url(request: Request, account_id: str, notebook_id: str, bo
 async def add_source_text(request: Request, account_id: str, notebook_id: str, body: SourceAddTextRequest):
     """Add a plain-text source."""
     client = get_client(account_id)
-    source_data = await client.sources.add_text(notebook_id, body.text, body.title)
+    source_data = await client.sources.add_text(notebook_id, body.text, body.title, wait=True, wait_timeout=240.0)
     return SourceAddTextResponse(
         response_time_ms=elapsed_ms(request),
         source=map_source(source_data),
