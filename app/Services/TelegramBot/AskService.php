@@ -20,7 +20,7 @@ class AskService
     ) {
         $this->bot = $bot ?? app(Nutgram::class);
         $this->sessionService = $sessionService ?? new TelegramSessionService;
-        $this->formatter = $formatter ?? new TelegramMessageFormatterService;
+        $this->formatter = $formatter ?? app()->make(TelegramMessageFormatterService::class);
     }
 
     public function handle(int $user_id, string $question, ?int $placeholderId = null)
@@ -39,7 +39,7 @@ class AskService
             }
 
             $msg = app()->make(NLMAskService::class)->ask($notebook, $question);
-            // $msg = ChatMessage::find("019f4928-9e12-73fb-8fec-944708c5290d");
+            // $msg = ChatMessage::find('019f53fa-4cf2-70de-819b-47b291312502');
 
             $resolved = $msg->askDto()->resolve();
             $myLinks = $resolved->getCitationLinks();
@@ -48,13 +48,24 @@ class AskService
 
             // Используем форматтер для подготовки сообщения
             $completeMessage = $this->formatter->prepareCompleteMessage($text, $myLinks);
-            $messagesToSend = $this->formatter->splitLongMessage($completeMessage);
 
-            foreach ($messagesToSend as $messageChunk) {
+            foreach ($completeMessage as $messageChunk) {
                 $this->bot->sendMessage(
                     text: $messageChunk,
                     parse_mode: 'MarkdownV2',
-                    chat_id: $user_id
+                    chat_id: $user_id,
+                    disable_web_page_preview: true
+                );
+            }
+
+            $citationsMessage = $this->formatter->formatCitationsMessage($resolved->citations, $myLinks);
+
+            if ($citationsMessage !== null) {
+                $this->bot->sendMessage(
+                    text: $citationsMessage,
+                    parse_mode: 'HTML',
+                    chat_id: $user_id,
+                    disable_web_page_preview: true
                 );
             }
 

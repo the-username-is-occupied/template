@@ -29,7 +29,7 @@ class TelegramHandlerService
     ) {
         $this->bot = $bot ?? app(Nutgram::class);
         $this->sessionService = $sessionService ?? new TelegramSessionService;
-        $this->formatter = $formatter ?? new TelegramMessageFormatterService;
+        $this->formatter = $formatter ?? app()->make(TelegramMessageFormatterService::class);
     }
 
     /**

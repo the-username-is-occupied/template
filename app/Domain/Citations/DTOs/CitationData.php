@@ -24,4 +24,13 @@ class CitationData extends Data
         public string $cited_text_clean,
         public int $citation_number,
     ) {}
+
+    public function typeLabel()
+    {
+        return match ($this->source_type) {
+            'telegram_channel' => '[telegram]',
+            'youtube_channel' => '[youtube]',
+            default => 'ссылка',
+        };
+    }
 }

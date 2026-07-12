@@ -119,6 +119,15 @@ class Notebook extends Model
         return $this->nlm()->setPublic();
     }
 
+    public static function updateDesc()
+    {
+        static::query()->hasSlug()->with('techAccount')->chunk(10, function ($notebooks) {
+            foreach ($notebooks as $notebook) {
+                $notebook->setDescription();
+            }
+        });
+    }
+
     public function setDescription()
     {
         $dto = $this->nlm()->getNotebookDescription();
