@@ -28,6 +28,11 @@ class BundleBuilder
 
     private const FROZEN_FULL_MAX_WORDS = 480_000;
 
+    /**
+     * Number of OriginalItem rows to load into memory at once when processing.
+     */
+    private const ITEMS_CHUNK_SIZE = 500;
+
     public function __construct(
         private readonly BundleRenderer2 $renderer,
         private readonly BundleItemsService $bundleItemsService,
@@ -51,11 +56,11 @@ class BundleBuilder
             return;
         }
 
-        $items = OriginalItem::whereIn('content_source_id', $contentSourceIds)
+        $itemsQuery = OriginalItem::whereIn('content_source_id', $contentSourceIds)
             ->unbundled()
             ->orderBy('published_at');
 
-        if (! $items->exists()) {
+        if (! $itemsQuery->exists()) {
             Log::info('Starting bundle build. Items to build not found', [
                 'notebook_id' => $notebook->id,
                 'content_source_ids' => $contentSourceIds->toArray(),
@@ -68,16 +73,18 @@ class BundleBuilder
         Log::info('Starting bundle build', [
             'notebook_id' => $notebook->id,
             'content_source_ids' => $contentSourceIds->toArray(),
-            'unbundled_item_count' => $items->count(),
+            'unbundled_item_count' => $itemsQuery->count(),
         ]);
 
         $hasExistingBundles = $notebook->mdBundles()->exists();
+        $totalWords = (int) $itemsQuery->sum('word_count');
+        $itemIds = $itemsQuery->pluck('id');
 
-        DB::transaction(function () use ($notebook, $items, $hasExistingBundles): void {
-            if ($hasExistingBundles && $items->sum('word_count') < 8000) {
-                $this->performContinuousIndexing($notebook, $items->get());
+        DB::transaction(function () use ($notebook, $itemIds, $hasExistingBundles, $totalWords): void {
+            if ($hasExistingBundles && $totalWords < 8000) {
+                $this->performContinuousIndexing($notebook, $itemIds);
             } else {
-                $this->performPrimaryIndexing($notebook, $items->get());
+                $this->performPrimaryIndexing($notebook, $itemIds);
             }
         });
 
@@ -89,26 +96,121 @@ class BundleBuilder
     }
 
     /**
-     * Primary indexing: pack all existing items into maximum-size bundles.
+     * Full rebuild: wipe all existing bundles for the notebook (disk + NLM + DB)
+     * and reindex ALL original items (bundled and unbundled alike) from scratch,
+     * always as primary indexing — there is no point running the continuous
+     * (delta/quarter) strategy for a rebuild.
      */
-    private function performPrimaryIndexing(Notebook $notebook, Collection $items): void
+    public function rebuild(Notebook $notebook): void
+    {
+        Log::info('Starting bundle rebuild', ['notebook_id' => $notebook->id]);
+
+        DB::transaction(function () use ($notebook): void {
+            $this->deleteExistingBundles($notebook);
+        });
+
+        $contentSourceIds = $notebook->contentSources()->pluck('content_sources.id');
+
+        if ($contentSourceIds->isEmpty()) {
+            Log::info('Rebuild: notebook has no content sources', [
+                'notebook_id' => $notebook->id,
+            ]);
+
+            return;
+        }
+
+        $itemsQuery = OriginalItem::whereIn('content_source_id', $contentSourceIds)
+            ->orderBy('published_at');
+
+        if (! $itemsQuery->exists()) {
+            Log::info('Rebuild: no items found for notebook', [
+                'notebook_id' => $notebook->id,
+                'content_source_ids' => $contentSourceIds->toArray(),
+            ]);
+
+            return;
+        }
+
+        Log::info('Rebuild: reindexing all items', [
+            'notebook_id' => $notebook->id,
+            'content_source_ids' => $contentSourceIds->toArray(),
+            'item_count' => $itemsQuery->count(),
+        ]);
+
+        $itemIds = $itemsQuery->pluck('id');
+
+        DB::transaction(function () use ($notebook, $itemIds): void {
+            $this->performPrimaryIndexing($notebook, $itemIds);
+        });
+
+        // Wait for all uploaded sources to be ready before generating description
+        $this->waitForBundleSources($notebook);
+
+        // Set notebook description after sources are ready
+        $notebook->setDescription();
+
+        Log::info('Bundle rebuild finished', ['notebook_id' => $notebook->id]);
+    }
+
+    /**
+     * Delete all existing bundles for a notebook: NLM sources, files on disk,
+     * bundle_items and MdBundle records.
+     */
+    private function deleteExistingBundles(Notebook $notebook): void
+    {
+        $bundles = $notebook->mdBundles()->get();
+
+        if ($bundles->isEmpty()) {
+            return;
+        }
+
+        Log::info('Rebuild: deleting existing bundles', [
+            'notebook_id' => $notebook->id,
+            'bundle_count' => $bundles->count(),
+        ]);
+
+        $disk = Storage::disk('bundles');
+
+        foreach ($bundles as $bundle) {
+            if ($bundle->nlm_source_id) {
+                $this->deleteNlmSource($notebook, $bundle->nlm_source_id);
+            }
+
+            $disk->delete($bundle->file_path);
+
+            $bundle->bundleItems()->delete();
+            $bundle->delete();
+        }
+    }
+
+    /**
+     * Primary indexing: pack all existing items into maximum-size bundles.
+     * Items are processed in chunks of IDs to avoid loading everything into memory at once.
+     */
+    private function performPrimaryIndexing(Notebook $notebook, Collection $itemIds): void
     {
         $accumulator = collect();
         $accWords = 0;
 
-        foreach ($items as $item) {
-            // Count words from rendered content (including metadata) to ensure accurate sizing
-            $renderedItem = $this->renderer->render(collect([$item]));
-            $itemWords = $this->wordCounter->count($renderedItem);
+        foreach ($itemIds->chunk(self::ITEMS_CHUNK_SIZE) as $idChunk) {
+            $chunkItems = OriginalItem::whereIn('id', $idChunk->all())
+                ->orderBy('published_at')
+                ->get();
 
-            if ($accumulator->isNotEmpty() && $accWords + $itemWords >= self::FROZEN_FULL_MAX_WORDS) {
-                $this->createBundleAndUpload($notebook, $accumulator, MdBundleType::FrozenFull);
-                $accumulator = collect();
-                $accWords = 0;
+            foreach ($chunkItems as $item) {
+                // Count words from rendered content (including metadata) to ensure accurate sizing
+                $renderedItem = $this->renderer->render(collect([$item]));
+                $itemWords = $this->wordCounter->count($renderedItem);
+
+                if ($accumulator->isNotEmpty() && $accWords + $itemWords >= self::FROZEN_FULL_MAX_WORDS) {
+                    $this->createBundleAndUpload($notebook, $accumulator, MdBundleType::FrozenFull);
+                    $accumulator = collect();
+                    $accWords = 0;
+                }
+
+                $accumulator->push($item);
+                $accWords += $itemWords;
             }
-
-            $accumulator->push($item);
-            $accWords += $itemWords;
         }
 
         if ($accumulator->isEmpty()) {
@@ -134,23 +236,30 @@ class BundleBuilder
 
     /**
      * Continuous indexing: add items to active_delta, flush cascadingly when full.
+     * Items are processed in chunks of IDs to avoid loading everything into memory at once.
      */
-    private function performContinuousIndexing(Notebook $notebook, Collection $items): void
+    private function performContinuousIndexing(Notebook $notebook, Collection $itemIds): void
     {
         $delta = $notebook->mdBundles()->activeDelta()->first()
             ?? $this->createEmptyBundle($notebook, MdBundleType::ActiveDelta);
 
-        foreach ($items as $item) {
-            // Count words from rendered content (including metadata) to ensure accurate sizing
-            $renderedItem = $this->renderer->render(collect([$item]));
-            $itemWords = $this->wordCounter->count($renderedItem);
+        foreach ($itemIds->chunk(self::ITEMS_CHUNK_SIZE) as $idChunk) {
+            $chunkItems = OriginalItem::whereIn('id', $idChunk->all())
+                ->orderBy('published_at')
+                ->get();
 
-            if (($delta->word_count ?? 0) + $itemWords > self::ACTIVE_DELTA_MAX_WORDS) {
-                $this->flushDeltaToQuarter($notebook, $delta);
-                $delta = $this->createEmptyBundle($notebook, MdBundleType::ActiveDelta);
+            foreach ($chunkItems as $item) {
+                // Count words from rendered content (including metadata) to ensure accurate sizing
+                $renderedItem = $this->renderer->render(collect([$item]));
+                $itemWords = $this->wordCounter->count($renderedItem);
+
+                if (($delta->word_count ?? 0) + $itemWords > self::ACTIVE_DELTA_MAX_WORDS) {
+                    $this->flushDeltaToQuarter($notebook, $delta);
+                    $delta = $this->createEmptyBundle($notebook, MdBundleType::ActiveDelta);
+                }
+
+                $this->appendItemToBundle($delta, $item);
             }
-
-            $this->appendItemToBundle($delta, $item);
         }
     }
 
@@ -219,7 +328,7 @@ class BundleBuilder
 
         // Update quarter file on disk
         $disk = Storage::disk('bundles');
-        $quarterFilePath = "{$notebook->id}/{$quarter->id}.md";
+        $quarterFilePath = "{$notebook->id}/{$quarter->id}.txt";
         $disk->put($quarterFilePath, $quarterContent);
 
         // Update quarter in NLM: delete old source, upload new file
@@ -243,7 +352,7 @@ class BundleBuilder
             'nlm_source_id' => null,
             'status' => MdBundleStatus::Pending,
         ]);
-        $disk->put("{$notebook->id}/{$delta->id}.md", '');
+        $disk->put("{$notebook->id}/{$delta->id}.txt", '');
     }
 
     /**
@@ -300,7 +409,7 @@ class BundleBuilder
         // Update file on disk
         $notebook = $bundle->notebook;
         $disk = Storage::disk('bundles');
-        $filePath = "{$notebook->id}/{$bundle->id}.md";
+        $filePath = "{$notebook->id}/{$bundle->id}.txt";
         $existingContent = $disk->get($filePath) ?? '';
 
         $separator = $existingContent === '' ? '' : "\n\n";
@@ -395,14 +504,14 @@ class BundleBuilder
         $bundle = MdBundle::create([
             'notebook_id' => $notebook->id,
             'type' => $type,
-            'file_path' => "{$notebook->id}/{$notebook->id}.md",
+            'file_path' => "{$notebook->id}/{$notebook->id}.txt",
             'word_count' => 0,
             'status' => MdBundleStatus::Pending,
             'is_consolidating' => false,
         ]);
 
         // Update file_path with the actual bundle id after creation
-        $bundle->update(['file_path' => "{$notebook->id}/{$bundle->id}.md"]);
+        $bundle->update(['file_path' => "{$notebook->id}/{$bundle->id}.txt"]);
 
         // Initialize empty file
         Storage::disk('bundles')->put($bundle->file_path, '');

@@ -7,6 +7,7 @@ namespace App\Models;
 use App\Domain\NotebookLM\DTOs\NotebookDescriptionDTO;
 use App\Domain\NotebookLM\NotebookNLMDecorator;
 use App\Services\AskService;
+use App\Services\BundleBuilder;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -128,6 +129,19 @@ class Notebook extends Model
                 $notebook->setDescription();
             }
         });
+    }
+
+    public static function updatePrompt()
+    {
+        static::query()->hasSlug()->with('techAccount')->chunk(10, function ($notebooks) {
+            foreach ($notebooks as $notebook) {
+                $notebook->setSystemPrompt();
+            }
+        });
+    }
+
+    public function rebuild(){
+        app()->make(BundleBuilder::class)->rebuild($this);
     }
 
     public function setDescription()

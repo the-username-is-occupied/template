@@ -69,7 +69,7 @@ class CitationResolver2
     {
         try {
             // Step 0: Clean metadata from cited_text
-            $citedTextClean = $this->cleanMetadata($reference->cited_text);
+            // $citedTextClean = $this->cleanMetadata($reference->cited_text);
 
             // Step1: Detect strategy - check if cited_text starts with UUID header pattern
             // New format: # {UUID} at the beginning
@@ -79,7 +79,7 @@ class CitationResolver2
                 $itemId = $matches[1];
             } else {
                 // Strategy B: Full-text search (steps 2-4)
-                $itemId = $this->resolveByFullText($reference, $citedTextClean);
+                $itemId = $this->resolveByFullText($reference, $reference->cited_text);
                 if ($itemId === null) {
                     Log::warning('CitationResolver2: Full-text search returned null');
 
@@ -107,7 +107,7 @@ class CitationResolver2
                 published_at: $item->published_at?->toIso8601String(),
                 source_type: $sourceType,
                 content_source_id: $item->content_source_id,
-                cited_text_clean: $citedTextClean,
+                cited_text_clean: $reference->cited_text,
                 citation_number: $reference->citation_number,
             );
 
