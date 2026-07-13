@@ -29,18 +29,18 @@ class TestSourceDraftSeeder extends Seeder
 
         $this->command->info("✓ Using TechAccount: {$techAccount->name} (ID: {$techAccount->id})");
 
-        $notebook = Notebook::find('019f5009-23ad-7017-b94c-fc30e2571eb5');
+        // $notebook = Notebook::find('019f5009-23ad-7017-b94c-fc30e2571eb5');
 
-        // $notebook = app()->make(NotebookService::class)->create(
-        //     'Звучи, Лиза!',
-        //     $techAccount,
-        //     $user
-        // );
+        $notebook = app()->make(NotebookService::class)->create(
+            'Хабр',
+            $techAccount,
+            $user
+        );
 
         $this->command->info("✓ Created notebook: {$notebook->title} (ID: {$notebook->id})");
 
         // 5. Create SourceDraft
-        $rawInput = 'https://www.youtube.com/@liza_voice';
+        $rawInput = 'https://t.me/habr_com';
 
         $draftService = app(SourceDraftService::class);
         $drafts = $draftService->create($user, $notebook, $rawInput);
@@ -92,8 +92,8 @@ class TestSourceDraftSeeder extends Seeder
         }
 
         $scrapeConfig = [
-            'limit' => 3000,
-            'chunk_limit' => 500,
+            'limit' => 50000,
+            'chunk_limit' => 1000,
             'workers' => 3,
         ];
 

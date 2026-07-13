@@ -36,6 +36,7 @@ class Notebook extends Model
         'system_prompt',
         'status',
         'description',
+        'short_desc',
     ];
 
     protected function casts(): array
@@ -49,6 +50,7 @@ class Notebook extends Model
             'system_prompt' => 'string',
             'status' => 'string',
             'description' => 'array',
+            'short_desc' => 'string',
         ];
     }
 

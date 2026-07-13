@@ -7,6 +7,7 @@ namespace App\Services\TelegramBot;
 use App\Models\ContentSource;
 use App\Models\Notebook;
 use App\Services\TelegramSessionService;
+use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\Log;
 use SergiX44\Nutgram\Conversations\InlineMenu;
 use SergiX44\Nutgram\Nutgram;
@@ -14,39 +15,94 @@ use SergiX44\Nutgram\Telegram\Types\Keyboard\InlineKeyboardButton;
 
 class DatabaseMenu extends InlineMenu
 {
-    // Этот метод отрисовывает стартовое меню
+    // Сколько баз знаний показываем на одной странице
+    private const PER_PAGE = 10;
+
+    // Этот метод отрисовывает стартовое меню (и все последующие страницы)
     public function start(Nutgram $bot)
     {
         Log::info('DatabaseMenu: Зашли в метод start. Начинаем сборку меню.');
 
         try {
-            // Устанавливаем СТРОГО чистый текст без спецсимволов и эмодзи
-            Log::info('DatabaseMenu: метод start вызван');
+            $page = $this->extractPage($bot);
 
-            $this->menuText('Выберите базу знаний из списка:');
-
-            // Ваши базы данных
-            $databases = $this->getDatabasesList();
-
-            foreach ($databases as $db) {
-                // В callback_data передаем: "значение@имяМетодаКласса"
-                // Nutgram сам распарсит это, вызовет метод 'selectDatabase'
-                // и сохранит "db_id:XX" внутри callbackQuery
-                $this->addButtonRow(
-                    InlineKeyboardButton::make(
-                        text: $db['title'].' ('.$db['slug'].')',
-                        callback_data: "db_id:{$db['id']}@selectDatabase"
-                    )
-                );
-            }
-
-            $this->showMenu();
-
+            $this->renderPage($bot, $page);
         } catch (\Throwable $e) {
             Log::error('DatabaseMenu КРИТИЧЕСКАЯ ОШИБКА: '.$e->getMessage(), [
                 'trace' => $e->getTraceAsString(),
             ]);
         }
+    }
+
+    // Отрисовка конкретной страницы списка баз
+    private function renderPage(Nutgram $bot, int $page): void
+    {
+        Log::info('DatabaseMenu: рендерим страницу '.$page);
+
+        // Сбрасываем кнопки, оставшиеся от предыдущего рендера этого меню
+        $this->clearButtons();
+
+        $this->menuText('Выберите базу знаний из списка:');
+
+        $databases = $this->getDatabasesList($page);
+
+        foreach ($databases as $db) {
+            // В callback_data передаем: "значение@имяМетодаКласса"
+            // Nutgram сам распарсит это, вызовет метод 'selectDatabase'
+            // и сохранит "db_id:XX" внутри callbackQuery
+            $this->addButtonRow(
+                InlineKeyboardButton::make(
+                    text: $db->title.' ('.$db->slug.')',
+                    callback_data: "db_id:{$db->id}@selectDatabase"
+                )
+            );
+        }
+
+        // Строка навигации: ◀️ Пред | номер страницы | След ▶️
+        if ($databases->hasPages()) {
+            $navRow = [];
+
+            if ($databases->previousPageUrl()) {
+                $navRow[] = InlineKeyboardButton::make(
+                    text: '◀️ Пред',
+                    callback_data: 'page:'.($databases->currentPage() - 1).'@start'
+                );
+            }
+
+            $navRow[] = InlineKeyboardButton::make(
+                text: $databases->currentPage().'/'.$databases->lastPage(),
+                callback_data: 'noop@noop'
+            );
+
+            if ($databases->nextPageUrl()) {
+                $navRow[] = InlineKeyboardButton::make(
+                    text: 'След ▶️',
+                    callback_data: 'page:'.($databases->currentPage() + 1).'@start'
+                );
+            }
+
+            $this->addButtonRow(...$navRow);
+        }
+
+        $this->showMenu();
+    }
+
+    // Извлекаем номер страницы из callback_data (если это навигация), иначе страница 1
+    private function extractPage(Nutgram $bot): int
+    {
+        $callbackData = $bot->callbackQuery()?->data;
+
+        if ($callbackData !== null && preg_match('/^page:(\d+)$/', $callbackData, $matches)) {
+            return (int) $matches[1];
+        }
+
+        return 1;
+    }
+
+    // Заглушка для кнопки-индикатора страницы, просто гасим "часики" в Telegram
+    public function noop(Nutgram $bot)
+    {
+        $bot->answerCallbackQuery();
     }
 
     // Этот метод сработает, когда пользователь нажмет на кнопку с базой
@@ -120,9 +176,16 @@ class DatabaseMenu extends InlineMenu
     }
 
     // Твои методы
-    private function getDatabasesList(): array
+    private function getDatabasesList(int $page = 1): LengthAwarePaginator
     {
-        return Notebook::query()->hasSlug()->select(['id', 'title', 'slug'])->get()->toArray();
+        return Notebook::query()
+        ->hasSlug()
+        ->select(['id', 'title', 'slug'])
+        ->orderBy('created_at')
+        ->paginate(
+            perPage: self::PER_PAGE,
+            page: $page
+        );
     }
 
     private function activateDatabaseForUser($userId, $dbId): void

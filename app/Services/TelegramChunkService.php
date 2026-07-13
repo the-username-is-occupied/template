@@ -48,13 +48,13 @@ class TelegramChunkService
                 $processedCount++;
 
                 // Process links from this post
-                $links = $post['links'] ?? [];
-                if (! empty($links)) {
-                    $processedLinks = app(LinkProcessorService::class)
-                        ->processLinks($source, $originalItem, $links);
+                // $links = $post['links'] ?? [];
+                // if (! empty($links)) {
+                //     $processedLinks = app(LinkProcessorService::class)
+                //         ->processLinks($source, $originalItem, $links);
 
-                    $linksDiscovered = array_merge($linksDiscovered, $processedLinks);
-                }
+                //     $linksDiscovered = array_merge($linksDiscovered, $processedLinks);
+                // }
             }
         }
 
