@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\TelegramBot;
 
 use App\Models\ChatMessage;
+use App\Models\TgUser;
 use App\Services\AskService as NLMAskService;
 use App\Services\TelegramSessionService;
 use Illuminate\Support\Facades\Log;
@@ -23,22 +24,24 @@ class AskService
         $this->formatter = $formatter ?? app()->make(TelegramMessageFormatterService::class);
     }
 
-    public function handle(int $user_id, string $question, ?int $placeholderId = null)
+    public function handle(TgUser $tg_user, string $question, ?int $placeholderId = null, ?ChatMessage $followUpMessage = null): void
     {
 
         try {
-            $notebook = $this->sessionService->getActiveBase($user_id);
+
+            $tg_user_id = $tg_user->id();
+            $notebook = $this->sessionService->getActiveBase($tg_user_id);
             if (! $notebook) {
 
                 $this->bot->sendMessage(
                     text: 'База знаний не выбрана',
-                    chat_id: $user_id
+                    chat_id: $tg_user_id
                 );
 
                 return;
             }
 
-            $msg = app()->make(NLMAskService::class)->ask($notebook, $question);
+            $msg = app()->make(NLMAskService::class)->ask($notebook, $question, $tg_user->user, $followUpMessage);
             // $msg = ChatMessage::find('019f53fa-4cf2-70de-819b-47b291312502');
 
             $resolved = $msg->askDto()->resolve();
@@ -53,7 +56,7 @@ class AskService
                 $this->bot->sendMessage(
                     text: $messageChunk,
                     parse_mode: 'MarkdownV2',
-                    chat_id: $user_id,
+                    chat_id: $tg_user_id,
                     disable_web_page_preview: true
                 );
             }
@@ -64,7 +67,7 @@ class AskService
                 $this->bot->sendMessage(
                     text: $citationsMessage,
                     parse_mode: 'HTML',
-                    chat_id: $user_id,
+                    chat_id: $tg_user_id,
                     disable_web_page_preview: true
                 );
             }
@@ -78,7 +81,7 @@ class AskService
 
             if ($placeholderId) {
                 $this->bot->deleteMessage(
-                    chat_id: $user_id,
+                    chat_id: $tg_user_id,
                     message_id: $placeholderId
                 );
             }
@@ -87,7 +90,7 @@ class AskService
                 text: $questionsText,
                 reply_markup: $keyboard,
                 parse_mode: 'MarkdownV2',
-                chat_id: $user_id
+                chat_id: $tg_user_id
             );
 
         } catch (Throwable $e) {

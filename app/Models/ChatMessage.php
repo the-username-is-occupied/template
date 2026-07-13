@@ -20,7 +20,7 @@ class ChatMessage extends Model
     protected $fillable = [
         'chat_id',
         'tech_account_id',
-        'role',
+        'follow_up_id',
         'content',
         'result',
         'is_success',
@@ -42,6 +42,11 @@ class ChatMessage extends Model
     public function techAccount(): BelongsTo
     {
         return $this->belongsTo(TechAccount::class);
+    }
+
+    public function followUp(): BelongsTo
+    {
+        return $this->belongsTo(ChatMessage::class, 'follow_up_id');
     }
 
     public function askDto()

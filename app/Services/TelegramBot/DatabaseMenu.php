@@ -179,13 +179,13 @@ class DatabaseMenu extends InlineMenu
     private function getDatabasesList(int $page = 1): LengthAwarePaginator
     {
         return Notebook::query()
-        ->hasSlug()
-        ->select(['id', 'title', 'slug'])
-        ->orderBy('created_at')
-        ->paginate(
-            perPage: self::PER_PAGE,
-            page: $page
-        );
+            ->hasSlug()
+            ->select(['id', 'title', 'slug'])
+            ->orderBy('created_at')
+            ->paginate(
+                perPage: self::PER_PAGE,
+                page: $page
+            );
     }
 
     private function activateDatabaseForUser($userId, $dbId): void

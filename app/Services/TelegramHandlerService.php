@@ -45,10 +45,11 @@ class TelegramHandlerService
 
             // 2. Сработает, если ввели чистый /start без параметров.
             $this->bot->onCommand('start', function (Nutgram $bot) {
-                DatabaseMenu::begin($bot);
+                $this->handleStartCommand($bot);
             })->description('Начать');
 
             $this->bot->onCommand('db', function (Nutgram $bot) {
+
                 DatabaseMenu::begin($bot);
             })->description('Выбрать активную базу знаний');
 
@@ -77,10 +78,16 @@ class TelegramHandlerService
     /**
      * Handle the /start command
      */
-    private function handleStartCommand(Nutgram $bot, ?string $base): void
+    private function handleStartCommand(Nutgram $bot, ?string $base = null): void
     {
         try {
             $tgUserId = $bot->userId();
+            app()->make(UserService::class)->findOrCreateByTgUserId($tgUserId);
+            if (is_null($base)) {
+
+                DatabaseMenu::begin($bot);
+            }
+
             $notebook = Notebook::query()->slug($base)->first();
 
             if (! $notebook) {
@@ -127,7 +134,7 @@ class TelegramHandlerService
                 parse_mode: 'MarkdownV2'
             );
 
-            $this->handleTextMessage($bot, $txt);
+            $this->handleTextMessage($bot, $txt, $msg->id);
         } catch (Throwable $e) {
             Log::error($e->getMessage());
             throw $e;
@@ -180,12 +187,12 @@ class TelegramHandlerService
     /**
      * Handle text messages
      */
-    public function handleTextMessage(Nutgram $bot, ?string $q = null): void
+    public function handleTextMessage(Nutgram $bot, ?string $q = null, ?string $followUpMessageId = null): void
     {
         try {
             $placeholderMessage = $bot->sendMessage(text: '*Генерирую ответ\\.\\.\\.*', parse_mode: 'MarkdownV2');
             $placeholderId = $placeholderMessage->message_id;
-            TelegramAskJob::dispatch($bot->userId(), $q ?? $bot->message()->text, $placeholderId);
+            TelegramAskJob::dispatch($bot->userId(), $q ?? $bot->message()->text, $placeholderId, $followUpMessageId);
         } catch (Throwable $e) {
             Log::error($e->getMessage());
             throw $e;
