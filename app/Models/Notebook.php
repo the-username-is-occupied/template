@@ -140,7 +140,8 @@ class Notebook extends Model
         });
     }
 
-    public function rebuild(){
+    public function rebuild()
+    {
         app()->make(BundleBuilder::class)->rebuild($this);
     }
 

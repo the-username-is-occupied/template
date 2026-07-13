@@ -20,15 +20,16 @@ namespace App\Services\TelegramBot\Formatting;
 final class TelegramTextNormalizer
 {
     private const CODE_PLACEHOLDER_FORMAT = "\x00CODE%d\x00";
+
     private const BOLD_PLACEHOLDER_FORMAT = "\x00BOLD%d\x00";
 
     /**
      * @param  (callable(string): string)|null  $footnoteLinker  Колбэк для линковки сносок
-     *                                                            (например, TelegramFootnoteLinker::linkFootnotes),
-     *                                                            выполняется до headersToBold/bulletsToDots и
-     *                                                            ПОСЛЕ извлечения code span'ов, чтобы "[1, 2]"
-     *                                                            внутри кода не превращались в ссылки, а сам
-     *                                                            паттерн сносок не конфликтовал с bold/italic.
+     *                                                           (например, TelegramFootnoteLinker::linkFootnotes),
+     *                                                           выполняется до headersToBold/bulletsToDots и
+     *                                                           ПОСЛЕ извлечения code span'ов, чтобы "[1, 2]"
+     *                                                           внутри кода не превращались в ссылки, а сам
+     *                                                           паттерн сносок не конфликтовал с bold/italic.
      */
     public function normalize(string $text, ?callable $footnoteLinker = null): string
     {

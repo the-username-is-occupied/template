@@ -10,12 +10,13 @@ use Illuminate\Support\Collection;
 
 class BundleRenderer2
 {
-
-    public function test(){
+    public function test()
+    {
         $items = ContentSource::find('019f2836-9819-702f-bf23-14ce58192531')->originalItems()->limit(9)->get();
 
         file_put_contents('test_bundle.txt', $this->render($items));
     }
+
     /**
      * Render a collection of OriginalItem into a Markdown string.
      */

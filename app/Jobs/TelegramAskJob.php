@@ -9,10 +9,10 @@ use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Queue\InteractsWithQueue;
+use Illuminate\Queue\Middleware\WithoutOverlapping;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Log;
 use SergiX44\Nutgram\Nutgram;
-use Illuminate\Queue\Middleware\WithoutOverlapping;
 
 class TelegramAskJob implements ShouldQueue
 {
@@ -38,6 +38,7 @@ class TelegramAskJob implements ShouldQueue
     {
         return [(new WithoutOverlapping($this->tg_user_id))->releaseAfter(60)->expireAfter(300)];
     }
+
     /**
      * Execute the job.
      */
