@@ -15,7 +15,7 @@ final class TelegramMarkdownEscaper
      * Захватывает целиком блоки: код, жирный/курсив/зачёркнутый/спойлер, ссылки.
      * Всё остальное считается обычным текстом и экранируется полностью.
      */
-    private const ENTITY_PATTERN = '/(```.*?```|`.*?`|\*\*.*?\*\*|__.*?__|_.*?_|~.*?~|\|\|.*?\|\||\[[^\]]+\]\([^)]+\))/us';
+    private const ENTITY_PATTERN = '/(```.*?```|`.*?`|\*\*.*?\*\*|\*.*?\*|__.*?__|_.*?_|~.*?~|\|\|.*?\|\||\[[^\]]+\]\([^)]+\))/us';
 
     private const CHARS_TO_ESCAPE = ['_', '*', '[', ']', '(', ')', '~', '`', '>', '#', '+', '-', '=', '|', '{', '}', '.', '!'];
 
@@ -60,6 +60,7 @@ final class TelegramMarkdownEscaper
             str_starts_with($part, '```') && str_ends_with($part, '```') => $this->wrapCode($part, '```', 3),
             str_starts_with($part, '`') && str_ends_with($part, '`') => $this->wrapCode($part, '`', 1),
             str_starts_with($part, '**') && str_ends_with($part, '**') => $this->wrapText($part, '**', 2),
+            str_starts_with($part, '*') && str_ends_with($part, '*') => $this->wrapText($part, '*', 1),
             str_starts_with($part, '__') && str_ends_with($part, '__') => $this->wrapText($part, '__', 2),
             str_starts_with($part, '_') && str_ends_with($part, '_') => $this->wrapText($part, '_', 1),
             str_starts_with($part, '~') && str_ends_with($part, '~') => $this->wrapText($part, '~', 1),

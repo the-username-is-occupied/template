@@ -146,10 +146,10 @@ final class TelegramMessageFormatterService
      */
     private function prepareTelegramMarkdown(string $text, array $links = []): string
     {
-        $text = $this->normalizer->trimLines($text);
-        $text = $this->normalizer->headersToBold($text);
-        $text = $this->footnoteLinker->linkFootnotes($text, $links);
-        $text = $this->normalizer->bulletsToDots($text);
+        $text = $this->normalizer->normalize(
+            $text,
+            fn (string $t): string => $this->footnoteLinker->linkFootnotes($t, $links)
+        );
 
         return $this->escaper->escape($text);
     }

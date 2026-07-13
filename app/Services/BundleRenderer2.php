@@ -37,7 +37,7 @@ class BundleRenderer2
                 sprintf('indexed_date: %s', $item->created_at?->toIso8601String() ?? ''),
                 ...$this->metaFormat($item->getMetaArray()->toArray()),
                 '',
-                addslashes(strip_tags($item->full_text ?? '')),
+                strip_tags($item->full_text ?? ''),
             ])->join("\n");
         });
 

@@ -42,7 +42,7 @@ class AskService
             }
 
             $msg = app()->make(NLMAskService::class)->ask($notebook, $question, $tg_user->user, $followUpMessage);
-            // $msg = ChatMessage::find('019f53fa-4cf2-70de-819b-47b291312502');
+            // $msg = ChatMessage::find('019f5a3d-6f7b-70c7-a71a-9c71c02829e6');
 
             $resolved = $msg->askDto()->resolve();
             $myLinks = $resolved->getCitationLinks();
