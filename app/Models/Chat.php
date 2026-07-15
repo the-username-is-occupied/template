@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Share\Models\Traits\HasBelongsToUser;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -11,7 +13,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Chat extends Model
 {
-    use HasUuids;
+    use HasBelongsToUser, HasUuids;
 
     public $incrementing = false;
 
@@ -22,11 +24,6 @@ class Chat extends Model
         'notebook_id',
     ];
 
-    public function user(): BelongsTo
-    {
-        return $this->belongsTo(User::class);
-    }
-
     public function notebook(): BelongsTo
     {
         return $this->belongsTo(Notebook::class);
@@ -35,5 +32,10 @@ class Chat extends Model
     public function messages(): HasMany
     {
         return $this->hasMany(ChatMessage::class);
+    }
+
+    public function scopeNotebook(Builder $builder, Notebook $notebook)
+    {
+        return $builder->where('notebook_id', $notebook->id);
     }
 }

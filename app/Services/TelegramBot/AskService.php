@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\TelegramBot;
 
+use App\Data\PreprocessData;
+use App\Exceptions\DailyLimitExceededException;
 use App\Models\ChatMessage;
 use App\Models\TgUser;
 use App\Services\AskService as NLMAskService;
@@ -42,7 +44,19 @@ class AskService
             }
 
             $msg = app()->make(NLMAskService::class)->ask($notebook, $question, $tg_user->user, $followUpMessage);
-            // $msg = ChatMessage::find('019f5a3d-6f7b-70c7-a71a-9c71c02829e6');
+
+            if ($msg instanceof PreprocessData) {
+                $this->removePlaceholder($tg_user_id, $placeholderId);
+
+                $this->bot->sendMessage(
+                    text: $msg->suggested_short_reply,
+                    parse_mode: 'HTML',
+                    chat_id: $tg_user_id,
+                    disable_web_page_preview: true
+                );
+
+                return;
+            }
 
             $resolved = $msg->askDto()->resolve();
             $myLinks = $resolved->getCitationLinks();
@@ -79,12 +93,7 @@ class AskService
             $questionsText = $this->formatter->formatSuggestedQuestions($questions);
             $keyboard = $this->formatter->createSuggestedQuestionsKeyboard($msg->id, $questions);
 
-            if ($placeholderId) {
-                $this->bot->deleteMessage(
-                    chat_id: $tg_user_id,
-                    message_id: $placeholderId
-                );
-            }
+            $this->removePlaceholder($tg_user_id, $placeholderId);
 
             $this->bot->sendMessage(
                 text: $questionsText,
@@ -93,10 +102,30 @@ class AskService
                 chat_id: $tg_user_id
             );
 
+        } catch (DailyLimitExceededException $e) {
+            Log::error($e->getMessage());
+            $this->removePlaceholder($tg_user_id, $placeholderId);
+
+            $this->bot->sendMessage(
+                text: '⚠️ '.$e->getMessage(),
+                parse_mode: 'HTML',
+                chat_id: $tg_user_id
+            );
+            throw $e;
         } catch (Throwable $e) {
             Log::error($e->getMessage());
             throw $e;
         }
 
+    }
+
+    public function removePlaceholder($tg_user_id, $placeholderId)
+    {
+        if ($placeholderId) {
+            $this->bot->deleteMessage(
+                chat_id: $tg_user_id,
+                message_id: $placeholderId
+            );
+        }
     }
 }

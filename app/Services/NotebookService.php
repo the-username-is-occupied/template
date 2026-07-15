@@ -11,7 +11,7 @@ use App\Models\User;
 
 class NotebookService
 {
-    public function create(string $title, TechAccount $techAccount, User $user): Notebook
+    public function create(string $title, TechAccount $techAccount, User $user, bool $isSharable = false): Notebook
     {
         $notebookLMService = app(NotebookLMService::class);
 
@@ -29,7 +29,9 @@ class NotebookService
             'title' => $title,
         ]);
 
-        $notebook->makeSharable();
+        if ($isSharable) {
+            $notebook->makeSharable();
+        }
 
         $notebook->setSystemPrompt();
 

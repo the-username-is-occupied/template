@@ -7,6 +7,7 @@ namespace App\Services;
 use App\Jobs\TelegramAskJob;
 use App\Models\ChatMessage;
 use App\Models\Notebook;
+use App\Services\TelegramBot\AskService as TgAskService;
 use App\Services\TelegramBot\DatabaseMenu;
 use App\Services\TelegramBot\TelegramMessageFormatterService;
 use Illuminate\Support\Facades\Log;
@@ -192,7 +193,18 @@ class TelegramHandlerService
         try {
             $placeholderMessage = $bot->sendMessage(text: '*Генерирую ответ\\.\\.\\.*', parse_mode: 'MarkdownV2');
             $placeholderId = $placeholderMessage->message_id;
-            TelegramAskJob::dispatch($bot->userId(), $q ?? $bot->message()->text, $placeholderId, $followUpMessageId);
+            // (new TelegramAskJob(
+            //     tg_user_id: $bot->userId(),
+            //     question: $q ?? $bot->message()->text,
+            //     placeholderId: $placeholderId,
+            //     followUpMessageId: $followUpMessageId
+            // ))->handle();
+
+            $user = app()->make(UserService::class)->findOrCreateByTgUserId($bot->userId());
+            $followUpMessage = $followUpMessageId ? ChatMessage::find($followUpMessageId) : null;
+            app()->make(TgAskService::class)->handle($user->tgUser, $q ?? $bot->message()->text, $placeholderId, $followUpMessage);
+
+            // TelegramAskJob::dispatch($bot->userId(), $q ?? $bot->message()->text, $placeholderId, $followUpMessageId);
         } catch (Throwable $e) {
             Log::error($e->getMessage());
             throw $e;

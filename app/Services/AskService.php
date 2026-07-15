@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services;
 
+use App\Data\PreprocessData;
 use App\Domain\NotebookLM\NotebookLMService;
 use App\Exceptions\DailyLimitExceededException;
 use App\Models\Chat;
@@ -16,6 +17,7 @@ class AskService
     public function __construct(
         private readonly NotebookLMService $notebookLMService,
         private readonly AccountService $accountService,
+        private readonly AskPreprocessor $askPreprocessor,
     ) {}
 
     /**
@@ -28,20 +30,30 @@ class AskService
      *
      * @throws DailyLimitExceededException when daily limit exceeded
      */
-    public function ask(Notebook $notebook, string $question, User $user, ?ChatMessage $followUpMessage = null): ChatMessage
+    public function ask(Notebook $notebook, string $question, User $user, ?ChatMessage $followUpMessage = null): ChatMessage|PreprocessData
     {
-        if ($notebook->isConsolidating()) {
-            throw new \RuntimeException('Notebook is currently being optimized. Please wait a moment and try again.');
+        // if ($notebook->isConsolidating()) {
+        //     throw new \RuntimeException('Notebook is currently being optimized. Please wait a moment and try again.');
+        // }
+
+        if (is_null($followUpMessage)) {
+            $chat = $this->askPreprocessor->preprocess($user, $notebook, $question);
+
+            if ($chat instanceof PreprocessData) {
+                return $chat;
+            }
+        } else {
+            $chat = $followUpMessage->chat;
         }
 
+        // return ChatMessage::find('019f640c-605f-720b-9aff-fd043d58047e');
         // Step 1: Get account for ask
         $account = $this->accountService->getAccountForAsk();
 
-        // Step 2: Create or get chat
-        $chat = Chat::create([
-            'user_id' => $user->id,
-            'notebook_id' => $notebook->id,
-        ]);
+        // $chat = Chat::create([
+        //     'user_id' => $user->id,
+        //     'notebook_id' => $notebook->id,
+        // ]);
 
         // Step 3: Save user message
         $msg = ChatMessage::create([
