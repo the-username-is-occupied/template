@@ -67,6 +67,7 @@ class LinkProcessorService
                 'extraction_status' => ExtractionStatus::Pending,
                 'metadata' => [],
             ]);
+            
 
             $createdSources[] = $newSource;
 

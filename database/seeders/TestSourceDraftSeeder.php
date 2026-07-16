@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Database\Seeders;
 
 use App\Enums\SourceDraftStatus;
+use App\Enums\SourceType;
 use App\Models\Notebook;
 use App\Models\TechAccount;
 use App\Models\User;
@@ -29,18 +30,18 @@ class TestSourceDraftSeeder extends Seeder
 
         $this->command->info("✓ Using TechAccount: {$techAccount->name} (ID: {$techAccount->id})");
 
-        // $notebook = Notebook::find('019f5009-23ad-7017-b94c-fc30e2571eb5');
+        //$notebook = Notebook::find('019f64da-8b4f-71c9-9e94-f6759b4b8a5c');
 
-        $notebook = app()->make(NotebookService::class)->create(
-            'Хабр',
-            $techAccount,
-            $user
-        );
+         $notebook = app()->make(NotebookService::class)->create(
+             'Радар',
+             $techAccount,
+             $user
+         );
 
         $this->command->info("✓ Created notebook: {$notebook->title} (ID: {$notebook->id})");
 
         // 5. Create SourceDraft
-        $rawInput = 'https://t.me/habr_com';
+        $rawInput = 'https://t.me/productradar_official';
 
         $draftService = app(SourceDraftService::class);
         $drafts = $draftService->create($user, $notebook, $rawInput);
@@ -92,10 +93,14 @@ class TestSourceDraftSeeder extends Seeder
         }
 
         $scrapeConfig = [
-            'limit' => 50000,
+            'limit' => 4000,
             'chunk_limit' => 1000,
             'workers' => 3,
         ];
+        
+        if($draft->type === SourceType::YoutubeChannel){
+            $draft->fetchUrls();
+        }
 
         $sourceService = app(SourceService::class);
         $source = $sourceService->confirmAndProcess($draft, $scrapeConfig);

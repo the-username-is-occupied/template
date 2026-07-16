@@ -99,7 +99,7 @@ class AskPreprocessor implements Agent, Conversational, HasStructuredOutput, Has
             return [];
         }
 
-        $array = $this->chat->messages()->limit(2)->get()->reverse()->map(function (ChatMessage $message) {
+        $array = $this->chat->messages()->latest()->limit(2)->get()->reverse()->map(function (ChatMessage $message) {
             return [new Message('user', $message->content), new Message('assistant', $message->result['answer'])];
         })->flatten()->toArray();
 

@@ -200,11 +200,11 @@ class TelegramHandlerService
             //     followUpMessageId: $followUpMessageId
             // ))->handle();
 
-            $user = app()->make(UserService::class)->findOrCreateByTgUserId($bot->userId());
-            $followUpMessage = $followUpMessageId ? ChatMessage::find($followUpMessageId) : null;
-            app()->make(TgAskService::class)->handle($user->tgUser, $q ?? $bot->message()->text, $placeholderId, $followUpMessage);
+            // $user = app()->make(UserService::class)->findOrCreateByTgUserId($bot->userId());
+            // $followUpMessage = $followUpMessageId ? ChatMessage::find($followUpMessageId) : null;
+            // app()->make(TgAskService::class)->handle($user->tgUser, $q ?? $bot->message()->text, $placeholderId, $followUpMessage);
 
-            // TelegramAskJob::dispatch($bot->userId(), $q ?? $bot->message()->text, $placeholderId, $followUpMessageId);
+            TelegramAskJob::dispatch($bot->userId(), $q ?? $bot->message()->text, $placeholderId, $followUpMessageId);
         } catch (Throwable $e) {
             Log::error($e->getMessage());
             throw $e;

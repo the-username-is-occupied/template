@@ -48,13 +48,13 @@ class TelegramChunkService
                 $processedCount++;
 
                 // Process links from this post
-                // $links = $post['links'] ?? [];
-                // if (! empty($links)) {
-                //     $processedLinks = app(LinkProcessorService::class)
-                //         ->processLinks($source, $originalItem, $links);
+                $links = $post['links'] ?? [];
+                if (! empty($links)) {
+                    $processedLinks = app(LinkProcessorService::class)
+                        ->processLinks($source, $originalItem, $links);
 
-                //     $linksDiscovered = array_merge($linksDiscovered, $processedLinks);
-                // }
+                    $linksDiscovered = array_merge($linksDiscovered, $processedLinks);
+                }
             }
         }
 
@@ -287,7 +287,7 @@ class TelegramChunkService
 
         // Count words
         // $wordCount = preg_match_all('/[\p{L}\p{N}]+/u', $postText);
-        $wordCount = (new WordCounter)->count($postText);
+        // $wordCount = (new WordCounter)->count($postText);
 
         // Prepare metadata
         $metadata = [
@@ -302,7 +302,7 @@ class TelegramChunkService
             'full_text' => $postText,
             'source_url' => $postUrl,
             'published_at' => $postDate ? new \DateTimeImmutable($postDate) : null,
-            'word_count' => $wordCount ?: 0,
+            'word_count' => 0,
             'metadata' => $metadata,
         ]);
 
