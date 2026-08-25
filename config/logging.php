@@ -136,6 +136,13 @@ return [
             'days' => 14,
         ],
 
+         'table-sizes' => [
+            'driver' => 'daily',
+            'path' => storage_path('logs/table-sizes.log'),
+            'level' => 'info',
+            'days' => 14,
+        ],
+
     ],
 
 ];

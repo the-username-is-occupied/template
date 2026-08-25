@@ -154,13 +154,13 @@ class Notebook extends Model
 
     public function setSystemPrompt(?string $user_prompt = null): void
     {
-        $this->system_prompt = config('notebook-lm.system_prompt');
-        if ($user_prompt) {
-            $this->system_prompt .= "\n\n Пользовательский промпт: \n".$user_prompt;
-        }
+        $system_prompt = config('notebook-lm.system_prompt');
+
+        $this->system_prompt = $user_prompt;
+
         $this->save();
 
-        $this->nlm()->configure($this->system_prompt);
+        $this->nlm()->configure($system_prompt.($this->system_prompt ? "\n\n Пользовательский промпт: \n".$this->system_prompt : ''));
     }
 
     public function clean()

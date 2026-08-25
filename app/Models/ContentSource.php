@@ -71,6 +71,11 @@ class ContentSource extends Model
         return $this->belongsTo(self::class, 'parent_source_id');
     }
 
+    public function childs(): HasMany
+    {
+        return $this->hasMany(self::class, 'parent_source_id');
+    }
+
     public function parentItem(): BelongsTo
     {
         return $this->belongsTo(OriginalItem::class, 'parent_item_id');

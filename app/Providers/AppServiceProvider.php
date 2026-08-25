@@ -50,6 +50,7 @@ class AppServiceProvider extends ServiceProvider
         // Schedule::command('pulse:ingest')->everyMinute();
         // Schedule::command('telescope:prune --hours=72')->daily();
         Schedule::job(new CheckAccountHealth)->everyMinute();
+        Schedule::command('app:table-sizes')->dailyAt('00:00');
 
     }
 }

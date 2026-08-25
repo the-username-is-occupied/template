@@ -22,27 +22,25 @@ class BundleRenderer2
      */
     public function render(Collection $items): string
     {
-        $items = OriginalItem::query()
-            ->with('contentSource')
-            ->whereIn('id', $items->pluck('id'))
-            ->get();
-
         $parts = $items->map(function (OriginalItem $item): string {
-
-            return collect([
-                sprintf('#%s', $item->id),
-                'Метаданные:',
-
-                sprintf('title: %s', strip_tags($item->getTitle())),
-                sprintf('published_date: %s', $item->published_at?->toIso8601String() ?? ''),
-                sprintf('indexed_date: %s', $item->created_at?->toIso8601String() ?? ''),
-                ...$this->metaFormat($item->getMetaArray()->toArray()),
-                '',
-                strip_tags($item->full_text ?? ''),
-            ])->join("\n");
+            return $this->renderSingle($item);
         });
 
         return $parts->implode("\n\n");
+    }
+
+    public function renderSingle(OriginalItem $item): string
+    {
+        return collect([
+            sprintf('#%s', $item->id),
+            sprintf('title: %s', strip_tags($item->getTitle())),
+            sprintf('published_date: %s', $item->published_at?->toIso8601String() ?? ''),
+            sprintf('indexed_date: %s', $item->created_at?->toIso8601String() ?? ''),
+            ...$this->metaFormat($item->getMetaArray()->toArray()),
+            sprintf('#%s', $item->id),
+            '',
+            strip_tags($item->full_text ?? ''),
+        ])->join("\n");
     }
 
     protected function metaFormat(array $array)

@@ -1,7 +1,7 @@
 """ChatAPI endpoints — wraps notebooklm-py ChatAPI."""
 from fastapi import APIRouter, Request
 from notebooklm import ChatGoal, ChatResponseLength
-from models import AskRequest, AskResponse, AskResult, ChatReference, ConfigureChatRequest
+from models import AskRequest, AskResponse, AskResult, ChatReference, ConfigureChatRequest, NextStepSuggestion
 from pool import get_client
 from api.utils import elapsed_ms, pick
 
@@ -18,15 +18,21 @@ def _map_reference(ref) -> ChatReference:
         chunk_id=pick(ref, "chunk_id"),
     )
 
+def _map_suggestions(ref) -> NextStepSuggestion:
+    return NextStepSuggestion(
+        question=pick(ref, "question"),
+        type_code=pick(ref, "type_code")
+    )
+
 
 @router.post("/notebooks/ask", response_model=AskResponse)
 async def ask_question(request: Request, account_id: str, body: AskRequest):
     """Ask a question in a notebook, clearing any prior conversation first."""
     client = get_client(account_id)
 
-    last_conv_id = await client.chat.get_conversation_id(body.notebook_id)
-    if last_conv_id:
-        await client.chat.delete_conversation(body.notebook_id, last_conv_id)
+    # last_conv_id = await client.chat.get_conversation_id(body.notebook_id)
+    # if last_conv_id:
+    #     await client.chat.delete_conversation(body.notebook_id, last_conv_id)
 
     result = await client.chat.ask(
         notebook_id=body.notebook_id,
@@ -34,14 +40,16 @@ async def ask_question(request: Request, account_id: str, body: AskRequest):
         source_ids=body.source_ids,
         conversation_id=body.conversation_id,
     )
-
+    
     ask_result = AskResult(
         answer=pick(result, "answer", ""),
         conversation_id=pick(result, "conversation_id", ""),
         turn_number=pick(result, "turn_number", 0),
         is_follow_up=pick(result, "is_follow_up", False),
         references=[_map_reference(r) for r in (pick(result, "references") or [])],
+        next_steps=[_map_suggestions(s) for s in (pick(result, "next_steps") or [])],
     )
+    
     return AskResponse(response_time_ms=elapsed_ms(request), result=ask_result)
 
 

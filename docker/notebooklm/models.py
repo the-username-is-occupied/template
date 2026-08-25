@@ -92,6 +92,9 @@ class SourceRenameResponse(BaseResponse):
 class SourceAddUrlRequest(BaseModel):
     url: str = Field(..., description="URL to add as source")
 
+class NextStepSuggestion(BaseModel):
+    question: str = Field(..., description="Suggested follow-up question")
+    type_code: Optional[int] = Field(..., description="Suggested follow-up question code")
 
 class SourceAddUrlResponse(BaseResponse):
     source: Source = Field(..., description="Added URL source")
@@ -169,7 +172,8 @@ class AskResult(BaseModel):
     conversation_id: str = Field(..., description="Conversation ID")
     turn_number: int = Field(..., description="Turn number in the conversation")
     is_follow_up: bool = Field(default=False, description="Whether this is a follow-up question")
-    references: List[ChatReference] = Field(default_factory=list, description="Citations")
+    references: List[ChatReference] = Field(default_factory=list, description="Citations"),
+    next_steps: List[NextStepSuggestion] = Field(None, description="Suggested follow-up questions")
 
 
 class AskResponse(BaseResponse):

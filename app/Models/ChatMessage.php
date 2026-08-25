@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Models;
 
 use App\Domain\NotebookLM\DTOs\AskResultDTO;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -52,5 +53,10 @@ class ChatMessage extends Model
     public function askDto()
     {
         return AskResultDTO::from($this->result);
+    }
+
+    public function scopeSuccess(Builder $builder)
+    {
+        return $builder->where('is_success', true);
     }
 }

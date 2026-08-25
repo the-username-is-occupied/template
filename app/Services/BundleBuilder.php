@@ -7,10 +7,13 @@ namespace App\Services;
 use App\Domain\NotebookLM\NotebookLMService;
 use App\Enums\MdBundleStatus;
 use App\Enums\MdBundleType;
+use App\Enums\ReviewStatus;
 use App\Jobs\ConsolidateBundlesJob;
+use App\Models\ContentSource;
 use App\Models\MdBundle;
 use App\Models\Notebook;
 use App\Models\OriginalItem;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -43,9 +46,9 @@ class BundleBuilder
     /**
      * Build bundles for a notebook from unbundled original items.
      */
-    public function build(Notebook $notebook): void
+    public function build(Notebook $notebook, ?Builder $originalItems = null): void
     {
-        $contentSourceIds = $notebook->contentSources()->pluck('content_sources.id');
+        $contentSourceIds = $this->getContentSourceIdsWithChildren($notebook);
 
         Log::info('Fetching unbundled items for bundle build', [
             'notebook_id' => $notebook->id,
@@ -56,7 +59,8 @@ class BundleBuilder
             return;
         }
 
-        $itemsQuery = OriginalItem::whereIn('content_source_id', $contentSourceIds)
+        $itemsQuery = ($originalItems ?? OriginalItem::whereIn('content_source_id', $contentSourceIds))
+            ->with('contentSource')
             ->unbundled()
             ->orderBy('published_at');
 
@@ -96,6 +100,27 @@ class BundleBuilder
     }
 
     /**
+     * Get all content source IDs for a notebook, including child sources
+     * with review_status = approved.
+     *
+     * @return Collection<int, string>
+     */
+    private function getContentSourceIdsWithChildren(Notebook $notebook): Collection
+    {
+        $parentIds = $notebook->contentSources()->pluck('content_sources.id');
+
+        if ($parentIds->isEmpty()) {
+            return $parentIds;
+        }
+
+        $childIds = ContentSource::whereIn('parent_source_id', $parentIds)
+            ->where('review_status', ReviewStatus::Approved)
+            ->pluck('id');
+
+        return $parentIds->merge($childIds)->unique();
+    }
+
+    /**
      * Full rebuild: wipe all existing bundles for the notebook (disk + NLM + DB)
      * and reindex ALL original items (bundled and unbundled alike) from scratch,
      * always as primary indexing — there is no point running the continuous
@@ -109,7 +134,7 @@ class BundleBuilder
             $this->deleteExistingBundles($notebook);
         });
 
-        $contentSourceIds = $notebook->contentSources()->pluck('content_sources.id');
+        $contentSourceIds = $this->getContentSourceIdsWithChildren($notebook);
 
         if ($contentSourceIds->isEmpty()) {
             Log::info('Rebuild: notebook has no content sources', [
@@ -194,6 +219,7 @@ class BundleBuilder
 
         foreach ($itemIds->chunk(self::ITEMS_CHUNK_SIZE) as $idChunk) {
             $chunkItems = OriginalItem::whereIn('id', $idChunk->all())
+                ->with('contentSource')
                 ->orderBy('published_at')
                 ->get();
 
@@ -245,6 +271,7 @@ class BundleBuilder
 
         foreach ($itemIds->chunk(self::ITEMS_CHUNK_SIZE) as $idChunk) {
             $chunkItems = OriginalItem::whereIn('id', $idChunk->all())
+                ->with('contentSource')
                 ->orderBy('published_at')
                 ->get();
 
@@ -269,7 +296,7 @@ class BundleBuilder
      */
     private function flushDeltaToQuarter(Notebook $notebook, MdBundle $delta): void
     {
-        $deltaItems = $delta->bundleItems()->with('originalItem')->get()->pluck('originalItem');
+        $deltaItems = $delta->bundleItems()->with('originalItem.contentSource')->get()->pluck('originalItem');
 
         if ($deltaItems->isEmpty()) {
             return;
@@ -308,7 +335,7 @@ class BundleBuilder
 
         // Recalculate quarter word count from rendered content
         $allQuarterItems = $quarter->bundleItems()
-            ->with('originalItem')
+            ->with('originalItem.contentSource')
             ->orderBy('position')
             ->get()
             ->pluck('originalItem');
@@ -316,15 +343,6 @@ class BundleBuilder
         $quarter->update(['word_count' => $this->wordCounter->count($quarterContent)]);
 
         $quarter->increment('word_count', $deltaWordCount);
-
-        // Build quarter content from scratch (all items in order)
-        $allQuarterItems = $quarter->bundleItems()
-            ->with('originalItem')
-            ->orderBy('position')
-            ->get()
-            ->pluck('originalItem');
-
-        $quarterContent = $this->renderer->render($allQuarterItems);
 
         // Update quarter file on disk
         $disk = Storage::disk('bundles');
@@ -410,10 +428,8 @@ class BundleBuilder
         $notebook = $bundle->notebook;
         $disk = Storage::disk('bundles');
         $filePath = "{$notebook->id}/{$bundle->id}.txt";
-        $existingContent = $disk->get($filePath) ?? '';
 
-        $separator = $existingContent === '' ? '' : "\n\n";
-        $disk->put($filePath, $existingContent.$separator.$newItemContent);
+        $disk->append($filePath, "\n\n".$newItemContent);
 
         // Replace source in NLM
         if ($bundle->nlm_source_id) {

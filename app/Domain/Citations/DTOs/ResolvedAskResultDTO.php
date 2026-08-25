@@ -4,7 +4,8 @@ declare(strict_types=1);
 
 namespace App\Domain\Citations\DTOs;
 
-use App\Domain\NotebookLM\DTOs\SuggestedTopicDTO;
+use App\Domain\NotebookLM\DTOs\NextSuggestedTopicDTO;
+use Spatie\LaravelData\Attributes\DataCollectionOf;
 use Spatie\LaravelData\Data;
 use Spatie\LaravelData\DataCollection;
 
@@ -14,8 +15,8 @@ class ResolvedAskResultDTO extends Data
         public string $answer,
         /** @var CitationData[] */
         public DataCollection $citations,
-        /** @var SuggestedTopicDTO[] */
-        public DataCollection $suggested = new DataCollection(SuggestedTopicDTO::class, []),
+        #[DataCollectionOf(NextSuggestedTopicDTO::class)]
+        public DataCollection $suggested,
     ) {}
 
     public function getUrls(): array

@@ -67,7 +67,6 @@ class LinkProcessorService
                 'extraction_status' => ExtractionStatus::Pending,
                 'metadata' => [],
             ]);
-            
 
             $createdSources[] = $newSource;
 
@@ -83,21 +82,11 @@ class LinkProcessorService
     }
 
     /**
-     * Check if a link is a Telegram channel without a specific post ID.
+     * Check if a link is a Telegram link that should be skipped.
      */
     private function isNestedTelegramChannel(string $link): bool
     {
-        // Match t.me/channel or t.me/s/channel WITHOUT a number after the channel name
-        if (preg_match('#t\.me(?:/s)?/[^/?]+$#', $link)) {
-            return true;
-        }
-
-        // Match t.me/channel but NOT t.me/channel/12345
-        if (preg_match('#t\.me/[^/?]+$#', $link)) {
-            return true;
-        }
-
-        return false;
+        return preg_match('#^(?:https?://)?(?:t\.me|telegram\.me)(?:/s)?/.*$#i', $link) === 1;
     }
 
     /**

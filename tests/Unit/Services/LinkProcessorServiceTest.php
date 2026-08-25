@@ -25,19 +25,21 @@ final class LinkProcessorServiceTest extends TestCase
         $this->service = new LinkProcessorService;
     }
 
-    public function test_process_links_filters_nested_channels(): void
+    public function test_process_links_filters_all_telegram_links(): void
     {
         $parentSource = ContentSource::factory()->create();
         $parentItem = OriginalItem::factory()->create(['content_source_id' => $parentSource->id]);
 
         $links = [
-            'https://t.me/channel_without_post',  // Should be filtered
-            'https://t.me/channel/123',  // Should be processed
+            'https://t.me/channel_without_post',
+            'https://t.me/channel/abc',
+            'https://t.me/channel/123',
+            'https://telegram.me/channel/123',
         ];
 
         $result = $this->service->processLinks($parentSource, $parentItem, $links);
 
-        $this->assertCount(1, $result);
+        $this->assertCount(0, $result);
     }
 
     public function test_process_links_deduplicates(): void
@@ -52,13 +54,13 @@ final class LinkProcessorServiceTest extends TestCase
 
         $links = [
             'https://t.me/existing/123',  // Should be deduplicated
-            'https://t.me/new/456',  // Should be created
+            'https://example.com/new/456',  // Should be created
         ];
 
         $result = $this->service->processLinks($parentSource, $parentItem, $links);
 
         $this->assertCount(1, $result);
-        $this->assertEquals('https://t.me/new/456', $result[0]->url);
+        $this->assertEquals('https://example.com/new/456', $result[0]->url);
     }
 
     public function test_process_links_creates_correct_source(): void
@@ -67,7 +69,7 @@ final class LinkProcessorServiceTest extends TestCase
         $parentItem = OriginalItem::factory()->create(['content_source_id' => $parentSource->id]);
 
         $links = [
-            'https://t.me/test_channel/123',
+            'https://example.com/test_channel/123',
         ];
 
         $result = $this->service->processLinks($parentSource, $parentItem, $links);
@@ -76,7 +78,7 @@ final class LinkProcessorServiceTest extends TestCase
         $source = $result[0];
 
         $this->assertEquals($parentSource->user_id, $source->user_id);
-        $this->assertEquals('https://t.me/test_channel/123', $source->url);
+        $this->assertEquals('https://example.com/test_channel/123', $source->url);
         $this->assertEquals(DiscoveryMethod::AutoExtracted, $source->discovery_method);
         $this->assertEquals(ReviewStatus::PendingReview, $source->review_status);
         $this->assertEquals($parentSource->id, $source->parent_source_id);
@@ -90,7 +92,7 @@ final class LinkProcessorServiceTest extends TestCase
         $parentItem = OriginalItem::factory()->create(['content_source_id' => $parentSource->id]);
 
         $links = [
-            'https://t.me/test/123',
+            'https://example.com/test/123',
         ];
 
         // First call

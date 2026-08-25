@@ -8,6 +8,7 @@ use App\Models\BundleItem;
 use App\Models\MdBundle;
 use App\Models\OriginalItem;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Str;
 
 class BundleItemsService
 {
@@ -15,22 +16,18 @@ class BundleItemsService
      * Create bundle_items records for the given items in a bundle.
      *
      * @param  Collection<array-key, OriginalItem>  $items
-     * @return Collection<array-key, BundleItem>
      */
-    public function attachItems(MdBundle $bundle, Collection $items): Collection
+    public function attachItems(MdBundle $bundle, Collection $items): void
     {
-        $bundleItems = collect();
+        $data = $items->values()->map(fn (OriginalItem $item, int $index) => [
+            'id' => (string) Str::orderedUuid(),
+            'bundle_id' => $bundle->id,
+            'original_item_id' => $item->id,
+            'position' => $index + 1,
+        ])->all();
 
-        $items->each(function (OriginalItem $item, int $index) use ($bundle, $bundleItems): void {
-            $bundleItem = BundleItem::create([
-                'bundle_id' => $bundle->id,
-                'original_item_id' => $item->id,
-                'position' => $index + 1,
-            ]);
-
-            $bundleItems->push($bundleItem);
-        });
-
-        return $bundleItems;
+        foreach (array_chunk($data, 500) as $chunk) {
+            BundleItem::insert($chunk);
+        }
     }
 }

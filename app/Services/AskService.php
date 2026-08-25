@@ -70,8 +70,6 @@ class AskService
                 $question
             );
 
-            $dto->extractSuggested();
-
             $msg->update([
                 'result' => $dto->toArray(),
                 'is_success' => true,

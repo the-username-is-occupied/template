@@ -19,10 +19,10 @@ enum TechAccountPoolType: string
     public function price(): string
     {
         return match ($this) {
-            self::Free => '8$ per month',
-            self::Plus => '20$ per month',
-            self::Pro => '100$ per month',
-            self::Ultra => '200$ per month',
+            self::Free => '0$ per month',
+            self::Plus => '10$ per month',
+            self::Pro => '20$ per month',
+            self::Ultra => '100$ per month',
         };
     }
 

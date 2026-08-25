@@ -30,18 +30,18 @@ class TestSourceDraftSeeder extends Seeder
 
         $this->command->info("✓ Using TechAccount: {$techAccount->name} (ID: {$techAccount->id})");
 
-        //$notebook = Notebook::find('019f64da-8b4f-71c9-9e94-f6759b4b8a5c');
+        // $notebook = Notebook::find('019f64da-8b4f-71c9-9e94-f6759b4b8a5c');
 
-         $notebook = app()->make(NotebookService::class)->create(
-             'Радар',
-             $techAccount,
-             $user
-         );
+        $notebook = app()->make(NotebookService::class)->create(
+            'Программа "Статус"',
+            $techAccount,
+            $user
+        );
 
         $this->command->info("✓ Created notebook: {$notebook->title} (ID: {$notebook->id})");
 
         // 5. Create SourceDraft
-        $rawInput = 'https://t.me/productradar_official';
+        $rawInput = 'https://www.youtube.com/watch?v=83oEvYsN9ZU&list=PLYdsjx7Rg7k5aFd5fpHdxQO_5kUc9Y5ex';
 
         $draftService = app(SourceDraftService::class);
         $drafts = $draftService->create($user, $notebook, $rawInput);
@@ -97,8 +97,8 @@ class TestSourceDraftSeeder extends Seeder
             'chunk_limit' => 1000,
             'workers' => 3,
         ];
-        
-        if($draft->type === SourceType::YoutubeChannel){
+
+        if ($draft->type === SourceType::YoutubeChannel) {
             $draft->fetchUrls();
         }
 

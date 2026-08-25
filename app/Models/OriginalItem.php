@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace App\Models;
 
 use App\Enums\SourceType;
+use App\Services\BundleRenderer2;
+use App\Services\WordCounter;
 use Carbon\CarbonInterval;
 use Database\Factories\OriginalItemFactory;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
@@ -184,5 +186,25 @@ class OriginalItem extends Model
         return $hours > 0
             ? sprintf('%d:%02d:%02d', $hours, $minutes, $secs)
             : sprintf('%d:%02d', $minutes, $secs);
+    }
+
+    public function wordCount(): int
+    {
+        $this->word_count = app()->make(WordCounter::class)
+            ->count(app()->make(BundleRenderer2::class)
+                ->renderSingle($this));
+
+        $this->save();
+
+        return $this->word_count;
+    }
+
+    public static function recount()
+    {
+        static::query()->with('contentSource')->chunk(1000, function ($items) {
+            foreach ($items as $item) {
+                $item->wordCount();
+            }
+        });
     }
 }

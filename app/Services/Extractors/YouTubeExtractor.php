@@ -10,6 +10,7 @@ use App\Domain\NotebookLM\DTOs\SourceFulltextDTO;
 use App\Domain\NotebookLM\NotebookLMService;
 use App\Events\ExtractionDone;
 use App\Models\ContentSource;
+use App\Models\Notebook;
 use App\Models\OriginalItem;
 use App\Models\TechNotebook;
 use App\Services\AccountService;
@@ -75,7 +76,7 @@ class YouTubeExtractor implements SourceExtractorInterface
 
     /**
      * Removes URLs that already have a fully extracted OriginalItem for this source,
-     * so re-running extraction doesn't redo already-completed work.
+     * so re-running extraction doesn't asd  redo already-completed work.
      *
      * @param  array<int, string>  $videoUrls
      * @return array<int, string>
@@ -146,7 +147,7 @@ class YouTubeExtractor implements SourceExtractorInterface
     /**
      * @param  array<int, string>  $batchUrls
      */
-    private function processBatch(ContentSource $source, $notebook, array $batchUrls): void
+    private function processBatch(ContentSource $source, TechNotebook $notebook, array $batchUrls): void
     {
         $urlBySourceId = $this->addSourcesToNotebook($notebook, $batchUrls);
 
@@ -260,6 +261,9 @@ class YouTubeExtractor implements SourceExtractorInterface
      */
     private function cleanupNotebookSources(TechNotebook $notebook, array $sourceIds): void
     {
+        $notebook->clean();
+
+        return;
         if (empty($sourceIds)) {
             return;
         }
