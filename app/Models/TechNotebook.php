@@ -84,7 +84,7 @@ class TechNotebook extends Model
         return $this->tierLimit?->sources_per_notebook ?? 50;
     }
 
-    public function clean()
+    public function clean(): void
     {
         $this->account()->first()->service()->cleanupNotebookSources($this->notebook_id);
         $this->update(['sources_count' => 0, 'status' => 'idle']);

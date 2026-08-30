@@ -112,7 +112,7 @@ final class BundleRendererTest extends TestCase
 
     public function test_render_with_multiple_items_all_have_valid_headers(): void
     {
-        $items = collect(range(1, 5))->map(function (int $i) {
+        $items = collect(range(1, 5))->map(function (int $i): OriginalItem {
             $item = new OriginalItem;
             $item->id = sprintf('550e8400-e29b-41d4-a716-44665544000%d', $i);
             $item->title = "Article {$i}";
@@ -124,7 +124,7 @@ final class BundleRendererTest extends TestCase
 
         $result = $this->renderer->render($items);
 
-        foreach ($items as $i => $item) {
+        foreach ($items as $item) {
             $encodedId = $this->renderer->encodeItemId($item->id);
             $this->assertStringContainsString("> {$encodedId}", $result);
             $this->assertStringContainsString($item->full_text, $result);

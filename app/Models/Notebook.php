@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Data\PreprocessData;
 use App\Domain\NotebookLM\DTOs\NotebookDescriptionDTO;
 use App\Domain\NotebookLM\NotebookNLMDecorator;
 use App\Services\AskService;
@@ -16,6 +17,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Facades\Storage;
+use Spatie\LaravelData\Data;
 
 class Notebook extends Model
 {
@@ -102,17 +104,17 @@ class Notebook extends Model
         return $q->whereNotNull('slug');
     }
 
-    public function nlm(?TechAccount $account = null)
+    public function nlm(?TechAccount $account = null): NotebookNLMDecorator
     {
-        return new NotebookNLMDecorator($this, $account ? $account->service() : null);
+        return new NotebookNLMDecorator($this, $account instanceof TechAccount ? $account->service() : null);
     }
 
-    public function ask(string $q)
+    public function ask(string $q): ChatMessage|PreprocessData
     {
         return app()->make(AskService::class)->ask($this, $q);
     }
 
-    public function getDescriptionAttribute($value)
+    public function getDescriptionAttribute($value): Data
     {
         return NotebookDescriptionDTO::from(json_decode($value, true));
     }
@@ -122,30 +124,30 @@ class Notebook extends Model
         return $this->nlm()->setPublic();
     }
 
-    public static function updateDesc()
+    public static function updateDesc(): void
     {
-        static::query()->hasSlug()->with('techAccount')->chunk(10, function ($notebooks) {
+        static::query()->hasSlug()->with('techAccount')->chunk(10, function ($notebooks): void {
             foreach ($notebooks as $notebook) {
                 $notebook->setDescription();
             }
         });
     }
 
-    public static function updatePrompt()
+    public static function updatePrompt(): void
     {
-        static::query()->hasSlug()->with('techAccount')->chunk(10, function ($notebooks) {
+        static::query()->hasSlug()->with('techAccount')->chunk(10, function ($notebooks): void {
             foreach ($notebooks as $notebook) {
                 $notebook->setSystemPrompt();
             }
         });
     }
 
-    public function rebuild()
+    public function rebuild(): void
     {
         app()->make(BundleBuilder::class)->rebuild($this);
     }
 
-    public function setDescription()
+    public function setDescription(): void
     {
         $dto = $this->nlm()->getNotebookDescription();
         $this->description = $dto->toArray();
@@ -163,7 +165,7 @@ class Notebook extends Model
         $this->nlm()->configure($system_prompt.($this->system_prompt ? "\n\n Пользовательский промпт: \n".$this->system_prompt : ''));
     }
 
-    public function clean()
+    public function clean(): void
     {
         $this->techAccount()->first()->service()->cleanupNotebookSources($this->nlm_notebook_id);
 

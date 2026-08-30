@@ -19,7 +19,7 @@ class BundleItemsService
      */
     public function attachItems(MdBundle $bundle, Collection $items): void
     {
-        $data = $items->values()->map(fn (OriginalItem $item, int $index) => [
+        $data = $items->values()->map(fn (OriginalItem $item, int $index): array => [
             'id' => (string) Str::orderedUuid(),
             'bundle_id' => $bundle->id,
             'original_item_id' => $item->id,

@@ -16,10 +16,6 @@ use Illuminate\Support\Facades\DB;
 
 class SourceService
 {
-    public function __construct(
-        private readonly ExtractorFactory $extractorFactory,
-    ) {}
-
     /**
      * Confirm and process a source draft.
      *
@@ -69,10 +65,10 @@ class SourceService
      */
     public function startIndexing(SourceDraft $draft, array $approvedUrls = []): void
     {
-        DB::transaction(function () use ($draft, $approvedUrls) {
+        DB::transaction(function () use ($draft, $approvedUrls): void {
             $draft->update(['status' => SourceDraftStatus::Indexing]);
 
-            if (! empty($approvedUrls)) {
+            if ($approvedUrls !== []) {
                 $draft->contentSource
                     ?->originalItems()
                     ->whereIn('source_url', $approvedUrls)

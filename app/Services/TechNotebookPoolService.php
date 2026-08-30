@@ -9,6 +9,7 @@ use App\Domain\NotebookLM\NotebookLMService;
 use App\Models\TechAccount;
 use App\Models\TechNotebook;
 use Illuminate\Support\Facades\Log;
+use Throwable;
 
 class TechNotebookPoolService
 {
@@ -66,7 +67,7 @@ class TechNotebookPoolService
             try {
                 $account = $this->getAccountWithLeastNotebooks();
 
-                if (! $account) {
+                if (! $account instanceof TechAccount) {
                     Log::error('TechNotebookPoolService: No accounts available');
 
                     return;
@@ -84,7 +85,7 @@ class TechNotebookPoolService
                     'account_id' => $account->id,
                     'nlm_notebook_id' => $notebookDTO->id,
                 ]);
-            } catch (\Throwable $e) {
+            } catch (Throwable $e) {
                 Log::error('TechNotebookPoolService: Failed to create tech notebook', [
                     'type' => $type,
                     'error' => $e->getMessage(),
@@ -118,7 +119,7 @@ class TechNotebookPoolService
                     'tech_notebook_id' => $techNotebook->id,
                     'new_notebook_id' => $notebookDTO->id,
                 ]);
-            } catch (\Throwable $e) {
+            } catch (Throwable $e) {
                 Log::error('TechNotebookPoolService: Failed to recreate degraded tech notebook', [
                     'tech_notebook_id' => $techNotebook->id,
                     'error' => $e->getMessage(),

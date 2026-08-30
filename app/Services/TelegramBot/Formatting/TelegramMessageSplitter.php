@@ -54,7 +54,7 @@ final class TelegramMessageSplitter
                 $currentLength += mb_strlen($ct);
             }
 
-            $tempStack = $this->toggle($stack, $token, false);
+            $tempStack = $this->toggle($stack, $token);
             $closingLen = array_sum(array_map('mb_strlen', $tempStack));
 
             $wouldOverflow = $currentLength + mb_strlen($token) + $closingLen + $reservedSuffixLength > $maxLength;
@@ -63,7 +63,7 @@ final class TelegramMessageSplitter
                 if (empty($chunkTokens)) {
                     // Одиночный токен уже длиннее лимита — деваться некуда, кладём как есть.
                     $chunkTokens[] = $token;
-                    $stack = $this->toggle($stack, $token, true);
+                    $stack = $this->toggle($stack, $token);
                     if ($token === "\n") {
                         $lastNewlineIndexInChunk = count($chunkTokens) - 1;
                         $lastNewlineStack = $stack;
@@ -101,7 +101,7 @@ final class TelegramMessageSplitter
             }
 
             $chunkTokens[] = $token;
-            $stack = $this->toggle($stack, $token, true);
+            $stack = $this->toggle($stack, $token);
 
             if ($token === "\n") {
                 $lastNewlineIndexInChunk = count($chunkTokens) - 1;
@@ -122,13 +122,13 @@ final class TelegramMessageSplitter
      * @param  array<int, string>  $stack
      * @return array<int, string>
      */
-    private function toggle(array $stack, string $token, bool $mutateStackForReal): array
+    private function toggle(array $stack, string $token): array
     {
         if (! in_array($token, self::TOGGLE_TOKENS, true)) {
             return $stack;
         }
 
-        if (! empty($stack) && end($stack) === $token) {
+        if ($stack !== [] && end($stack) === $token) {
             array_pop($stack);
         } else {
             $stack[] = $token;
@@ -152,9 +152,8 @@ final class TelegramMessageSplitter
         $chunkText = $isSubsequent ? $continuationPrefix : '';
         $chunkText .= implode('', $stackAtStart);
         $chunkText .= implode('', $chunkTokens);
-        $chunkText .= implode('', array_reverse($stack));
 
-        return $chunkText;
+        return $chunkText.implode('', array_reverse($stack));
     }
 
     /**

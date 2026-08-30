@@ -23,6 +23,7 @@ use Illuminate\Http\Client\Pool;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
+use RuntimeException;
 use Throwable;
 
 /**
@@ -175,9 +176,9 @@ class NotebookLMService
         $results = [];
 
         foreach (array_chunk($sourceIds, max(1, $concurrency)) as $chunk) {
-            $path = fn (string $sourceId) => "/accounts/{$accountId}/notebooks/{$notebookId}/sources/{$sourceId}/fulltext";
+            $path = fn (string $sourceId): string => "/accounts/{$accountId}/notebooks/{$notebookId}/sources/{$sourceId}/fulltext";
 
-            $responses = Http::pool(function (Pool $pool) use ($chunk, $path) {
+            $responses = Http::pool(function (Pool $pool) use ($chunk, $path): array {
                 $requests = [];
 
                 foreach ($chunk as $sourceId) {
@@ -195,7 +196,7 @@ class NotebookLMService
                 $results[$sourceId] = $this->resolvePoolResponse(
                     $response,
                     $path($sourceId),
-                    fn (array $body) => SourceFulltextDTO::from($body)
+                    fn (array $body): SourceFulltextDTO => SourceFulltextDTO::from($body)
                 );
             }
         }
@@ -242,7 +243,7 @@ class NotebookLMService
         $path = "/accounts/{$accountId}/notebooks/{$notebookId}/sources/url";
 
         foreach (array_chunk($urls, max(1, $concurrency), true) as $chunk) {
-            $responses = Http::pool(function (Pool $pool) use ($chunk, $path) {
+            $responses = Http::pool(function (Pool $pool) use ($chunk, $path): array {
                 $requests = [];
 
                 foreach ($chunk as $index => $url) {
@@ -254,13 +255,13 @@ class NotebookLMService
                 return $requests;
             });
 
-            foreach ($chunk as $index => $url) {
+            foreach (array_keys($chunk) as $index) {
                 $response = $responses[(string) $index] ?? null;
 
                 $results[$index] = $this->resolvePoolResponse(
                     $response,
                     $path,
-                    fn (array $body) => SourceDTO::from($body['source'])
+                    fn (array $body): SourceDTO => SourceDTO::from($body['source'])
                 );
             }
         }
@@ -336,9 +337,9 @@ class NotebookLMService
         $results = [];
 
         foreach (array_chunk($sourceIds, max(1, $concurrency)) as $chunk) {
-            $path = fn (int|string $sourceId) => "/accounts/{$accountId}/notebooks/{$notebookId}/sources/{$sourceId}";
+            $path = fn (int|string $sourceId): string => "/accounts/{$accountId}/notebooks/{$notebookId}/sources/{$sourceId}";
 
-            $responses = Http::pool(function (Pool $pool) use ($chunk, $path) {
+            $responses = Http::pool(function (Pool $pool) use ($chunk, $path): array {
                 $requests = [];
 
                 foreach ($chunk as $sourceId) {
@@ -356,7 +357,7 @@ class NotebookLMService
                 $results[$sourceId] = $this->resolvePoolResponse(
                     $response,
                     $path($sourceId),
-                    fn (array $body) => (bool) ($body['success'] ?? false)
+                    fn (array $body): bool => (bool) ($body['success'] ?? false)
                 );
             }
         }
@@ -393,11 +394,11 @@ class NotebookLMService
     {
         $sources = $this->listSources($accountId, $notebookId);
 
-        if (empty($sources)) {
+        if ($sources === []) {
             return true;
         }
 
-        $sourceIds = array_map(fn ($source) => $source->id, $sources);
+        $sourceIds = array_map(fn ($source): string => $source->id, $sources);
         $results = $this->deleteSourcesPool($accountId, $notebookId, $sourceIds);
 
         $allDeleted = true;
@@ -699,7 +700,7 @@ class NotebookLMService
             }
 
             if (! $response instanceof Response) {
-                throw new \RuntimeException('No response received from pooled request');
+                throw new RuntimeException('No response received from pooled request');
             }
 
             $this->logResponse($response, $path);
@@ -750,7 +751,7 @@ class NotebookLMService
             'response_time_ms' => $body['response_time_ms'] ?? 0,
         ]);
 
-        throw new \RuntimeException(
+        throw new RuntimeException(
             sprintf('NotebookLM Error [%s]: %s', $error, $message),
             $response->status(),
         );

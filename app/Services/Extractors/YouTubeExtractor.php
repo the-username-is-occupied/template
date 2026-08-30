@@ -16,6 +16,7 @@ use App\Models\TechNotebook;
 use App\Services\AccountService;
 use App\Services\WordCounter;
 use App\Services\YouTubeOriginalItemMetadataResolver;
+use Exception;
 use Illuminate\Support\Facades\Log;
 use Throwable;
 
@@ -24,10 +25,6 @@ class YouTubeExtractor implements SourceExtractorInterface
     private const MAX_NOTEBOOK_LOOKUP_ATTEMPTS = 3;
 
     private const NOTEBOOK_RETRY_DELAY_SECONDS = 10;
-
-    private const MAX_LOCK_ACQUIRE_ATTEMPTS = 3;
-
-    private const LOCK_RETRY_DELAY_SECONDS = 5;
 
     public function __construct(
         private readonly AccountService $accountService,
@@ -51,7 +48,7 @@ class YouTubeExtractor implements SourceExtractorInterface
 
         $unprocessedUrls = $this->filterAlreadyProcessedUrls($source, $videoUrls);
 
-        if (empty($unprocessedUrls)) {
+        if ($unprocessedUrls === []) {
             $source->update(['extraction_status' => 'extracted']);
             event(new ExtractionDone($source));
 
@@ -65,7 +62,7 @@ class YouTubeExtractor implements SourceExtractorInterface
 
             $source->update(['extraction_status' => 'extracted']);
             event(new ExtractionDone($source));
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             $source->update([
                 'extraction_status' => 'error',
                 'error_message' => $e->getMessage(),
@@ -106,12 +103,12 @@ class YouTubeExtractor implements SourceExtractorInterface
         $notebookAttemptsLeft = self::MAX_NOTEBOOK_LOOKUP_ATTEMPTS;
         $excludedNotebookIds = [];
 
-        while (! empty($unprocessedUrls)) {
+        while ($unprocessedUrls !== []) {
             $notebook = $this->accountService->getAvailableTechNotebook('source_extractor', $excludedNotebookIds);
 
-            if (! $notebook) {
+            if (! $notebook instanceof TechNotebook) {
                 if (--$notebookAttemptsLeft <= 0) {
-                    throw new \Exception('No available tech notebooks after multiple attempts');
+                    throw new Exception('No available tech notebooks after multiple attempts');
                 }
 
                 Log::warning("No available tech notebooks, waiting 10 seconds (attempts left: {$notebookAttemptsLeft})");
@@ -151,7 +148,7 @@ class YouTubeExtractor implements SourceExtractorInterface
     {
         $urlBySourceId = $this->addSourcesToNotebook($notebook, $batchUrls);
 
-        if (empty($urlBySourceId)) {
+        if ($urlBySourceId === []) {
             return;
         }
 
@@ -168,7 +165,7 @@ class YouTubeExtractor implements SourceExtractorInterface
         } catch (Throwable $e) {
             Log::error($e->getMessage());
         } finally {
-            $this->cleanupNotebookSources($notebook, $sourceIds);
+            $this->cleanupNotebookSources($notebook);
         }
     }
 
@@ -249,37 +246,16 @@ class YouTubeExtractor implements SourceExtractorInterface
             ]);
         }
 
-        if (! empty($createdItems)) {
+        if ($createdItems !== []) {
             $this->metadataResolver->resolveAndUpdate(collect($createdItems));
         }
     }
 
     /**
      * Deletes all sources for the batch in parallel (via Http::pool under the hood).
-     *
-     * @param  array<int, int|string>  $sourceIds
      */
-    private function cleanupNotebookSources(TechNotebook $notebook, array $sourceIds): void
+    private function cleanupNotebookSources(TechNotebook $notebook): void
     {
         $notebook->clean();
-
-        return;
-        if (empty($sourceIds)) {
-            return;
-        }
-
-        $poolResults = $this->notebookLMService->deleteSourcesPool(
-            $notebook->account_id,
-            $notebook->notebook_id,
-            $sourceIds
-        );
-
-        foreach ($poolResults as $sourceId => $result) {
-            if ($result instanceof Throwable) {
-                Log::error("Failed to delete source {$sourceId}: ".$result->getMessage());
-            }
-        }
-
-        $this->accountService->decrementSourcesCount($notebook, count($sourceIds));
     }
 }

@@ -70,16 +70,12 @@ class DraftLinkGroupingService
 
     private function extractChannel(string $url, SourceType $type): ?string
     {
-        if ($type === SourceType::TelegramChannel) {
-            if (preg_match('#t\.me/(?:s/)?([^/?]+)#', $url, $matches)) {
-                return '@'.$matches[1];
-            }
+        if ($type !== SourceType::TelegramChannel) {
+            return null;
         }
 
-        if ($type === SourceType::YoutubeVideo || $type === SourceType::YoutubeChannel) {
-            // For YouTube, we'd need to call YouTubeService::resolveChannelUrls
-            // This is a simplified version
-            return null;
+        if (preg_match('#t\.me/(?:s/)?([^/?]+)#', $url, $matches)) {
+            return '@'.$matches[1];
         }
 
         return null;

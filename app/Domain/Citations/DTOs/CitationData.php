@@ -25,7 +25,7 @@ class CitationData extends Data
         public int $citation_number,
     ) {}
 
-    public function typeLabel()
+    public function typeLabel(): string
     {
         return match ($this->source_type) {
             'telegram_channel' => '[telegram]',

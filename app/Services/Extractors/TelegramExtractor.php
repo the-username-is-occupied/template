@@ -8,8 +8,10 @@ use App\Contracts\SourceExtractorInterface;
 use App\Domain\Telegram\TGScraperService;
 use App\Enums\ExtractionStatus;
 use App\Models\ContentSource;
+use DateTimeImmutable;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\URL;
+use Throwable;
 
 class TelegramExtractor implements SourceExtractorInterface
 {
@@ -53,8 +55,8 @@ class TelegramExtractor implements SourceExtractorInterface
                 limit: $scrapeConfig['limit'] ?? 0,
                 fromId: $scrapeConfig['from_id'] ?? null,
                 toId: $scrapeConfig['to_id'] ?? null,
-                fromDate: isset($scrapeConfig['from_date']) ? new \DateTimeImmutable($scrapeConfig['from_date']) : null,
-                toDate: isset($scrapeConfig['to_date']) ? new \DateTimeImmutable($scrapeConfig['to_date']) : null,
+                fromDate: isset($scrapeConfig['from_date']) ? new DateTimeImmutable($scrapeConfig['from_date']) : null,
+                toDate: isset($scrapeConfig['to_date']) ? new DateTimeImmutable($scrapeConfig['to_date']) : null,
                 workers: $scrapeConfig['workers'] ?? 3,
                 chunkLimit: $scrapeConfig['chunk_limit'] ?? 2000,
                 hookUrl: $hookUrl,
@@ -67,7 +69,7 @@ class TelegramExtractor implements SourceExtractorInterface
                 'channel' => $channel,
                 'hook_url' => $hookUrl,
             ]);
-        } catch (\Throwable $e) {
+        } catch (Throwable $e) {
             $source->update([
                 'extraction_status' => ExtractionStatus::Error,
                 'error_message' => 'Failed to start Telegram scraping: '.$e->getMessage(),

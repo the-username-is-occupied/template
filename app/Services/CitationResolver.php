@@ -12,7 +12,9 @@ use App\Models\MdBundle;
 use App\Models\OriginalItem;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
+use RuntimeException;
 use Spatie\LaravelData\DataCollection;
+use Throwable;
 
 /**
  * Resolves NLM citations to actual OriginalItem records.
@@ -59,7 +61,7 @@ class CitationResolver
         foreach ($askResult->references as $reference) {
             /** @var ChatReferenceDTO $reference */
             $citation = $this->resolveSingle($reference);
-            if ($citation !== null) {
+            if ($citation instanceof CitationData) {
                 $citations[] = $citation;
             }
         }
@@ -129,7 +131,7 @@ class CitationResolver
                 citation_number: $reference->citation_number,
             );
 
-        } catch (\Throwable $e) {
+        } catch (Throwable $e) {
             Log::warning('CitationResolver: Failed to resolve citation', [
                 'citation_number' => $reference->citation_number,
                 'error' => $e->getMessage(),
@@ -160,7 +162,7 @@ class CitationResolver
      *
      * Returns decoded UUID string, or null if cited_text not found.
      *
-     * @throws \RuntimeException If MdBundle not found or file unreadable
+     * @throws RuntimeException If MdBundle not found or file unreadable
      */
     private function resolveByFullText(ChatReferenceDTO $reference, string $citedTextClean): ?string
     {

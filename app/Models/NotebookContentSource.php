@@ -14,7 +14,7 @@ class NotebookContentSource extends Pivot
 
     protected $keyType = 'string';
 
-    protected $primaryKey = null;
+    protected $primaryKey;
 
     public $timestamps = false;
 

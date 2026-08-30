@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Domain\NotebookLM\DTOs;
 
+use App\Domain\Citations\DTOs\ResolvedAskResultDTO;
 use App\Services\CitationResolver2 as CitationResolver;
 use Spatie\LaravelData\Attributes\DataCollectionOf;
 use Spatie\LaravelData\Attributes\MapInputName;
@@ -26,7 +27,7 @@ class AskResultDTO extends Data
         public DataCollection $suggested,
     ) {}
 
-    public function resolve()
+    public function resolve(): ResolvedAskResultDTO
     {
         return app()->make(CitationResolver::class)->resolve($this);
     }

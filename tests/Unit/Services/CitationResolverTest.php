@@ -18,6 +18,7 @@ use App\Services\BundleRenderer;
 use App\Services\CitationResolver;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Storage;
+use InvalidArgumentException;
 use Spatie\LaravelData\DataCollection;
 use Tests\TestCase;
 
@@ -213,9 +214,9 @@ final class CitationResolverTest extends TestCase
 
         $this->assertCount(1, $resolved->citations);
         // cited_text_clean should NOT contain the Base64URL + JSON metadata
-        $this->assertStringNotContainsString('{"title"', $resolved->citations[0]->cited_text_clean);
-        $this->assertStringNotContainsString($encodedId, $resolved->citations[0]->cited_text_clean);
-        $this->assertStringContainsString($cleanText, $resolved->citations[0]->cited_text_clean);
+        $this->assertStringNotContainsString('{"title"', (string) $resolved->citations[0]->cited_text_clean);
+        $this->assertStringNotContainsString($encodedId, (string) $resolved->citations[0]->cited_text_clean);
+        $this->assertStringContainsString($cleanText, (string) $resolved->citations[0]->cited_text_clean);
     }
 
     /**
@@ -311,7 +312,7 @@ final class CitationResolverTest extends TestCase
      */
     public function test_decode_item_id_throws_for_invalid_input(): void
     {
-        $this->expectException(\InvalidArgumentException::class);
+        $this->expectException(InvalidArgumentException::class);
 
         $this->renderer->decodeItemId('invalid!@#');
     }

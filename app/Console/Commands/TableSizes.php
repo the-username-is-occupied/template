@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Console\Commands;
 
 use App\Models\OriginalItem;
@@ -26,7 +28,7 @@ class TableSizes extends Command
     /**
      * Execute the console command.
      */
-    public function handle()
+    public function handle(): int
     {
         $total = DB::select("SELECT pg_size_pretty(pg_total_relation_size('original_items')) as s")[0]->s;
         $count = OriginalItem::count();

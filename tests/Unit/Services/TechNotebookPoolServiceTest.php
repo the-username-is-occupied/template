@@ -10,6 +10,7 @@ use App\Models\TechAccount;
 use App\Models\TechNotebook;
 use App\Services\TechNotebookPoolService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use PHPUnit\Framework\MockObject\MockObject;
 use Tests\TestCase;
 
 final class TechNotebookPoolServiceTest extends TestCase
@@ -18,7 +19,7 @@ final class TechNotebookPoolServiceTest extends TestCase
 
     private TechNotebookPoolService $service;
 
-    private \PHPUnit\Framework\MockObject\MockObject|NotebookLMService $mockNotebookLMService;
+    private MockObject $mockNotebookLMService;
 
     protected function setUp(): void
     {
@@ -216,7 +217,7 @@ final class TechNotebookPoolServiceTest extends TestCase
     public function test_maintain_creates_notebooks_for_all_target_types(): void
     {
         // Create an account
-        $account = TechAccount::create([
+        TechAccount::create([
             'name' => 'Test Account',
             'email' => 'test@example.com',
             'pool_type' => 'free',
@@ -324,6 +325,6 @@ final class TechNotebookPoolServiceTest extends TestCase
         $account2Refresh = $account2->fresh();
 
         // Total should be 7
-        $this->assertEquals(7, $account1Refresh->notebooks_count + $account2Refresh->notebooks_count);
+        $this->assertSame(7, $account1Refresh->notebooks_count + $account2Refresh->notebooks_count);
     }
 }

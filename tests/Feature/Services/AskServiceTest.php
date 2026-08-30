@@ -18,19 +18,22 @@ use App\Models\TechAccountUsage;
 use App\Models\User;
 use App\Services\AccountService;
 use App\Services\AskService;
+use Exception;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Mockery;
+use RuntimeException;
 use Spatie\LaravelData\DataCollection;
 use Tests\TestCase;
 
 uses(TestCase::class, RefreshDatabase::class);
 
-beforeEach(function () {
+beforeEach(function (): void {
     $this->notebookLMService = $this->mock(NotebookLMService::class);
     $this->accountService = $this->mock(AccountService::class);
     $this->askService = new AskService($this->notebookLMService, $this->accountService);
 });
 
-test('ask throws exception when notebook is consolidating', function () {
+test('ask throws exception when notebook is consolidating', function (): void {
     $user = User::factory()->create();
     $notebook = Notebook::factory()->forUser($user)->create();
 
@@ -41,13 +44,13 @@ test('ask throws exception when notebook is consolidating', function () {
         'type' => MdBundleType::ActiveDelta->value,
     ]);
 
-    $this->expectException(\RuntimeException::class);
+    $this->expectException(RuntimeException::class);
     $this->expectExceptionMessage('Notebook is currently being optimized. Please wait a moment and try again.');
 
     $this->askService->ask($notebook, 'Test question');
 });
 
-test('ask creates new chat when chat is null', function () {
+test('ask creates new chat when chat is null', function (): void {
     $user = User::factory()->create();
     $notebook = Notebook::factory()->forUser($user)->create();
     $account = TechAccount::factory()->create();
@@ -56,7 +59,7 @@ test('ask creates new chat when chat is null', function () {
         ->once()
         ->andReturn($account);
 
-    $askResultDTO = \Mockery::mock(AskResultDTO::class);
+    $askResultDTO = Mockery::mock(AskResultDTO::class);
     $askResultDTO->shouldReceive('resolve')
         ->once()
         ->andReturn(new ResolvedAskResultDTO(
@@ -79,7 +82,7 @@ test('ask creates new chat when chat is null', function () {
     expect($notebook->chats->first()->user_id)->toBe($user->id);
 });
 
-test('ask uses existing chat when provided', function () {
+test('ask uses existing chat when provided', function (): void {
     $user = User::factory()->create();
     $notebook = Notebook::factory()->forUser($user)->create();
     $chat = Chat::create([
@@ -92,7 +95,7 @@ test('ask uses existing chat when provided', function () {
         ->once()
         ->andReturn($account);
 
-    $askResultDTO = \Mockery::mock(AskResultDTO::class);
+    $askResultDTO = Mockery::mock(AskResultDTO::class);
     $askResultDTO->shouldReceive('resolve')
         ->once()
         ->andReturn(new ResolvedAskResultDTO(
@@ -115,7 +118,7 @@ test('ask uses existing chat when provided', function () {
     expect($chat->fresh()->messages)->toHaveCount(2); // user + assistant
 });
 
-test('ask saves user message', function () {
+test('ask saves user message', function (): void {
     $user = User::factory()->create();
     $notebook = Notebook::factory()->forUser($user)->create();
     $account = TechAccount::factory()->create();
@@ -124,7 +127,7 @@ test('ask saves user message', function () {
         ->once()
         ->andReturn($account);
 
-    $askResultDTO = \Mockery::mock(AskResultDTO::class);
+    $askResultDTO = Mockery::mock(AskResultDTO::class);
     $askResultDTO->shouldReceive('resolve')
         ->once()
         ->andReturn(new ResolvedAskResultDTO(
@@ -148,7 +151,7 @@ test('ask saves user message', function () {
     expect($userMessage->content)->toBe('What is EOL?');
 });
 
-test('ask calls NotebookLM service with correct parameters', function () {
+test('ask calls NotebookLM service with correct parameters', function (): void {
     $user = User::factory()->create();
     $notebook = Notebook::factory()->forUser($user)->create([
         'nlm_notebook_id' => 'test-notebook-123',
@@ -159,7 +162,7 @@ test('ask calls NotebookLM service with correct parameters', function () {
         ->once()
         ->andReturn($account);
 
-    $askResultDTO = \Mockery::mock(AskResultDTO::class);
+    $askResultDTO = Mockery::mock(AskResultDTO::class);
     $askResultDTO->shouldReceive('resolve')
         ->once()
         ->andReturn(new ResolvedAskResultDTO(
@@ -178,7 +181,7 @@ test('ask calls NotebookLM service with correct parameters', function () {
     $this->askService->ask($notebook, 'Test question');
 });
 
-test('ask increments usage count', function () {
+test('ask increments usage count', function (): void {
     $user = User::factory()->create();
     $notebook = Notebook::factory()->forUser($user)->create();
     $account = TechAccount::factory()->create();
@@ -187,7 +190,7 @@ test('ask increments usage count', function () {
         ->times(2)
         ->andReturn($account);
 
-    $askResultDTO = \Mockery::mock(AskResultDTO::class);
+    $askResultDTO = Mockery::mock(AskResultDTO::class);
     $askResultDTO->shouldReceive('resolve')
         ->times(2)
         ->andReturn(new ResolvedAskResultDTO(
@@ -222,7 +225,7 @@ test('ask increments usage count', function () {
     expect($usage->count)->toBe(2);
 });
 
-test('ask saves assistant message on success', function () {
+test('ask saves assistant message on success', function (): void {
     $user = User::factory()->create();
     $notebook = Notebook::factory()->forUser($user)->create();
     $account = TechAccount::factory()->create();
@@ -231,7 +234,7 @@ test('ask saves assistant message on success', function () {
         ->once()
         ->andReturn($account);
 
-    $askResultDTO = \Mockery::mock(AskResultDTO::class);
+    $askResultDTO = Mockery::mock(AskResultDTO::class);
     $askResultDTO->shouldReceive('resolve')
         ->once()
         ->andReturn(new ResolvedAskResultDTO(
@@ -257,7 +260,7 @@ test('ask saves assistant message on success', function () {
     expect($assistantMessage->result)->toBe(['answer' => 'Test answer', 'conversation_id' => 'conv-123']);
 });
 
-test('ask saves failed message on error', function () {
+test('ask saves failed message on error', function (): void {
     $user = User::factory()->create();
     $notebook = Notebook::factory()->forUser($user)->create();
     $account = TechAccount::factory()->create();
@@ -268,11 +271,11 @@ test('ask saves failed message on error', function () {
 
     $this->notebookLMService->shouldReceive('askQuestion')
         ->once()
-        ->andThrow(new \Exception('API error'));
+        ->andThrow(new Exception('API error'));
 
     try {
         $this->askService->ask($notebook, 'Test question');
-    } catch (\Exception $e) {
+    } catch (Exception $e) {
         // Expected exception
     }
 
@@ -286,7 +289,7 @@ test('ask saves failed message on error', function () {
     expect($assistantMessage->content)->toBeNull();
 });
 
-test('ask rethrows exception after saving failed message', function () {
+test('ask rethrows exception after saving failed message', function (): void {
     $user = User::factory()->create();
     $notebook = Notebook::factory()->forUser($user)->create();
     $account = TechAccount::factory()->create();
@@ -297,15 +300,15 @@ test('ask rethrows exception after saving failed message', function () {
 
     $this->notebookLMService->shouldReceive('askQuestion')
         ->once()
-        ->andThrow(new \RuntimeException('Service unavailable'));
+        ->andThrow(new RuntimeException('Service unavailable'));
 
-    $this->expectException(\RuntimeException::class);
+    $this->expectException(RuntimeException::class);
     $this->expectExceptionMessage('Service unavailable');
 
     $this->askService->ask($notebook, 'Test question');
 });
 
-test('ask returns resolved ask result DTO', function () {
+test('ask returns resolved ask result DTO', function (): void {
     $user = User::factory()->create();
     $notebook = Notebook::factory()->forUser($user)->create();
     $account = TechAccount::factory()->create();
@@ -331,7 +334,7 @@ test('ask returns resolved ask result DTO', function () {
         citations: $citations
     );
 
-    $askResultDTO = \Mockery::mock(AskResultDTO::class);
+    $askResultDTO = Mockery::mock(AskResultDTO::class);
     $askResultDTO->shouldReceive('resolve')
         ->once()
         ->andReturn($resolvedDTO);
@@ -350,7 +353,7 @@ test('ask returns resolved ask result DTO', function () {
     expect($result->getUrls())->toContain('http://example.com');
 });
 
-test('ask handles DailyLimitExceededException', function () {
+test('ask handles DailyLimitExceededException', function (): void {
     $user = User::factory()->create();
     $notebook = Notebook::factory()->forUser($user)->create();
     $account = TechAccount::factory()->create();
@@ -364,7 +367,7 @@ test('ask handles DailyLimitExceededException', function () {
     $this->askService->ask($notebook, 'Test question');
 });
 
-test('ask creates chat with correct notebook relationship', function () {
+test('ask creates chat with correct notebook relationship', function (): void {
     $user = User::factory()->create();
     $notebook = Notebook::factory()->forUser($user)->create();
     $account = TechAccount::factory()->create();
@@ -373,7 +376,7 @@ test('ask creates chat with correct notebook relationship', function () {
         ->once()
         ->andReturn($account);
 
-    $askResultDTO = \Mockery::mock(AskResultDTO::class);
+    $askResultDTO = Mockery::mock(AskResultDTO::class);
     $askResultDTO->shouldReceive('resolve')
         ->once()
         ->andReturn(new ResolvedAskResultDTO(
@@ -396,7 +399,7 @@ test('ask creates chat with correct notebook relationship', function () {
     expect($chat->user_id)->toBe($user->id);
 });
 
-test('ask creates both user and assistant messages', function () {
+test('ask creates both user and assistant messages', function (): void {
     $user = User::factory()->create();
     $notebook = Notebook::factory()->forUser($user)->create();
     $account = TechAccount::factory()->create();
@@ -405,7 +408,7 @@ test('ask creates both user and assistant messages', function () {
         ->once()
         ->andReturn($account);
 
-    $askResultDTO = \Mockery::mock(AskResultDTO::class);
+    $askResultDTO = Mockery::mock(AskResultDTO::class);
     $askResultDTO->shouldReceive('resolve')
         ->once()
         ->andReturn(new ResolvedAskResultDTO(

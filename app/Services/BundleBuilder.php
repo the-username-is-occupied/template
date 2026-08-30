@@ -13,11 +13,13 @@ use App\Models\ContentSource;
 use App\Models\MdBundle;
 use App\Models\Notebook;
 use App\Models\OriginalItem;
+use Exception;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
+use Throwable;
 
 class BundleBuilder
 {
@@ -457,7 +459,7 @@ class BundleBuilder
                 'notebook_id' => $notebook->id,
             ]);
 
-            throw new \Exception('Tech account not found for notebook');
+            throw new Exception('Tech account not found for notebook');
         }
 
         try {
@@ -469,7 +471,7 @@ class BundleBuilder
             );
 
             return $source->id;
-        } catch (\Throwable $e) {
+        } catch (Throwable $e) {
             Log::error('Failed to upload bundle to NLM', [
                 'notebook_id' => $notebook->id,
                 'title' => $title,
@@ -502,7 +504,7 @@ class BundleBuilder
                 $notebook->nlm_notebook_id,
                 $sourceId,
             );
-        } catch (\Throwable $e) {
+        } catch (Throwable $e) {
             Log::warning('Failed to delete NLM source', [
                 'source_id' => $sourceId,
                 'error' => $e->getMessage(),

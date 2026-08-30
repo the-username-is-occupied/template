@@ -11,7 +11,7 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::table('chat_messages', function (Blueprint $table) {
+        Schema::table('chat_messages', function (Blueprint $table): void {
             $table->dropColumn('role');
             $table->uuid('follow_up_id')->nullable()->after('tech_account_id');
             $table->foreign('follow_up_id')->references('id')->on('chat_messages')->nullOnDelete();
@@ -23,7 +23,7 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::table('chat_messages', function (Blueprint $table) {
+        Schema::table('chat_messages', function (Blueprint $table): void {
             $table->enum('role', ['user', 'assistant'])->after('tech_account_id');
             $table->dropForeign(['follow_up_id']);
             $table->dropColumn('follow_up_id');

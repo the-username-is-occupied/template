@@ -18,6 +18,8 @@ use App\Services\WordCounter;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Bus;
 use Illuminate\Support\Facades\Storage;
+use InvalidArgumentException;
+use RuntimeException;
 use Tests\TestCase;
 
 final class BundleConsolidationServiceTest extends TestCase
@@ -273,7 +275,7 @@ final class BundleConsolidationServiceTest extends TestCase
     public function test_consolidate_handles_nlm_upload_failure(): void
     {
         // Create two bundles
-        $bundle1 = MdBundle::factory()->create([
+        MdBundle::factory()->create([
             'notebook_id' => $this->notebook->id,
             'type' => MdBundleType::FrozenQuarter,
             'status' => MdBundleStatus::Uploaded,
@@ -281,7 +283,7 @@ final class BundleConsolidationServiceTest extends TestCase
             'nlm_source_id' => 'old-source-1',
         ]);
 
-        $bundle2 = MdBundle::factory()->create([
+        MdBundle::factory()->create([
             'notebook_id' => $this->notebook->id,
             'type' => MdBundleType::FrozenQuarter,
             'status' => MdBundleStatus::Uploaded,
@@ -296,10 +298,10 @@ final class BundleConsolidationServiceTest extends TestCase
         $this->mockNotebookLMService
             ->shouldReceive('addSourceFile')
             ->once()
-            ->andThrow(new \RuntimeException('NLM upload failed'));
+            ->andThrow(new RuntimeException('NLM upload failed'));
 
         // Execute consolidation and expect exception
-        $this->expectException(\RuntimeException::class);
+        $this->expectException(RuntimeException::class);
         $this->expectExceptionMessage('NLM upload failed');
 
         $this->service->consolidate($this->notebook, MdBundleType::FrozenQuarter);
@@ -321,7 +323,7 @@ final class BundleConsolidationServiceTest extends TestCase
             'nlm_source_id' => null, // No NLM source
         ]);
 
-        $bundle2 = MdBundle::factory()->create([
+        MdBundle::factory()->create([
             'notebook_id' => $this->notebook->id,
             'type' => MdBundleType::FrozenQuarter,
             'status' => MdBundleStatus::Uploaded,
@@ -427,7 +429,7 @@ final class BundleConsolidationServiceTest extends TestCase
     public function test_consolidate_throws_exception_for_invalid_source_type(): void
     {
         // Try to consolidate ActiveDelta (not allowed)
-        $this->expectException(\InvalidArgumentException::class);
+        $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionMessage('Invalid source bundle type for consolidation: active_delta');
 
         $this->service->consolidate($this->notebook, MdBundleType::ActiveDelta);
@@ -527,7 +529,7 @@ final class BundleConsolidationServiceTest extends TestCase
         // Assert consolidation job was dispatched
         Bus::assertDispatched(
             ConsolidateBundlesJob::class,
-            function ($job) use ($notebook) {
+            function ($job) use ($notebook): bool {
                 return $job->notebookId === $notebook->id && $job->level === 'quarter_to_half';
             }
         );
@@ -554,7 +556,7 @@ final class BundleConsolidationServiceTest extends TestCase
         // Assert consolidation job was dispatched
         Bus::assertDispatched(
             ConsolidateBundlesJob::class,
-            function ($job) use ($notebook) {
+            function ($job) use ($notebook): bool {
                 return $job->notebookId === $notebook->id && $job->level === 'half_to_full';
             }
         );
@@ -672,14 +674,14 @@ final class BundleConsolidationServiceTest extends TestCase
         // Assert both types were dispatched
         Bus::assertDispatched(
             ConsolidateBundlesJob::class,
-            function ($job) {
+            function ($job): bool {
                 return $job->level === 'quarter_to_half';
             }
         );
 
         Bus::assertDispatched(
             ConsolidateBundlesJob::class,
-            function ($job) {
+            function ($job): bool {
                 return $job->level === 'half_to_full';
             }
         );

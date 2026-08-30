@@ -31,14 +31,14 @@ class TgUserSessionFactory extends Factory
 
     public function withActiveBase(): static
     {
-        return $this->state(fn () => [
+        return $this->state(fn (): array => [
             'active_base_id' => Notebook::factory(),
         ]);
     }
 
     public function withoutActiveBase(): static
     {
-        return $this->state(fn () => [
+        return $this->state(fn (): array => [
             'active_base_id' => null,
         ]);
     }

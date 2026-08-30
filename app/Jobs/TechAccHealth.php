@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Jobs;
 
 use App\Domain\NotebookLM\NotebookLMService;
@@ -24,6 +26,6 @@ class TechAccHealth implements ShouldQueue
      */
     public function handle(): void
     {
-        $healthData = $this->service->healthAccounts();
+        $this->service->healthAccounts();
     }
 }

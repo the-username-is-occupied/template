@@ -1,11 +1,15 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Services;
 
 use App\Domain\YouTube\DTOs\ChannelInfoData;
 use App\Domain\YouTube\DTOs\ChannelUrlMappingData;
 use App\Domain\YouTube\DTOs\VideoUrlsData;
 use App\Exceptions\YouTubeApiException;
+use DateInterval;
+use Exception;
 use Google\Client;
 use Google\Service\YouTube;
 use Illuminate\Support\Facades\Log;
@@ -62,7 +66,7 @@ class YouTubeService
             );
         } catch (YouTubeApiException $e) {
             throw $e;
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             throw new YouTubeApiException("YouTube API Error in getChannelInfo for '{$identifier}': ".$e->getMessage(), 0, $e);
         }
     }
@@ -77,7 +81,7 @@ class YouTubeService
      */
     public function getVideoUrls(string $id, array $types = ['video', 'shorts', 'streams'], ?int $limit = null, ?string $sort = null): VideoUrlsData
     {
-        if (empty($types)) {
+        if ($types === []) {
             return new VideoUrlsData(urls: []);
         }
 
@@ -101,7 +105,7 @@ class YouTubeService
                 try {
                     $urls = $this->getUrlsFromPlaylist($playlistId, $type, $limit);
                     $allUrls = array_merge($allUrls, $urls);
-                } catch (\Exception $e) {
+                } catch (Exception $e) {
                     Log::error("Failed to fetch {$type} playlist {$playlistId}: ".$e->getMessage());
                 }
             }
@@ -155,7 +159,7 @@ class YouTubeService
                     }
                 }
                 $pageToken = $response->getNextPageToken();
-            } catch (\Exception $e) {
+            } catch (Exception $e) {
                 throw new YouTubeApiException("YouTube API Error fetching playlist {$playlistId}: ".$e->getMessage(), 0, $e);
             }
 
@@ -191,12 +195,12 @@ class YouTubeService
                     $videoIds[] = $item->getContentDetails()->getVideoId();
                 }
                 $pageToken = $response->getNextPageToken();
-            } catch (\Exception $e) {
+            } catch (Exception $e) {
                 throw new YouTubeApiException("YouTube API Error fetching custom playlist {$playlistId}: ".$e->getMessage(), 0, $e);
             }
         } while ($pageToken);
 
-        if (empty($videoIds)) {
+        if ($videoIds === []) {
             return [];
         }
 
@@ -205,7 +209,7 @@ class YouTubeService
         $allPossibleTypes = ['video', 'shorts', 'streams'];
         sort($allPossibleTypes);
         if ($types === $allPossibleTypes) {
-            return array_map(fn ($id) => "https://www.youtube.com/watch?v={$id}", $videoIds);
+            return array_map(fn ($id): string => "https://www.youtube.com/watch?v={$id}", $videoIds);
         }
 
         // Фильтруем метаданные видео пачками по 50 штук
@@ -240,12 +244,12 @@ class YouTubeService
                         $filteredUrls[] = "https://www.youtube.com/watch?v={$videoId}";
                     }
                 }
-            } catch (\Exception $e) {
+            } catch (Exception $e) {
                 $errors[] = 'Failed to filter video chunk: '.$e->getMessage();
             }
         }
 
-        if (! empty($errors)) {
+        if ($errors !== []) {
             throw new YouTubeApiException("YouTube API Error filtering videos for custom playlist {$playlistId}: ".implode('; ', $errors));
         }
 
@@ -258,11 +262,11 @@ class YouTubeService
     protected function isShortDuration(string $duration): bool
     {
         try {
-            $interval = new \DateInterval($duration);
+            $interval = new DateInterval($duration);
             $seconds = ($interval->h * 3600) + ($interval->i * 60) + $interval->s;
 
             return $interval->y === 0 && $interval->m === 0 && $interval->d === 0 && $seconds <= 60;
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             return false;
         }
     }
@@ -284,7 +288,7 @@ class YouTubeService
         // 1. Извлекаем ID видео из различных форматов URL
         foreach ($urls as $url) {
             $trimmedUrl = trim($url);
-            $mappings[] = new ChannelUrlMappingData(url: $url, handle: null);
+            $mappings[] = new ChannelUrlMappingData(url: $url);
 
             $videoId = null;
             if (preg_match('/v=([a-zA-Z0-9_\-]{11})/', $trimmedUrl, $matches)) {
@@ -301,7 +305,7 @@ class YouTubeService
             }
         }
 
-        if (empty($videoIds)) {
+        if ($videoIds === []) {
             return ChannelUrlMappingData::collect($mappings, DataCollection::class);
         }
 
@@ -343,12 +347,12 @@ class YouTubeService
                             ? (int) $statistics->getCommentCount() : null,
                     ];
                 }
-            } catch (\Exception $e) {
+            } catch (Exception $e) {
                 throw new YouTubeApiException('YouTube API Error batch fetching video details: '.$e->getMessage(), 0, $e);
             }
         }
 
-        if (empty($channelIds)) {
+        if ($channelIds === []) {
             throw new YouTubeApiException('No channel IDs found for the provided video URLs');
         }
 
@@ -374,7 +378,7 @@ class YouTubeService
                             $channelIdToHandle[$cId] = '@'.preg_replace('/[^a-zA-Z0-9]/', '', $title);
                         }
                     }
-                } catch (\Exception $e) {
+                } catch (Exception $e) {
                     throw new YouTubeApiException('YouTube API Error batch fetching channel handles: '.$e->getMessage(), 0, $e);
                 }
             }

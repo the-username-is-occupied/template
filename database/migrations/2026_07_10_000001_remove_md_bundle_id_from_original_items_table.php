@@ -14,7 +14,7 @@ return new class extends Migration
         // Drop the index first if it exists
         $driver = Schema::getConnection()->getDriverName();
 
-        if ($driver === 'sqlite' || $driver === 'pgsql' || $driver === 'mysql') {
+        if (in_array($driver, ['sqlite', 'pgsql', 'mysql'], true)) {
             DB::statement('DROP INDEX IF EXISTS original_items_unbundled_index');
         }
 
@@ -35,7 +35,7 @@ return new class extends Migration
 
         $driver = Schema::getConnection()->getDriverName();
 
-        if ($driver === 'sqlite' || $driver === 'pgsql' || $driver === 'mysql') {
+        if (in_array($driver, ['sqlite', 'pgsql', 'mysql'], true)) {
             DB::statement('CREATE INDEX original_items_unbundled_index ON original_items(md_bundle_id) WHERE md_bundle_id IS NULL');
         }
     }

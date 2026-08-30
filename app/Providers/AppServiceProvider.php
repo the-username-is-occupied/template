@@ -20,7 +20,7 @@ class AppServiceProvider extends ServiceProvider
     {
         $this->registerTelescopeLocally();
 
-        $this->app->singleton(TGScraperService::class, function ($app) {
+        $this->app->singleton(TGScraperService::class, function ($app): TGScraperService {
             return new TGScraperService;
         });
     }

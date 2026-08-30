@@ -19,8 +19,6 @@ final class SourceDraftLinksTest extends TestCase
 
     private User $user;
 
-    private Notebook $notebook;
-
     private SourceDraft $draft;
 
     private ContentSource $parentSource;
@@ -30,13 +28,13 @@ final class SourceDraftLinksTest extends TestCase
         parent::setUp();
 
         $this->user = User::factory()->create();
-        $this->notebook = Notebook::factory()->forUser($this->user)->create();
+        $notebook = Notebook::factory()->forUser($this->user)->create();
 
         $this->parentSource = ContentSource::factory()->for($this->user)->create();
 
         $this->draft = SourceDraft::factory()
             ->forUser($this->user)
-            ->forNotebook($this->notebook)
+            ->forNotebook($notebook)
             ->withContentSource($this->parentSource)
             ->create();
     }

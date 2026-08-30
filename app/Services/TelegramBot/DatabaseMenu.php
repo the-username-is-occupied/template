@@ -12,6 +12,7 @@ use Illuminate\Support\Facades\Log;
 use SergiX44\Nutgram\Conversations\InlineMenu;
 use SergiX44\Nutgram\Nutgram;
 use SergiX44\Nutgram\Telegram\Types\Keyboard\InlineKeyboardButton;
+use Throwable;
 
 class DatabaseMenu extends InlineMenu
 {
@@ -19,15 +20,15 @@ class DatabaseMenu extends InlineMenu
     private const PER_PAGE = 10;
 
     // Этот метод отрисовывает стартовое меню (и все последующие страницы)
-    public function start(Nutgram $bot)
+    public function start(Nutgram $bot): void
     {
         Log::info('DatabaseMenu: Зашли в метод start. Начинаем сборку меню.');
 
         try {
             $page = $this->extractPage($bot);
 
-            $this->renderPage($bot, $page);
-        } catch (\Throwable $e) {
+            $this->renderPage($page);
+        } catch (Throwable $e) {
             Log::error('DatabaseMenu КРИТИЧЕСКАЯ ОШИБКА: '.$e->getMessage(), [
                 'trace' => $e->getTraceAsString(),
             ]);
@@ -35,7 +36,7 @@ class DatabaseMenu extends InlineMenu
     }
 
     // Отрисовка конкретной страницы списка баз
-    private function renderPage(Nutgram $bot, int $page): void
+    private function renderPage(int $page): void
     {
         Log::info('DatabaseMenu: рендерим страницу '.$page);
 
@@ -100,13 +101,13 @@ class DatabaseMenu extends InlineMenu
     }
 
     // Заглушка для кнопки-индикатора страницы, просто гасим "часики" в Telegram
-    public function noop(Nutgram $bot)
+    public function noop(Nutgram $bot): void
     {
         $bot->answerCallbackQuery();
     }
 
     // Этот метод сработает, когда пользователь нажмет на кнопку с базой
-    public function selectDatabase(Nutgram $bot)
+    public function selectDatabase(Nutgram $bot): void
     {
         Log::info('DatabaseMenu: метод selectDatabase вызван');
 
@@ -134,7 +135,7 @@ class DatabaseMenu extends InlineMenu
             } else {
                 $bot->sendMessage('Пожалуйста, выберите базу знаний');
             }
-        } catch (\Throwable $e) {
+        } catch (Throwable $e) {
             Log::error('DatabaseMenu КРИТИЧЕСКАЯ ОШИБКА: '.$e->getMessage(), [
                 'trace' => $e->getTraceAsString(),
             ]);
@@ -152,7 +153,7 @@ class DatabaseMenu extends InlineMenu
             ->find($notebook->id);
 
         $sources = $notebook->contentSources
-            ->map(fn (ContentSource $i) => sprintf('[%s](%s) - %s', $i->type->label(), $i->url, pluralize($i->original_items_count, ['источник', 'источника', 'источников'])))->join("\n");
+            ->map(fn (ContentSource $i): string => sprintf('[%s](%s) - %s', $i->type->label(), $i->url, pluralize($i->original_items_count, ['источник', 'источника', 'источников'])))->join("\n");
 
         $msg = sprintf("%s\n\n%s\n\n%s",
             $notebook->title,
@@ -169,8 +170,8 @@ class DatabaseMenu extends InlineMenu
 
             $bot->sendMessage(
                 text: $questionsText,
-                reply_markup: $keyboard,
                 parse_mode: 'MarkdownV2',
+                reply_markup: $keyboard,
             );
         }
     }
@@ -188,8 +189,8 @@ class DatabaseMenu extends InlineMenu
             );
     }
 
-    private function activateDatabaseForUser($userId, $dbId): void
+    private function activateDatabaseForUser(?int $userId, string $dbId): void
     {
-        app()->make(TelegramSessionService::class)->setActiveBase($userId, (string) $dbId);
+        app()->make(TelegramSessionService::class)->setActiveBase($userId, $dbId);
     }
 }

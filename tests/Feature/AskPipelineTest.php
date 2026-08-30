@@ -13,7 +13,7 @@ use Tests\TestCase;
 
 uses(TestCase::class, RefreshDatabase::class);
 
-test('ask endpoint validates required question field', function () {
+test('ask endpoint validates required question field', function (): void {
     $user = User::factory()->create();
     $notebook = Notebook::factory()->create(['user_id' => $user->id]);
 
@@ -25,13 +25,13 @@ test('ask endpoint validates required question field', function () {
     $response->assertJsonValidationErrors(['question']);
 });
 
-test('ask returns 503 when daily limit exceeded', function () {
+test('ask returns 503 when daily limit exceeded', function (): void {
     // This test requires implementing the DailyLimitExceededException handling
     // For now, we'll skip this as it needs proper setup with tech_account_usages
     $this->markTestSkipped('Needs DailyLimitExceededException setup');
 });
 
-test('ask reuses existing chat when chat_id provided', function () {
+test('ask reuses existing chat when chat_id provided', function (): void {
     $user = User::factory()->create();
     $techAccount = TechAccount::factory()->create([
         'status' => TechAccountStatus::Active,
@@ -46,10 +46,10 @@ test('ask reuses existing chat when chat_id provided', function () {
         'notebook_id' => $notebook->id,
     ]);
 
-    $this->mock(AskService::class, function ($mock) {
+    $this->mock(AskService::class, function ($mock): void {
         $mock->shouldReceive('ask')
             ->once()
-            ->andReturnUsing(function ($nb, $question, $chat) {
+            ->andReturnUsing(function ($nb, $question, $chat): array {
                 return ['answer' => 'Test answer', 'citations' => []];
             });
     });
@@ -77,7 +77,7 @@ test('ask reuses existing chat when chat_id provided', function () {
     ]);
 });
 
-test('ask validates required question field', function () {
+test('ask validates required question field', function (): void {
     $user = User::factory()->create();
     $notebook = Notebook::factory()->create(['user_id' => $user->id]);
 
@@ -89,7 +89,7 @@ test('ask validates required question field', function () {
     $response->assertJsonValidationErrors(['question']);
 });
 
-test('ask validates question max length', function () {
+test('ask validates question max length', function (): void {
     $user = User::factory()->create();
     $notebook = Notebook::factory()->create(['user_id' => $user->id]);
 

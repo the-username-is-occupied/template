@@ -14,6 +14,7 @@ use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
+use Throwable;
 
 class BundleConsolidationService
 {
@@ -30,7 +31,7 @@ class BundleConsolidationService
     public function scanAndDispatchConsolidation(): void
     {
         // Check all notebooks for consolidation opportunities
-        $notebooks = Notebook::whereHas('mdBundles', function ($query) {
+        $notebooks = Notebook::whereHas('mdBundles', function ($query): void {
             $query->whereIn('type', [MdBundleType::FrozenQuarter, MdBundleType::FrozenHalf])
                 ->where('is_consolidating', false);
         })->get();
@@ -164,7 +165,7 @@ class BundleConsolidationService
                     'nlm_source_id' => $sourceDTO->id,
                     'status' => MdBundleStatus::Uploaded,
                 ]);
-            } catch (\Throwable $e) {
+            } catch (Throwable $e) {
                 // If upload fails, mark as error and rethrow
                 $target->update(['status' => MdBundleStatus::Error, 'error_code' => 'upload_failed']);
 

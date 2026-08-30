@@ -45,7 +45,7 @@ final class TelegramExtractorTest extends TestCase
         $mockScraper = $this->mock(TGScraperService::class);
         $mockScraper->shouldReceive('scrape')
             ->once()
-            ->withArgs(function ($contentSourceId, $channel, $limit, $fromId, $toId, $fromDate, $toDate, $workers, $chunkLimit, $hookUrl) {
+            ->withArgs(function ($contentSourceId, $channel, $limit, $fromId, $toId, $fromDate, $toDate, $workers, $chunkLimit, $hookUrl): bool {
                 return $channel === 'test_channel' &&
                        $limit === 100 &&
                        $fromId === 1000 &&

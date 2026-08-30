@@ -13,7 +13,7 @@ use Tests\TestCase;
 
 uses(TestCase::class, RefreshDatabase::class);
 
-test('getAccountForAsk returns account with minimum usage', function () {
+test('getAccountForAsk returns account with minimum usage', function (): void {
     // Create accounts
     $account1 = TechAccount::factory()->create([
         'status' => 'active',
@@ -40,7 +40,7 @@ test('getAccountForAsk returns account with minimum usage', function () {
     $this->assertEquals($account2->id, $selected->id);
 });
 
-test('getAccountForAsk throws exception when no accounts available', function () {
+test('getAccountForAsk throws exception when no accounts available', function (): void {
     // Don't create any active accounts
     $service = new AccountService;
 
@@ -48,7 +48,7 @@ test('getAccountForAsk throws exception when no accounts available', function ()
     $service->getAccountForAsk();
 });
 
-test('getAccountForAsk throws exception when all accounts exceed limit', function () {
+test('getAccountForAsk throws exception when all accounts exceed limit', function (): void {
     // Create account with tier limit of 0 or 1
     $account = TechAccount::factory()->create([
         'status' => 'active',
@@ -68,7 +68,7 @@ test('getAccountForAsk throws exception when all accounts exceed limit', functio
     $service->getAccountForAsk();
 });
 
-test('getAccountForAsk selects account with least usage', function () {
+test('getAccountForAsk selects account with least usage', function (): void {
     $account1 = TechAccount::factory()->create([
         'status' => 'active',
         'pool_type' => 'ask',

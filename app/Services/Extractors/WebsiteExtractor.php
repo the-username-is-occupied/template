@@ -9,7 +9,9 @@ use App\Domain\NotebookLM\NotebookLMService;
 use App\Events\ExtractionDone;
 use App\Models\ContentSource;
 use App\Models\OriginalItem;
+use App\Models\TechNotebook;
 use App\Services\AccountService;
+use Exception;
 use Illuminate\Support\Facades\Log;
 
 class WebsiteExtractor implements SourceExtractorInterface
@@ -38,7 +40,7 @@ class WebsiteExtractor implements SourceExtractorInterface
         // Get available tech notebook
         $notebook = $this->accountService->getAvailableTechNotebook('source_extractor');
 
-        if (! $notebook) {
+        if (! $notebook instanceof TechNotebook) {
             $source->update([
                 'extraction_status' => 'error',
                 'error_message' => 'No available tech notebooks',
@@ -105,7 +107,7 @@ class WebsiteExtractor implements SourceExtractorInterface
             // Publish SSE event
             event(new ExtractionDone($source));
 
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             $source->update([
                 'extraction_status' => 'error',
                 'error_message' => $e->getMessage(),
@@ -120,7 +122,7 @@ class WebsiteExtractor implements SourceExtractorInterface
                         $notebook->notebook_id,
                         $sourceId
                     );
-                } catch (\Exception $e) {
+                } catch (Exception $e) {
                     Log::error("Failed to delete source {$sourceId}: ".$e->getMessage());
                 }
             }

@@ -7,6 +7,7 @@ namespace App\Services\TelegramBot;
 use App\Data\PreprocessData;
 use App\Exceptions\DailyLimitExceededException;
 use App\Models\ChatMessage;
+use App\Models\Notebook;
 use App\Models\TgUser;
 use App\Services\AskService as NLMAskService;
 use App\Services\TelegramSessionService;
@@ -33,7 +34,7 @@ class AskService
 
             $tg_user_id = $tg_user->id();
             $notebook = $this->sessionService->getActiveBase($tg_user_id);
-            if (! $notebook) {
+            if (! $notebook instanceof Notebook) {
 
                 $this->bot->sendMessage(
                     text: 'База знаний не выбрана',
@@ -45,13 +46,15 @@ class AskService
 
             $msg = app()->make(NLMAskService::class)->ask($notebook, $question, $tg_user->user, $followUpMessage);
 
+            // $msg = ChatMessage::query()->find('01a052c7-ac6b-711c-a2c9-dcf56e1022f7');
+
             if ($msg instanceof PreprocessData) {
                 $this->removePlaceholder($tg_user_id, $placeholderId);
 
                 $this->bot->sendMessage(
                     text: $msg->suggested_short_reply,
-                    parse_mode: 'HTML',
                     chat_id: $tg_user_id,
+                    parse_mode: 'HTML',
                     disable_web_page_preview: true
                 );
 
@@ -69,8 +72,8 @@ class AskService
             foreach ($completeMessage as $messageChunk) {
                 $this->bot->sendMessage(
                     text: $messageChunk,
-                    parse_mode: 'MarkdownV2',
                     chat_id: $tg_user_id,
+                    parse_mode: 'HTML',
                     disable_web_page_preview: true
                 );
             }
@@ -80,8 +83,8 @@ class AskService
             if ($citationsMessage !== null) {
                 $this->bot->sendMessage(
                     text: $citationsMessage,
-                    parse_mode: 'HTML',
                     chat_id: $tg_user_id,
+                    parse_mode: 'HTML',
                     disable_web_page_preview: true
                 );
             }
@@ -97,9 +100,9 @@ class AskService
 
             $this->bot->sendMessage(
                 text: $questionsText,
-                reply_markup: $keyboard,
+                chat_id: $tg_user_id,
                 parse_mode: 'MarkdownV2',
-                chat_id: $tg_user_id
+                reply_markup: $keyboard
             );
 
         } catch (DailyLimitExceededException $e) {
@@ -108,8 +111,8 @@ class AskService
 
             $this->bot->sendMessage(
                 text: '⚠️ '.$e->getMessage(),
-                parse_mode: 'HTML',
-                chat_id: $tg_user_id
+                chat_id: $tg_user_id,
+                parse_mode: 'HTML'
             );
             throw $e;
         } catch (Throwable $e) {
@@ -119,7 +122,7 @@ class AskService
 
     }
 
-    public function removePlaceholder($tg_user_id, $placeholderId)
+    public function removePlaceholder(int|string $tg_user_id, $placeholderId): void
     {
         if ($placeholderId) {
             $this->bot->deleteMessage(

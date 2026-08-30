@@ -10,7 +10,7 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::create('tech_notebooks', function (Blueprint $table) {
+        Schema::create('tech_notebooks', function (Blueprint $table): void {
             $table->uuid('id')->primary();
             $table->foreignUuid('account_id')->references('id')->on('tech_accounts')->onDelete('cascade');
             $table->uuid('notebook_id');

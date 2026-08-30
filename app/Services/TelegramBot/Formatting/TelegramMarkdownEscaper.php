@@ -30,7 +30,7 @@ final class TelegramMarkdownEscaper
     {
         $this->textEscapeMap = array_combine(
             self::CHARS_TO_ESCAPE,
-            array_map(static fn (string $char) => '\\'.$char, self::CHARS_TO_ESCAPE)
+            array_map(static fn (string $char): string => '\\'.$char, self::CHARS_TO_ESCAPE)
         );
     }
 

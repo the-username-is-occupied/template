@@ -120,7 +120,7 @@ class ContentSource extends Model
 
     public function scopeWithBundledItemsCount(Builder $query)
     {
-        return $query->withCount(['originalItems' => function (Builder $query) {
+        return $query->withCount(['originalItems' => function (Builder $query): void {
             $query->bundled();
         }]);
     }

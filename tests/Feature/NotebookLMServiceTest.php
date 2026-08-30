@@ -7,9 +7,11 @@ namespace Tests\Feature;
 use App\Domain\NotebookLM\NotebookLMService;
 use App\Enums\TechAccountStatus;
 use App\Models\TechAccount;
+use Exception;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\File;
+use RuntimeException;
 use Tests\TestCase;
 
 /**
@@ -47,11 +49,11 @@ final class NotebookLMServiceTest extends TestCase
     protected function tearDown(): void
     {
         // Clean up account from FastAPI
-        if ($this->account) {
+        if ($this->account instanceof TechAccount) {
             try {
                 $service = new NotebookLMService;
                 $service->removeAccount($this->account->id);
-            } catch (\Exception $e) {
+            } catch (Exception $e) {
                 // Ignore errors during cleanup
             }
         }
@@ -100,7 +102,7 @@ final class NotebookLMServiceTest extends TestCase
         try {
             $result = $service->initializeAccount($this->account->id);
             $this->assertSame('created', $result['status']);
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             $this->markTestSkipped('FastAPI service not available: '.$e->getMessage());
         }
     }
@@ -131,7 +133,7 @@ final class NotebookLMServiceTest extends TestCase
         try {
             $result = $service->initializeAccount($this->account->id);
             $this->assertSame('created', $result['status']);
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             // Skip if authentication is expired or FastAPI is not available
             $this->markTestSkipped('FastAPI service not available or auth expired: '.$e->getMessage());
         }
@@ -143,7 +145,7 @@ final class NotebookLMServiceTest extends TestCase
             $this->assertArrayHasKey('response_time_ms', $result);
             $this->assertArrayHasKey('notebooks', $result);
             $this->assertIsArray($result['notebooks']);
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             $this->markTestSkipped('Failed to list notebooks: '.$e->getMessage());
         }
     }
@@ -158,12 +160,12 @@ final class NotebookLMServiceTest extends TestCase
             $this->assertIsArray($result);
 
             // If we have accounts, check structure
-            foreach ($result as $accountId => $health) {
+            foreach ($result as $health) {
                 $this->assertArrayHasKey('mtime', $health);
                 $this->assertArrayHasKey('is_connected', $health);
                 $this->assertArrayHasKey('status', $health);
             }
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             $this->markTestSkipped('FastAPI service not available: '.$e->getMessage());
         }
     }
@@ -172,7 +174,7 @@ final class NotebookLMServiceTest extends TestCase
     {
         $service = new NotebookLMService;
 
-        $this->expectException(\RuntimeException::class);
+        $this->expectException(RuntimeException::class);
 
         $service->listNotebooks('non-existent-account-id');
     }

@@ -282,7 +282,7 @@ final class BundleBuilderTest extends TestCase
         Storage::disk('bundles')->put($delta->file_path, 'delta content');
 
         // New item that pushes it over 10k
-        $newItem = OriginalItem::factory()
+        OriginalItem::factory()
             ->for($this->contentSource)
             ->create(['full_text' => str_repeat('word ', 2_000), 'published_at' => now()]);
 
@@ -348,7 +348,7 @@ final class BundleBuilderTest extends TestCase
         Storage::disk('bundles')->put($delta->file_path, 'delta content');
 
         // Create a new item that will trigger delta flush
-        $newItem = OriginalItem::factory()
+        OriginalItem::factory()
             ->for($this->contentSource)
             ->create(['full_text' => str_repeat('word ', 2_000), 'published_at' => now()]);
 
@@ -367,7 +367,7 @@ final class BundleBuilderTest extends TestCase
         $builder = $this->createMockedBuilder();
 
         // Create two existing frozen quarters
-        $frozen1 = MdBundle::factory()
+        MdBundle::factory()
             ->for($this->notebook)
             ->create([
                 'type' => MdBundleType::FrozenQuarter,
@@ -375,7 +375,7 @@ final class BundleBuilderTest extends TestCase
                 'status' => MdBundleStatus::Uploaded,
             ]);
 
-        $frozen2 = MdBundle::factory()
+        MdBundle::factory()
             ->for($this->notebook)
             ->create([
                 'type' => MdBundleType::FrozenQuarter,
@@ -433,7 +433,7 @@ final class BundleBuilderTest extends TestCase
         $builder->build($this->notebook);
 
         // Check that ConsolidateBundlesJob was dispatched
-        Queue::assertPushed(ConsolidateBundlesJob::class, function ($job) {
+        Queue::assertPushed(ConsolidateBundlesJob::class, function ($job): bool {
             return $job->notebookId === $this->notebook->id;
         });
     }

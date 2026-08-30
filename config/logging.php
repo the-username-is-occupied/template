@@ -136,7 +136,7 @@ return [
             'days' => 14,
         ],
 
-         'table-sizes' => [
+        'table-sizes' => [
             'driver' => 'daily',
             'path' => storage_path('logs/table-sizes.log'),
             'level' => 'info',

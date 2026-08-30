@@ -13,7 +13,7 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('tech_accounts', function (Blueprint $table) {
+        Schema::create('tech_accounts', function (Blueprint $table): void {
             $table->uuid('id')->primary();
             $table->string('name');
             $table->string('email')->unique();

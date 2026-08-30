@@ -6,6 +6,7 @@ namespace App\Services;
 
 use App\Models\OriginalItem;
 use Illuminate\Support\Collection;
+use InvalidArgumentException;
 
 class BundleRenderer
 {
@@ -65,12 +66,12 @@ class BundleRenderer
      *
      * @param  string  $base64url  Must match ^[A-Za-z0-9_-]{22}$
      *
-     * @throws \InvalidArgumentException If the input is not a valid Base64URL string
+     * @throws InvalidArgumentException If the input is not a valid Base64URL string
      */
     public function decodeItemId(string $base64url): string
     {
         if (preg_match('/^[A-Za-z0-9_-]{22}$/', $base64url) !== 1) {
-            throw new \InvalidArgumentException('Invalid Base64URL identifier: '.$base64url);
+            throw new InvalidArgumentException('Invalid Base64URL identifier: '.$base64url);
         }
 
         // Step 1 & 2: Add padding and reverse substitution
@@ -85,7 +86,7 @@ class BundleRenderer
         $binary = base64_decode($padded, true);
 
         if ($binary === false) {
-            throw new \InvalidArgumentException('Failed to base64-decode: '.$base64url);
+            throw new InvalidArgumentException('Failed to base64-decode: '.$base64url);
         }
 
         // Step 4: Binary to hex

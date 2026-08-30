@@ -16,19 +16,8 @@ final class TelegramSignatureBuilder
 
     private const BOT_URL = 'https://t.me/eolithic_bot';
 
-    private ?string $cachedSignature = null;
-
-    public function __construct(
-        private readonly TelegramMarkdownEscaper $escaper,
-    ) {}
-
     public function build(): string
     {
-        if ($this->cachedSignature === null) {
-            $raw = "\n\n_".self::DISCLAIMER_TEXT."_\n[".self::LINK_LABEL.']('.self::BOT_URL.')';
-            $this->cachedSignature = $this->escaper->escape($raw);
-        }
-
-        return $this->cachedSignature;
+        return "\n\n<i>".self::DISCLAIMER_TEXT."</i>\n<strong><a href=\"".self::BOT_URL.'">'.self::LINK_LABEL.'</a></strong>';
     }
 }

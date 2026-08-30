@@ -36,12 +36,12 @@ final class ProcessTelegramChunkJobTest extends TestCase
         $mock = $this->mock(TelegramChunkService::class);
         $mock->shouldReceive('processChunk')
             ->once()
-            ->withArgs(function ($arg1, $arg2) use ($source, $posts) {
+            ->withArgs(function ($arg1, $arg2) use ($source, $posts): bool {
                 return $arg1->id === $source->id && $arg2 === $posts;
             });
         $mock->shouldReceive('finalizeChunk')
             ->once()
-            ->withArgs(function ($arg) use ($source) {
+            ->withArgs(function ($arg) use ($source): bool {
                 return $arg->id === $source->id;
             });
 
@@ -82,12 +82,12 @@ final class ProcessTelegramChunkJobTest extends TestCase
         $mock = $this->mock(TelegramChunkService::class);
         $mock->shouldReceive('processChunk')
             ->once()
-            ->withArgs(function ($arg1, $arg2) use ($source, $posts) {
+            ->withArgs(function ($arg1, $arg2) use ($source, $posts): bool {
                 return $arg1->id === $source->id && $arg2 === $posts;
             });
         $mock->shouldReceive('finalizeChunk')
             ->once()
-            ->withArgs(function ($arg) use ($source) {
+            ->withArgs(function ($arg) use ($source): bool {
                 return $arg->id === $source->id;
             });
 

@@ -46,7 +46,7 @@ class ContentSourceFactory extends Factory
 
     public function telegram(): static
     {
-        return $this->state(fn () => [
+        return $this->state(fn (): array => [
             'type' => SourceType::TelegramChannel,
             'url' => 'https://t.me/'.fake()->userName(),
             'metadata' => [
@@ -60,7 +60,7 @@ class ContentSourceFactory extends Factory
 
     public function youtube(): static
     {
-        return $this->state(fn () => [
+        return $this->state(fn (): array => [
             'type' => SourceType::YoutubeChannel,
             'url' => 'https://www.youtube.com/channel/'.fake()->regexify('[A-Za-z0-9_-]{24}'),
             'metadata' => [
@@ -78,7 +78,7 @@ class ContentSourceFactory extends Factory
 
     public function autoExtracted(): static
     {
-        return $this->state(fn () => [
+        return $this->state(fn (): array => [
             'discovery_method' => DiscoveryMethod::AutoExtracted,
             'review_status' => ReviewStatus::PendingReview,
         ]);
@@ -86,34 +86,34 @@ class ContentSourceFactory extends Factory
 
     public function pendingReview(): static
     {
-        return $this->state(fn () => [
+        return $this->state(fn (): array => [
             'review_status' => ReviewStatus::PendingReview]);
     }
 
     public function pending(): static
     {
-        return $this->state(fn () => [
+        return $this->state(fn (): array => [
             'extraction_status' => ExtractionStatus::Pending,
         ]);
     }
 
     public function uploading(): static
     {
-        return $this->state(fn () => [
+        return $this->state(fn (): array => [
             'extraction_status' => ExtractionStatus::Uploading,
         ]);
     }
 
     public function extracted(): static
     {
-        return $this->state(fn () => [
+        return $this->state(fn (): array => [
             'extraction_status' => ExtractionStatus::Extracted,
         ]);
     }
 
     public function withError(?string $errorCode = null): static
     {
-        return $this->state(fn () => [
+        return $this->state(fn (): array => [
             'extraction_status' => ExtractionStatus::Error,
             'error_code' => $errorCode,
             'error_message' => $errorCode ? 'Error: '.$errorCode : null,
@@ -122,7 +122,7 @@ class ContentSourceFactory extends Factory
 
     public function withTelegramUrl(?string $channel = null): static
     {
-        return $this->state(fn () => [
+        return $this->state(fn (): array => [
             'type' => SourceType::TelegramChannel,
             'url' => 'https://t.me/'.($channel ?? fake()->userName()),
             'metadata' => [
@@ -136,12 +136,12 @@ class ContentSourceFactory extends Factory
 
     public function withUrl(string $url): static
     {
-        return $this->state(fn () => ['url' => $url]);
+        return $this->state(fn (): array => ['url' => $url]);
     }
 
     public function withScrapeConfig(array $config): static
     {
-        return $this->state(function (array $attributes) use ($config) {
+        return $this->state(function (array $attributes) use ($config): array {
             $metadata = $attributes['metadata'] ?? [];
 
             return [
@@ -152,7 +152,7 @@ class ContentSourceFactory extends Factory
 
     public function withParent(ContentSource $parent, ?OriginalItem $item = null): static
     {
-        return $this->state(fn () => [
+        return $this->state(fn (): array => [
             'parent_source_id' => $parent->id,
             'parent_item_id' => $item?->id,
         ]);
@@ -160,19 +160,19 @@ class ContentSourceFactory extends Factory
 
     public function withType(SourceType $type): static
     {
-        return $this->state(fn () => ['type' => $type]);
+        return $this->state(fn (): array => ['type' => $type]);
     }
 
     public function stale(int $minutes = 31): static
     {
-        return $this->state(fn () => [
+        return $this->state(fn (): array => [
             'updated_at' => now()->subMinutes($minutes),
         ]);
     }
 
     public function withVideoUrls(array $videoUrls): static
     {
-        return $this->state(function (array $attributes) use ($videoUrls) {
+        return $this->state(function (array $attributes) use ($videoUrls): array {
             $metadata = $attributes['metadata'] ?? [];
 
             return [

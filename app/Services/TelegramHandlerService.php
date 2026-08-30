@@ -40,34 +40,34 @@ class TelegramHandlerService
     {
         try {
             // 1. Сработает ТОЛЬКО если после /start идет пробел и ХОТЯ БЫ ОДИН символ параметра (\s+.+)
-            $this->bot->onCommand('start\s+(?<base>.+)', function (Nutgram $bot, string $base) {
+            $this->bot->onCommand('start\s+(?<base>.+)', function (Nutgram $bot, string $base): void {
                 $this->handleStartCommand($bot, $base);
             });
 
             // 2. Сработает, если ввели чистый /start без параметров.
-            $this->bot->onCommand('start', function (Nutgram $bot) {
+            $this->bot->onCommand('start', function (Nutgram $bot): void {
                 $this->handleStartCommand($bot);
             })->description('Начать');
 
-            $this->bot->onCommand('db', function (Nutgram $bot) {
+            $this->bot->onCommand('db', function (Nutgram $bot): void {
 
                 DatabaseMenu::begin($bot);
             })->description('Выбрать активную базу знаний');
 
-            $this->bot->onCallbackQueryData('ask:{q}', function (Nutgram $bot, string $q) {
+            $this->bot->onCallbackQueryData('ask:{q}', function (Nutgram $bot, string $q): void {
                 $this->handleSuggested($bot, $q);
             });
 
-            $this->bot->onCallbackQueryData('ask_desc:{q}', function (Nutgram $bot, string $q) {
+            $this->bot->onCallbackQueryData('ask_desc:{q}', function (Nutgram $bot, string $q): void {
                 $this->handleDescriptionSuggested($bot, $q);
             });
 
-            $this->bot->onMessageType(MessageType::TEXT, function (Nutgram $bot) {
+            $this->bot->onMessageType(MessageType::TEXT, function (Nutgram $bot): void {
                 $this->handleTextMessage($bot);
             });
 
-            $this->bot->fallback(function (Nutgram $bot) {
-                $this->handleFallback($bot);
+            $this->bot->fallback(function (Nutgram $bot): void {
+                $this->handleFallback();
             });
 
         } catch (Throwable $e) {
@@ -215,7 +215,7 @@ class TelegramHandlerService
     /**
      * Handle fallback for unrecognized commands/messages
      */
-    private function handleFallback(Nutgram $bot): void
+    private function handleFallback(): void
     {
         // $bot->sendMessage('Извините, Я не понял');
     }

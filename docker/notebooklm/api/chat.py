@@ -30,9 +30,9 @@ async def ask_question(request: Request, account_id: str, body: AskRequest):
     """Ask a question in a notebook, clearing any prior conversation first."""
     client = get_client(account_id)
 
-    # last_conv_id = await client.chat.get_conversation_id(body.notebook_id)
-    # if last_conv_id:
-    #     await client.chat.delete_conversation(body.notebook_id, last_conv_id)
+    last_conv_id = await client.chat.get_conversation_id(body.notebook_id)
+    if last_conv_id:
+        await client.chat.delete_conversation(body.notebook_id, last_conv_id)
 
     result = await client.chat.ask(
         notebook_id=body.notebook_id,

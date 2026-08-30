@@ -10,7 +10,7 @@ use Illuminate\Support\Collection;
 
 class BundleRenderer2
 {
-    public function test()
+    public function test(): void
     {
         $items = ContentSource::find('019f2836-9819-702f-bf23-14ce58192531')->originalItems()->limit(9)->get();
 
@@ -45,7 +45,7 @@ class BundleRenderer2
 
     protected function metaFormat(array $array)
     {
-        return collect($array)->map(function ($value, $key) {
+        return collect($array)->map(function ($value, string $key): string {
             return sprintf('%s: %s', $key, $value);
         });
     }

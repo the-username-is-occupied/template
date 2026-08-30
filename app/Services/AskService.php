@@ -11,6 +11,7 @@ use App\Models\Chat;
 use App\Models\ChatMessage;
 use App\Models\Notebook;
 use App\Models\User;
+use Throwable;
 
 class AskService
 {
@@ -77,7 +78,7 @@ class AskService
 
             return $msg;
 
-        } catch (\Throwable $e) {
+        } catch (Throwable $e) {
             $msg->update([
                 'is_success' => false,
             ]);

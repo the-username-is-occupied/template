@@ -22,7 +22,7 @@ use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Log;
 use Tests\TestCase;
 
-class WebsiteExtractorTest extends TestCase
+final class WebsiteExtractorTest extends TestCase
 {
     use RefreshDatabase;
 
@@ -108,11 +108,7 @@ class WebsiteExtractorTest extends TestCase
         // Create extractor via container
         $extractor = $this->app->make(WebsiteExtractor::class);
 
-        try {
-            $extractor->extract($source);
-        } catch (Exception $e) {
-            throw $e;
-        }
+        $extractor->extract($source);
 
         // Refresh source from database
         $source->refresh();

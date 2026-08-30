@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Ai\Agents;
 
 use App\Models\Chat;
@@ -95,23 +97,21 @@ class AskPreprocessor implements Agent, Conversational, HasStructuredOutput, Has
     public function messages(): iterable
     {
         Log::info('chat', ['id' => $this->chat?->id]);
-        if (! $this->chat) {
+        if (! $this->chat instanceof Chat) {
             return [];
         }
 
-        $array = $this->chat->messages()
+        return $this->chat->messages()
             ->success()
             ->latest()
             ->limit(2)
             ->get()
             ->reverse()
-            ->map(function (ChatMessage $message) {
+            ->map(function (ChatMessage $message): array {
                 return [new Message('user', $message->content), new Message('assistant', $message->result['answer'])];
             })
             ->flatten()
             ->toArray();
-
-        return $array;
     }
 
     /**

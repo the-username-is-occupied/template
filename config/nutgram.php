@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 return [
     // The Telegram BOT api token
     'token' => env('TELEGRAM_TOKEN'),

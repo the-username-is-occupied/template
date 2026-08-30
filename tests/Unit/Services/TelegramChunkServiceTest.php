@@ -178,11 +178,11 @@ final class TelegramChunkServiceTest extends TestCase
 
         // Test increment
         $this->service->incrementPendingChunks($contentSourceId);
-        $this->assertEquals(1, $this->service->getPendingChunksCount($contentSourceId));
+        $this->assertSame(1, $this->service->getPendingChunksCount($contentSourceId));
 
         // Test decrement
         $this->service->decrementPendingChunks($contentSourceId);
-        $this->assertEquals(0, $this->service->getPendingChunksCount($contentSourceId));
+        $this->assertSame(0, $this->service->getPendingChunksCount($contentSourceId));
 
         // Test set/get scraping done
         $this->service->setScrapingDone($contentSourceId);
@@ -190,7 +190,7 @@ final class TelegramChunkServiceTest extends TestCase
 
         // Test cleanup
         $this->service->cleanupRedisKeys($contentSourceId);
-        $this->assertEquals(0, $this->service->getPendingChunksCount($contentSourceId));
+        $this->assertSame(0, $this->service->getPendingChunksCount($contentSourceId));
         $this->assertFalse($this->service->isScrapingDone($contentSourceId));
     }
 
@@ -201,8 +201,8 @@ final class TelegramChunkServiceTest extends TestCase
         // Decrement without incrementing first
         $result = $this->service->decrementPendingChunks($contentSourceId);
 
-        $this->assertEquals(0, $result);
-        $this->assertEquals(0, $this->service->getPendingChunksCount($contentSourceId));
+        $this->assertSame(0, $result);
+        $this->assertSame(0, $this->service->getPendingChunksCount($contentSourceId));
     }
 
     public function test_execute_done_logic_dispatches_sse_event(): void
@@ -210,7 +210,7 @@ final class TelegramChunkServiceTest extends TestCase
         Event::fake();
 
         $source = ContentSource::factory()->uploading()->create();
-        $draft = SourceDraft::factory()->create([
+        SourceDraft::factory()->create([
             'content_source_id' => $source->id,
             'status' => 'fetching_meta',
         ]);
@@ -225,7 +225,7 @@ final class TelegramChunkServiceTest extends TestCase
         Event::fake();
 
         $source = ContentSource::factory()->uploading()->create();
-        $draft = SourceDraft::factory()->create([
+        SourceDraft::factory()->create([
             'content_source_id' => $source->id,
         ]);
 
@@ -254,7 +254,7 @@ final class TelegramChunkServiceTest extends TestCase
         $this->service->executeDoneLogic($source);
 
         // Keys should be cleaned up
-        $this->assertEquals(0, $this->service->getPendingChunksCount($source->id));
+        $this->assertSame(0, $this->service->getPendingChunksCount($source->id));
         $this->assertFalse($this->service->isScrapingDone($source->id));
     }
 }

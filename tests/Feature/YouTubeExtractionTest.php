@@ -21,7 +21,7 @@ use Tests\TestCase;
 
 uses(TestCase::class, RefreshDatabase::class);
 
-test('YouTube channel extraction with 3 videos in 2 batches', function () {
+test('YouTube channel extraction with 3 videos in 2 batches', function (): void {
     // Create user and tech account first
     $user = User::factory()->create();
     $techAccount = TechAccount::create([
@@ -47,7 +47,7 @@ test('YouTube channel extraction with 3 videos in 2 batches', function () {
         ->youtube()
         ->withUrl('https://youtube.com/@testchannel')
         ->pending()
-        ->state(fn () => [
+        ->state(fn (): array => [
             'metadata' => [
                 'channel_meta' => [
                     'video_urls' => [
@@ -68,7 +68,7 @@ test('YouTube channel extraction with 3 videos in 2 batches', function () {
     // First batch (2 videos)
     $notebookLMService->shouldReceive('addSourceUrlsPool')
         ->once()
-        ->andReturnUsing(function ($accountId, $notebookId, $urls, $concurrency) {
+        ->andReturnUsing(function ($accountId, $notebookId, $urls, $concurrency): array {
             dump('addSourceUrlsPool first batch', $urls);
 
             return [
@@ -83,7 +83,7 @@ test('YouTube channel extraction with 3 videos in 2 batches', function () {
 
     $notebookLMService->shouldReceive('getSourceFulltextsPool')
         ->once()
-        ->andReturnUsing(function ($accountId, $notebookId, $sourceIds, $concurrency) {
+        ->andReturnUsing(function ($accountId, $notebookId, $sourceIds, $concurrency): array {
             dump('getSourceFulltextsPool first batch', $sourceIds);
 
             return [
@@ -98,7 +98,7 @@ test('YouTube channel extraction with 3 videos in 2 batches', function () {
     // Second batch (1 video)
     $notebookLMService->shouldReceive('addSourceUrlsPool')
         ->once()
-        ->andReturnUsing(function ($accountId, $notebookId, $urls, $concurrency) {
+        ->andReturnUsing(function ($accountId, $notebookId, $urls, $concurrency): array {
             dump('addSourceUrlsPool second batch', $urls);
 
             return [
@@ -112,7 +112,7 @@ test('YouTube channel extraction with 3 videos in 2 batches', function () {
 
     $notebookLMService->shouldReceive('getSourceFulltextsPool')
         ->once()
-        ->andReturnUsing(function ($accountId, $notebookId, $sourceIds, $concurrency) {
+        ->andReturnUsing(function ($accountId, $notebookId, $sourceIds, $concurrency): array {
             dump('getSourceFulltextsPool second batch', $sourceIds);
 
             return [
@@ -139,19 +139,19 @@ test('YouTube channel extraction with 3 videos in 2 batches', function () {
     $wordCounter = Mockery::mock(WordCounter::class);
     $wordCounter->shouldReceive('count')
         ->times(3)
-        ->andReturnUsing(fn (string $content) => str_word_count($content));
+        ->andReturnUsing(fn (string $content): int => str_word_count($content));
 
     $metadataResolver = Mockery::mock(YouTubeOriginalItemMetadataResolver::class);
     $metadataResolver->shouldReceive('resolveAndUpdate')
         ->once()
         ->with(
-            Mockery::on(fn (Collection $items) => $items->pluck('source_url')->all() === [
+            Mockery::on(fn (Collection $items): bool => $items->pluck('source_url')->all() === [
                 'https://youtube.com/watch?v=video1',
                 'https://youtube.com/watch?v=video2',
                 'https://youtube.com/watch?v=video3',
             ])
         )
-        ->andReturnUsing(fn (Collection $items) => $items);
+        ->andReturnUsing(fn (Collection $items): Collection => $items);
 
     $extractor = new YouTubeExtractor($accountService, $notebookLMService, $wordCounter, $metadataResolver);
     $extractor->extract($source);

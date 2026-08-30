@@ -12,6 +12,7 @@ use App\Events\TelegramParsingProgress;
 use App\Models\ContentSource;
 use App\Models\OriginalItem;
 use App\Models\SourceDraft;
+use DateTimeImmutable;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Redis;
 
@@ -44,7 +45,7 @@ class TelegramChunkService
         foreach ($posts as $post) {
             $originalItem = $this->processPost($source, $post);
 
-            if ($originalItem) {
+            if ($originalItem instanceof OriginalItem) {
                 $processedCount++;
 
                 // Process links from this post
@@ -72,8 +73,8 @@ class TelegramChunkService
             TelegramParsingProgress::dispatch($draft, $processedCount, count($linksDiscovered));
 
             // links_batch event if we discovered new links
-            if (! empty($linksDiscovered)) {
-                $linkData = array_map(fn ($linkSource) => [
+            if ($linksDiscovered !== []) {
+                $linkData = array_map(fn ($linkSource): array => [
                     'id' => $linkSource->id,
                     'url' => $linkSource->url,
                     'type' => $linkSource->type->value,
@@ -301,7 +302,7 @@ class TelegramChunkService
             'title' => $title,
             'full_text' => $postText,
             'source_url' => $postUrl,
-            'published_at' => $postDate ? new \DateTimeImmutable($postDate) : null,
+            'published_at' => $postDate ? new DateTimeImmutable($postDate) : null,
             'word_count' => 0,
             'metadata' => $metadata,
         ]);
@@ -322,8 +323,8 @@ class TelegramChunkService
         $titleWords = array_slice($words, 0, 8);
         $title = implode(' ', $titleWords);
 
-        if (empty($title)) {
-            $title = 'Post #'.$postId;
+        if ($title === '' || $title === '0') {
+            return 'Post #'.$postId;
         }
 
         return $title;

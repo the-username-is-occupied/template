@@ -21,7 +21,7 @@ final class TelegramFootnoteLinker
 
         return preg_replace_callback(
             self::FOOTNOTE_PATTERN,
-            fn (array $matches) => $this->renderFootnoteGroup($matches[1], $sequentialMap, $links),
+            fn (array $matches): string => $this->renderFootnoteGroup($matches[1], $sequentialMap, $links),
             $text
         );
     }
@@ -82,7 +82,7 @@ final class TelegramFootnoteLinker
         $sequentialLinks = $this->buildSequentialLinks($links, $keyMap);
 
         $replacement = array_map(
-            static fn (int $seqNum) => isset($sequentialLinks[$seqNum])
+            static fn (int $seqNum): string => isset($sequentialLinks[$seqNum])
                 ? "[{$seqNum}]({$sequentialLinks[$seqNum]})"
                 : "[{$seqNum}]",
             $mappedNumbers
@@ -124,7 +124,7 @@ final class TelegramFootnoteLinker
     public function deduplicateLinks(array $links): array
     {
         $keyMap = $this->buildSequentialNumberMap($links);
-        $sequentialLinks = $this->buildSequentialLinks($links, $keyMap);
+        $this->buildSequentialLinks($links, $keyMap);
 
         // Keep only the first occurrence for each URL (lowest sequential number)
         $uniqueLinks = [];

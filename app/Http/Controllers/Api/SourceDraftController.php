@@ -39,7 +39,7 @@ class SourceDraftController extends Controller
         $drafts = $this->draftService->create($user, $notebook, $data->raw_input);
 
         return response()->json(
-            $drafts->map(fn (SourceDraft $draft) => SourceDraftResource::fromModel($draft))->toArray(),
+            $drafts->map(fn (SourceDraft $draft): SourceDraftResource => SourceDraftResource::fromModel($draft))->toArray(),
             201
         );
     }

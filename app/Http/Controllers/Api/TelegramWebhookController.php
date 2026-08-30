@@ -61,7 +61,7 @@ class TelegramWebhookController extends Controller
 
     private function handleUpload(TelegramChunkService $chunkService, string $contentSourceId, array $posts): void
     {
-        if (empty($posts)) {
+        if ($posts === []) {
             Log::warning('Received upload action with empty posts array', [
                 'content_source_id' => $contentSourceId,
             ]);

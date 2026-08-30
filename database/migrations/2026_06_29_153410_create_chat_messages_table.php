@@ -11,7 +11,7 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('chat_messages', function (Blueprint $table) {
+        Schema::create('chat_messages', function (Blueprint $table): void {
             $table->uuid('id')->primary();
             $table->uuid('chat_id');
             $table->uuid('tech_account_id')->nullable();

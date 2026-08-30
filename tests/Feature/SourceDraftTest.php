@@ -42,12 +42,12 @@ final class SourceDraftTest extends TestCase
         $detector = new SmartUrlDetector;
 
         $result = $detector->detect('https://t.me/habr_com');
-        $this->assertEquals(SourceType::TelegramChannel, $result->type);
-        $this->assertEquals('habr_com', $result->normalizedId);
+        $this->assertSame(SourceType::TelegramChannel, $result->type);
+        $this->assertSame('habr_com', $result->normalizedId);
 
         $result = $detector->detect('https://t.me/s/durov');
-        $this->assertEquals(SourceType::TelegramChannel, $result->type);
-        $this->assertEquals('durov', $result->normalizedId);
+        $this->assertSame(SourceType::TelegramChannel, $result->type);
+        $this->assertSame('durov', $result->normalizedId);
     }
 
     public function test_smart_url_detector_detects_youtube_channel(): void
@@ -55,16 +55,16 @@ final class SourceDraftTest extends TestCase
         $detector = new SmartUrlDetector;
 
         $result = $detector->detect('https://youtube.com/@GoogleDevelopers');
-        $this->assertEquals(SourceType::YoutubeChannel, $result->type);
-        $this->assertEquals('GoogleDevelopers', $result->normalizedId);
+        $this->assertSame(SourceType::YoutubeChannel, $result->type);
+        $this->assertSame('GoogleDevelopers', $result->normalizedId);
 
         $result = $detector->detect('https://youtube.com/channel/UC_x5XG1OV2P6uZZ5FSM9Ttw');
-        $this->assertEquals(SourceType::YoutubeChannel, $result->type);
-        $this->assertEquals('UC_x5XG1OV2P6uZZ5FSM9Ttw', $result->normalizedId);
+        $this->assertSame(SourceType::YoutubeChannel, $result->type);
+        $this->assertSame('UC_x5XG1OV2P6uZZ5FSM9Ttw', $result->normalizedId);
 
         $result = $detector->detect('https://youtube.com/c/GoogleDevelopers');
-        $this->assertEquals(SourceType::YoutubeChannel, $result->type);
-        $this->assertEquals('GoogleDevelopers', $result->normalizedId);
+        $this->assertSame(SourceType::YoutubeChannel, $result->type);
+        $this->assertSame('GoogleDevelopers', $result->normalizedId);
     }
 
     public function test_smart_url_detector_detects_youtube_video(): void
@@ -72,12 +72,12 @@ final class SourceDraftTest extends TestCase
         $detector = new SmartUrlDetector;
 
         $result = $detector->detect('https://youtube.com/watch?v=dQw4w9WgXcQ');
-        $this->assertEquals(SourceType::YoutubeVideo, $result->type);
-        $this->assertEquals('dQw4w9WgXcQ', $result->normalizedId);
+        $this->assertSame(SourceType::YoutubeVideo, $result->type);
+        $this->assertSame('dQw4w9WgXcQ', $result->normalizedId);
 
         $result = $detector->detect('https://youtu.be/dQw4w9WgXcQ');
-        $this->assertEquals(SourceType::YoutubeVideo, $result->type);
-        $this->assertEquals('dQw4w9WgXcQ', $result->normalizedId);
+        $this->assertSame(SourceType::YoutubeVideo, $result->type);
+        $this->assertSame('dQw4w9WgXcQ', $result->normalizedId);
     }
 
     public function test_smart_url_detector_detects_youtube_playlist_as_channel(): void
@@ -85,8 +85,8 @@ final class SourceDraftTest extends TestCase
         $detector = new SmartUrlDetector;
 
         $result = $detector->detect('https://youtube.com/playlist?list=PLrAXtmRdnEQeiGU6GBsMcu4F8xLZXUx9S');
-        $this->assertEquals(SourceType::YoutubeChannel, $result->type);
-        $this->assertEquals('PLrAXtmRdnEQeiGU6GBsMcu4F8xLZXUx9S', $result->normalizedId);
+        $this->assertSame(SourceType::YoutubeChannel, $result->type);
+        $this->assertSame('PLrAXtmRdnEQeiGU6GBsMcu4F8xLZXUx9S', $result->normalizedId);
     }
 
     public function test_smart_url_detector_detects_file(): void
@@ -94,7 +94,7 @@ final class SourceDraftTest extends TestCase
         $detector = new SmartUrlDetector;
 
         $result = $detector->detect('https://example.com/document.pdf');
-        $this->assertEquals(SourceType::Website, $result->type);
+        $this->assertSame(SourceType::Website, $result->type);
         $this->assertStringEndsWith('.pdf', $result->normalizedId);
     }
 
@@ -103,8 +103,8 @@ final class SourceDraftTest extends TestCase
         $detector = new SmartUrlDetector;
 
         $result = $detector->detect('https://example.com/article');
-        $this->assertEquals(SourceType::Website, $result->type);
-        $this->assertEquals('https://example.com/article', $result->normalizedId);
+        $this->assertSame(SourceType::Website, $result->type);
+        $this->assertSame('https://example.com/article', $result->normalizedId);
     }
 
     public function test_smart_url_detector_parses_multiple_urls(): void
@@ -120,7 +120,7 @@ final class SourceDraftTest extends TestCase
 
     public function test_create_source_draft_with_tg_url(): void
     {
-        $this->mock(TGScraperService::class, function ($mock) {
+        $this->mock(TGScraperService::class, function ($mock): void {
             $mock->shouldReceive('getChannelInfo')
                 ->andReturn(new ChannelInfoResponse(
                     channel: 'habr_com',
@@ -156,7 +156,7 @@ final class SourceDraftTest extends TestCase
 
     public function test_create_multiple_source_drafts(): void
     {
-        $this->mock(TGScraperService::class, function ($mock) {
+        $this->mock(TGScraperService::class, function ($mock): void {
             $mock->shouldReceive('getChannelInfo')
                 ->andReturn(new ChannelInfoResponse(
                     channel: 'test',
@@ -167,7 +167,7 @@ final class SourceDraftTest extends TestCase
                 ));
         });
 
-        $this->mock(YouTubeService::class, function ($mock) {
+        $this->mock(YouTubeService::class, function ($mock): void {
             $mock->shouldReceive('getChannelInfo')
                 ->andReturn(new ChannelInfoData(
                     id: 'UCtest123',

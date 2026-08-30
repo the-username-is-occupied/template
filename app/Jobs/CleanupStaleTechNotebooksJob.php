@@ -6,6 +6,7 @@ namespace App\Jobs;
 
 use App\Domain\NotebookLM\NotebookLMService;
 use App\Models\TechNotebook;
+use Exception;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Queue\InteractsWithQueue;
@@ -27,7 +28,7 @@ class CleanupStaleTechNotebooksJob implements ShouldQueue
         foreach ($staleNotebooks as $notebook) {
             try {
                 $this->cleanupNotebook($notebook, $notebookLMService);
-            } catch (\Exception $e) {
+            } catch (Exception $e) {
                 Log::error("Failed to cleanup notebook {$notebook->id}: ".$e->getMessage());
                 $notebook->update(['status' => 'degraded']);
             }

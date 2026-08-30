@@ -22,10 +22,14 @@ final class YouTubeOriginalItemMetadataResolverTest extends TestCase
             'metadata' => [],
         ]);
 
-        $this->mock(YouTubeService::class, function ($mock) use ($items) {
+        $this->mock(YouTubeService::class, function ($mock) use ($items): void {
             $mock->shouldReceive('resolveChannelUrls')
                 ->once()
-                ->with($this->callback(fn (array $urls) => $urls === [$items[0]->source_url, $items[1]->source_url]), true)
+                ->with($this->callback(function (array $urls) use ($items): bool {
+                    $this->assertSame([$items[0]->source_url, $items[1]->source_url], $urls);
+
+                    return true;
+                }), true)
                 ->andReturn(ChannelUrlMappingData::collect([
                     new ChannelUrlMappingData(
                         url: $items[0]->source_url,
@@ -80,7 +84,7 @@ final class YouTubeOriginalItemMetadataResolverTest extends TestCase
             'metadata' => ['existing' => 'value'],
         ]);
 
-        $this->mock(YouTubeService::class, function ($mock) {
+        $this->mock(YouTubeService::class, function ($mock): void {
             $mock->shouldNotReceive('resolveChannelUrls');
         });
 

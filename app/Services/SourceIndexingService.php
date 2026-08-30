@@ -9,6 +9,7 @@ use App\Events\ExtractionCompleted;
 use App\Exceptions\UnsupportedSourceTypeException;
 use App\Models\ContentSource;
 use Illuminate\Support\Facades\Log;
+use Throwable;
 
 class SourceIndexingService
 {
@@ -32,7 +33,7 @@ class SourceIndexingService
 
             event(new ExtractionCompleted($source, false, $e->getMessage()));
 
-        } catch (\Throwable $e) {
+        } catch (Throwable $e) {
             Log::channel('requests')->error('Transient extraction error:', [
                 'content_source_id' => $contentSourceId,
                 'error' => $e->getMessage(),

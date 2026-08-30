@@ -55,7 +55,7 @@ final class TelegramTextNormalizer
     public function trimLines(string $text): string
     {
         $lines = array_map(
-            static fn (string $line) => ltrim($line, " \t"),
+            static fn (string $line): string => ltrim($line, " \t"),
             explode("\n", $text)
         );
 
@@ -69,7 +69,7 @@ final class TelegramTextNormalizer
     {
         return preg_replace_callback(
             '/^#{1,6}\s*(.+)$/um',
-            static fn (array $matches) => '**'.$matches[1].'**',
+            static fn (array $matches): string => '**'.$matches[1].'**',
             $text
         );
     }
@@ -107,7 +107,7 @@ final class TelegramTextNormalizer
 
         $text = preg_replace_callback(
             '/\*\*(.+?)\*\*/us',
-            static function (array $m) use (&$boldChunks) {
+            static function (array $m) use (&$boldChunks): string {
                 $key = sprintf(self::BOLD_PLACEHOLDER_FORMAT, count($boldChunks));
                 $boldChunks[$key] = $m[1];
 
@@ -118,12 +118,12 @@ final class TelegramTextNormalizer
 
         $text = preg_replace_callback(
             '/\*(.+?)\*/us',
-            static fn (array $m) => '_'.$m[1].'_',
+            static fn (array $m): string => '_'.$m[1].'_',
             $text
         );
 
         return strtr($text, array_map(
-            static fn (string $content) => '*'.$content.'*',
+            static fn (string $content): string => '*'.$content.'*',
             $boldChunks
         ));
     }
@@ -138,7 +138,7 @@ final class TelegramTextNormalizer
     {
         $spans = [];
 
-        $extractor = static function (array $m) use (&$spans) {
+        $extractor = static function (array $m) use (&$spans): string {
             $key = sprintf(self::CODE_PLACEHOLDER_FORMAT, count($spans));
             $spans[$key] = $m[0];
 

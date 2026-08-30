@@ -12,7 +12,9 @@ use App\Models\MdBundle;
 use App\Models\OriginalItem;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
+use RuntimeException;
 use Spatie\LaravelData\DataCollection;
+use Throwable;
 
 /**
  * Resolves NLM citations to actual OriginalItem records for BundleRenderer2 format.
@@ -53,7 +55,7 @@ class CitationResolver2
         foreach ($askResult->references as $reference) {
             /** @var ChatReferenceDTO $reference */
             $citation = $this->resolveSingle($reference);
-            if ($citation !== null) {
+            if ($citation instanceof CitationData) {
                 $citations[] = $citation;
             }
         }
@@ -111,7 +113,7 @@ class CitationResolver2
                 citation_number: $reference->citation_number,
             );
 
-        } catch (\Throwable $e) {
+        } catch (Throwable $e) {
             Log::warning('CitationResolver2: Failed to resolve citation', [
                 'citation_number' => $reference->citation_number,
                 'error' => $e->getMessage(),
@@ -123,26 +125,11 @@ class CitationResolver2
     }
 
     /**
-     * Clean metadata pattern from cited_text.
-     *
-     * Pattern: Base64URL (22 chars) + space + JSON object {"..."}
-     * Removes ALL occurrences (not just at start).
-     */
-    private function cleanMetadata(string $citedText): string
-    {
-        // Pattern: 22-char Base64URL + space + JSON object
-        // Matches: VQ6E4OKbQdSnFkRmVUQAAA {"title":"...","date":"..."}
-        $pattern = '/[A-Za-z0-9_-]{22} \{"[^"]*"[^}]*\}/';
-
-        return preg_replace($pattern, '', $citedText) ?? $citedText;
-    }
-
-    /**
      * Resolve citation by full-text search in bundle file.
      *
      * Returns item ID (UUID string), or null if cited_text not found.
      *
-     * @throws \RuntimeException If MdBundle not found or file unreadable
+     * @throws RuntimeException If MdBundle not found or file unreadable
      */
     private function resolveByFullText(ChatReferenceDTO $reference, string $citedTextClean): ?string
     {
@@ -270,9 +257,8 @@ class CitationResolver2
         if (preg_match_all('/^#\s*([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/im', $before, $matches, PREG_OFFSET_CAPTURE) > 0) {
             // Get the last match (closest to the citation position)
             $lastMatch = end($matches[1]);
-            $itemId = $lastMatch[0];
 
-            return $itemId;
+            return $lastMatch[0];
         }
 
         Log::warning('CitationResolver2: extractItemId - UUID header not found', [

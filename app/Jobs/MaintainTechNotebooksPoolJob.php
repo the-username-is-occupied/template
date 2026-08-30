@@ -11,6 +11,7 @@ use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Support\Facades\Log;
+use Throwable;
 
 class MaintainTechNotebooksPoolJob implements ShouldQueue
 {
@@ -28,7 +29,7 @@ class MaintainTechNotebooksPoolJob implements ShouldQueue
     {
         try {
             $poolService->maintain($notebookLMService);
-        } catch (\Throwable $e) {
+        } catch (Throwable $e) {
             Log::error('MaintainTechNotebooksPoolJob: Failed to maintain pool', [
                 'error' => $e->getMessage(),
             ]);

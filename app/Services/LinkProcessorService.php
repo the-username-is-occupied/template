@@ -12,6 +12,7 @@ use App\Exceptions\SourceDetectionException;
 use App\Models\ContentSource;
 use App\Models\OriginalItem;
 use Illuminate\Support\Facades\Log;
+use Throwable;
 
 class LinkProcessorService
 {
@@ -26,10 +27,12 @@ class LinkProcessorService
         $createdSources = [];
 
         foreach ($links as $link) {
-            if (! is_string($link) || empty($link)) {
+            if (! is_string($link)) {
                 continue;
             }
-
+            if (empty($link)) {
+                continue;
+            }
             // Filter out nested TG channels (channels without post ID)
             if ($this->isNestedTelegramChannel($link)) {
                 Log::debug('Filtering out nested Telegram channel', [
@@ -98,7 +101,7 @@ class LinkProcessorService
             $detected = app(SmartUrlDetector::class)->detect($url);
 
             return $detected->type;
-        } catch (\Throwable $e) {
+        } catch (Throwable $e) {
             Log::warning('Failed to detect source type', [
                 'url' => $url,
                 'error' => $e->getMessage(),

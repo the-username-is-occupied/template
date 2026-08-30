@@ -7,6 +7,7 @@ namespace App\Domain\NotebookLM\Jobs;
 use App\Domain\NotebookLM\NotebookLMService;
 use App\Enums\TechAccountStatus;
 use App\Models\TechAccount;
+use Exception;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Queue\InteractsWithQueue;
@@ -42,7 +43,7 @@ class CheckAccountHealth implements ShouldQueue
     {
         try {
             $healthData = $this->service->healthAccounts();
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             Log::error('Failed to fetch health data from FastAPI', [
                 'error' => $e->getMessage(),
             ]);

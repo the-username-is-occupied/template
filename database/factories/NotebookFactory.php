@@ -30,6 +30,6 @@ class NotebookFactory extends Factory
 
     public function forUser(User $user): static
     {
-        return $this->state(fn () => ['user_id' => $user->id]);
+        return $this->state(fn (): array => ['user_id' => $user->id]);
     }
 }

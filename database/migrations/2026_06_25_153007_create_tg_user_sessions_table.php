@@ -13,7 +13,7 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('tg_user_sessions', function (Blueprint $table) {
+        Schema::create('tg_user_sessions', function (Blueprint $table): void {
             $table->bigInteger('tg_user_id')->unique()->primary();
             $table->uuid('active_base_id')->nullable();
             $table->timestamps();

@@ -10,6 +10,6 @@ class NextSuggestedTopicDTO extends Data
 {
     public function __construct(
         public string $question,
-        public string|int $type_code,
+        public string|int|null $type_code = null,
     ) {}
 }

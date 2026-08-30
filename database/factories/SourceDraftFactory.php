@@ -69,26 +69,26 @@ class SourceDraftFactory extends Factory
 
     public function forUser(User $user): static
     {
-        return $this->state(fn () => ['user_id' => $user->id]);
+        return $this->state(fn (): array => ['user_id' => $user->id]);
     }
 
     public function forNotebook(Notebook $notebook): static
     {
-        return $this->state(fn () => ['knowledge_base_id' => $notebook->id]);
+        return $this->state(fn (): array => ['knowledge_base_id' => $notebook->id]);
     }
 
     public function withContentSource(ContentSource $contentSource): static
     {
-        return $this->state(fn () => ['content_source_id' => $contentSource->id]);
+        return $this->state(fn (): array => ['content_source_id' => $contentSource->id]);
     }
 
     public function withType(SourceType $type): static
     {
-        return $this->state(fn () => ['type' => $type]);
+        return $this->state(fn (): array => ['type' => $type]);
     }
 
     public function withUrl(string $url): static
     {
-        return $this->state(fn () => ['raw_input' => $url]);
+        return $this->state(fn (): array => ['raw_input' => $url]);
     }
 }

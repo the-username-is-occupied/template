@@ -21,7 +21,7 @@ class AccountService
         return TechNotebook::where('type', $type)
             ->whereIn('status', ['idle', 'busy'])
             ->whereRaw('sources_count < max_sources')
-            ->when(! empty($excludeIds), fn ($q) => $q->whereNotIn('id', $excludeIds))
+            ->when($excludeIds !== [], fn ($q) => $q->whereNotIn('id', $excludeIds))
             ->orderByRaw('max_sources - sources_count DESC')
             ->first();
     }
@@ -31,7 +31,7 @@ class AccountService
      */
     public function acquireTechNotebookLock(TechNotebook $notebook, string $lockKey): bool
     {
-        return DB::transaction(function () use ($notebook, $lockKey) {
+        return DB::transaction(function () use ($notebook, $lockKey): bool {
             $lockedNotebook = TechNotebook::where('id', $notebook->id)
                 ->lockForUpdate()
                 ->first();
@@ -72,7 +72,7 @@ class AccountService
      */
     public function releaseTechNotebookLock(TechNotebook $notebook): void
     {
-        DB::transaction(function () use ($notebook) {
+        DB::transaction(function () use ($notebook): void {
             $lockedNotebook = TechNotebook::where('id', $notebook->id)
                 ->lockForUpdate()
                 ->first();
@@ -96,7 +96,7 @@ class AccountService
      */
     public function incrementSourcesCount(TechNotebook $notebook, int $count): void
     {
-        DB::transaction(function () use ($notebook, $count) {
+        DB::transaction(function () use ($notebook, $count): void {
             $lockedNotebook = TechNotebook::where('id', $notebook->id)
                 ->lockForUpdate()
                 ->first();
@@ -117,7 +117,7 @@ class AccountService
      */
     public function decrementSourcesCount(TechNotebook $notebook, int $count): void
     {
-        DB::transaction(function () use ($notebook, $count) {
+        DB::transaction(function () use ($notebook, $count): void {
             $lockedNotebook = TechNotebook::where('id', $notebook->id)
                 ->lockForUpdate()
                 ->first();
@@ -146,7 +146,7 @@ class AccountService
         $account = TechAccount::query()
             ->select('tech_accounts.*')
             ->where('status', TechAccountStatus::Active)
-            ->leftJoin('tech_account_usages', function ($join) {
+            ->leftJoin('tech_account_usages', function ($join): void {
                 $join->on('tech_accounts.id', '=', 'tech_account_usages.tech_account_id')
                     ->where('tech_account_usages.date', '=', today());
             })
@@ -166,7 +166,7 @@ class AccountService
         return $account;
     }
 
-    public function incrementAskCount(TechAccount $account)
+    public function incrementAskCount(TechAccount $account): void
     {
         TechAccountUsage::upsert(
             [['tech_account_id' => $account->id, 'date' => today(), 'count' => 1]],

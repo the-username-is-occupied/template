@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Jobs;
 
 use App\Models\ChatMessage;
@@ -13,6 +15,7 @@ use Illuminate\Queue\Middleware\WithoutOverlapping;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Log;
 use SergiX44\Nutgram\Nutgram;
+use Throwable;
 
 class TelegramAskJob implements ShouldQueue
 {
@@ -48,7 +51,7 @@ class TelegramAskJob implements ShouldQueue
             $user = app()->make(UserService::class)->findOrCreateByTgUserId($this->tg_user_id);
             $followUpMessage = $this->followUpMessageId ? ChatMessage::find($this->followUpMessageId) : null;
             app()->make(AskService::class)->handle($user->tgUser, $this->question, $this->placeholderId, $followUpMessage);
-        } catch (\Throwable $e) {
+        } catch (Throwable $e) {
             Log::error('Ошибка в Job при отправке ответа в ТГ: '.$e->getMessage());
             // Если нужно, чтобы очередь попробовала запустить задачу снова:
 
@@ -62,8 +65,8 @@ class TelegramAskJob implements ShouldQueue
 
             $bot->sendMessage(
                 text: '⚠️ Произошла ошибка при обработке вашего запроса\\. Пожалуйста\\, попробуйте снова позже\\.',
-                parse_mode: 'MarkdownV2',
-                chat_id: $this->tg_user_id
+                chat_id: $this->tg_user_id,
+                parse_mode: 'MarkdownV2'
             );
             $this->fail($e);
         }

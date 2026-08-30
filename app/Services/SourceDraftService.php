@@ -15,9 +15,11 @@ use App\Jobs\FetchSourceMetaJob;
 use App\Models\Notebook;
 use App\Models\SourceDraft;
 use App\Models\User;
+use Exception;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\Bus;
 use Illuminate\Support\Facades\Log;
+use InvalidArgumentException;
 
 class SourceDraftService
 {
@@ -119,7 +121,7 @@ class SourceDraftService
             }
         } catch (MetaFetchException $e) {
             throw $e;
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             Log::error("SourceDraftService::fetchMeta failed for draft {$draftId}: ".$e->getMessage());
             $this->handleMetaError($draft, 'meta_fetch_error', $e->getMessage());
             throw new MetaFetchException('Failed to fetch meta: '.$e->getMessage(), 0, $e);
@@ -142,7 +144,7 @@ class SourceDraftService
                 'members' => $response->members,
                 'avatar_url' => $response->avatar_url,
             ];
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             throw new MetaFetchException('Failed to fetch Telegram channel info for '.$channel.': '.$e->getMessage(), 0, $e);
         }
     }
@@ -198,7 +200,7 @@ class SourceDraftService
     public function loadVideoList(SourceDraft $draft, array $contentTypes = ['video', 'shorts']): void
     {
         if ($draft->type !== SourceType::YoutubeChannel) {
-            throw new \InvalidArgumentException('loadVideoList is only for YouTube channels');
+            throw new InvalidArgumentException('loadVideoList is only for YouTube channels');
         }
 
         try {
@@ -231,7 +233,7 @@ class SourceDraftService
             // Publish SSE event
             event(new YoutubeVideosLoaded($draft, $videoUrlsData->urls));
 
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             Log::error("Failed to load video list for draft {$draft->id}: ".$e->getMessage());
             $this->handleMetaError($draft, 'video_load_failed', $e->getMessage());
             throw new MetaFetchException('Failed to load video list: '.$e->getMessage(), 0, $e);

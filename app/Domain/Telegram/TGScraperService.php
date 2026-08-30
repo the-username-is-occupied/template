@@ -8,6 +8,7 @@ use App\Domain\Telegram\DTOs\ChannelInfoResponse;
 use App\Domain\Telegram\DTOs\PostResponse;
 use App\Domain\Telegram\DTOs\ScrapeResponse;
 use App\Domain\Telegram\DTOs\StatusResponse;
+use DateTimeInterface;
 use Illuminate\Support\Facades\Http;
 use RuntimeException;
 
@@ -42,8 +43,8 @@ class TGScraperService
         int $limit = 0,
         ?int $fromId = null,
         ?int $toId = null,
-        ?\DateTimeInterface $fromDate = null,
-        ?\DateTimeInterface $toDate = null,
+        ?DateTimeInterface $fromDate = null,
+        ?DateTimeInterface $toDate = null,
         int $workers = 3,
         int $chunkLimit = 2000,
         string $hookUrl = 'http://app:80/api/webhooks/telegram-scraper'
@@ -65,11 +66,11 @@ class TGScraperService
             $data['to_id'] = $toId;
         }
 
-        if ($fromDate !== null) {
+        if ($fromDate instanceof DateTimeInterface) {
             $data['from_date'] = $fromDate->format('Y-m-d');
         }
 
-        if ($toDate !== null) {
+        if ($toDate instanceof DateTimeInterface) {
             $data['to_date'] = $toDate->format('Y-m-d');
         }
 

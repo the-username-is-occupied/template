@@ -29,8 +29,6 @@ final class ExtractionCoreTest extends TestCase
 
     private User $user;
 
-    private SourceDraft $draft;
-
     protected function setUp(): void
     {
         parent::setUp();
@@ -61,7 +59,7 @@ final class ExtractionCoreTest extends TestCase
         $item = $source->originalItems()->first();
         $this->assertEquals('test-file.txt', $item->title);
         $this->assertGreaterThan(0, $item->word_count);
-        $this->assertStringContainsString('This is a test content', $item->full_text);
+        $this->assertStringContainsString('This is a test content', (string) $item->full_text);
     }
 
     public function test_text_extractor_handles_missing_file(): void
@@ -132,7 +130,7 @@ final class ExtractionCoreTest extends TestCase
         $this->assertEquals(SourceDraftStatus::Processing, $draft->status);
         $this->assertNotNull($draft->content_source_id);
 
-        Queue::assertPushed(ProcessSourceJob::class, function ($job) use ($source) {
+        Queue::assertPushed(ProcessSourceJob::class, function ($job) use ($source): bool {
             return $job->contentSourceId === $source->id;
         });
     }
@@ -234,6 +232,6 @@ final class ExtractionCoreTest extends TestCase
         $job1 = new ProcessSourceJob($sourceId);
         $job2 = new ProcessSourceJob($sourceId);
 
-        $this->assertEquals($job1->uniqueId(), $job2->uniqueId());
+        $this->assertSame($job1->uniqueId(), $job2->uniqueId());
     }
 }

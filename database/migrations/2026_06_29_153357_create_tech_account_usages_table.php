@@ -11,7 +11,7 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('tech_account_usages', function (Blueprint $table) {
+        Schema::create('tech_account_usages', function (Blueprint $table): void {
             $table->id();
             $table->uuid('tech_account_id');
             $table->date('date');

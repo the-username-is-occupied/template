@@ -20,7 +20,7 @@ use Tests\TestCase;
 
 uses(TestCase::class, RefreshDatabase::class);
 
-test('NlmFileExtractor uploads file, extracts text, and deletes file in finally', function () {
+test('NlmFileExtractor uploads file, extracts text, and deletes file in finally', function (): void {
     // Create user and tech account first
     $user = User::factory()->create();
     $techAccount = TechAccount::create([
@@ -112,7 +112,7 @@ test('NlmFileExtractor uploads file, extracts text, and deletes file in finally'
     expect($originalItem->word_count)->toBeGreaterThan(0);
 });
 
-test('NlmFileExtractor deletes file in finally block even on exception', function () {
+test('NlmFileExtractor deletes file in finally block even on exception', function (): void {
     // Create user and tech account first
     $user = User::factory()->create();
     $techAccount = TechAccount::create([
@@ -188,7 +188,7 @@ test('NlmFileExtractor deletes file in finally block even on exception', functio
     expect($source->error_message)->toBe('Indexing failed');
 });
 
-test('NlmFileExtractor handles file not found error', function () {
+test('NlmFileExtractor handles file not found error', function (): void {
     // Create user
     $user = User::factory()->create();
 

@@ -67,12 +67,12 @@ class SourceDraft extends Model
         return $this->belongsTo(ContentSource::class);
     }
 
-    public function index()
+    public function index(): void
     {
         app()->make(SourceService::class)->startIndexing($this);
     }
 
-    public function confirmAndProcess(?array $scrapeConfig = null)
+    public function confirmAndProcess(?array $scrapeConfig = null): ContentSource
     {
         return app()->make(SourceService::class)->confirmAndProcess($this, $scrapeConfig);
     }

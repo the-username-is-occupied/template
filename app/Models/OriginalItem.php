@@ -9,6 +9,7 @@ use App\Services\BundleRenderer2;
 use App\Services\WordCounter;
 use Carbon\CarbonInterval;
 use Database\Factories\OriginalItemFactory;
+use Exception;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -120,7 +121,7 @@ class OriginalItem extends Model
         };
     }
 
-    public function getType()
+    public function getType(): string
     {
         return match ($this->contentSource->type) {
             SourceType::TelegramChannel => 'telegram_post',
@@ -136,16 +137,16 @@ class OriginalItem extends Model
                 ->map(function ($value, $key) {
                     if ($key === 'reactions') {
                         return collect($value)
-                            ->map(fn ($reaction) => "{$reaction['emoji']}({$reaction['count']})")
+                            ->map(fn ($reaction): string => "{$reaction['emoji']}({$reaction['count']})")
                             ->implode(', ');
                     }
 
                     return $value;
                 }),
             SourceType::YoutubeChannel, SourceType::YoutubeVideo => collect($this->metadata['youtube'] ?? [])
-                ->filter(fn ($i, $k) => is_null($k) || ! in_array($k, ['url', 'title', 'tags', 'publishedAt', 'handle', 'videoId', 'channelId', 'channelTitle'])),
+                ->filter(fn ($i, $k): bool => is_null($k) || ! in_array($k, ['url', 'title', 'tags', 'publishedAt', 'handle', 'videoId', 'channelId', 'channelTitle'])),
             default => collect([])
-        })->filter(fn ($i, $k) => $k != 'type')->merge(['type' => $this->getType()]);
+        })->filter(fn ($i, $k): bool => $k != 'type')->merge(['type' => $this->getType()]);
     }
 
     /**
@@ -163,7 +164,7 @@ class OriginalItem extends Model
             return $interval?->totalSeconds !== null
                 ? (int) $interval->totalSeconds
                 : null;
-        } catch (\Exception) {
+        } catch (Exception) {
             return null;
         }
     }
@@ -199,9 +200,9 @@ class OriginalItem extends Model
         return $this->word_count;
     }
 
-    public static function recount()
+    public static function recount(): void
     {
-        static::query()->with('contentSource')->chunk(1000, function ($items) {
+        static::query()->with('contentSource')->chunk(1000, function ($items): void {
             foreach ($items as $item) {
                 $item->wordCount();
             }

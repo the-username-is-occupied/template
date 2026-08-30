@@ -72,6 +72,6 @@ class SmartUrlDetector
         // Split by whitespace (spaces, newlines, tabs)
         $urls = preg_split('/\s+/', trim($rawInput), -1, PREG_SPLIT_NO_EMPTY);
 
-        return array_values(array_filter($urls, fn ($url) => ! empty(trim($url))));
+        return array_values(array_filter($urls, fn ($url): bool => ! in_array(trim($url), ['', '0'], true)));
     }
 }

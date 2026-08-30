@@ -9,6 +9,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Spatie\LaravelData\Data;
 
 class ChatMessage extends Model
 {
@@ -50,7 +51,7 @@ class ChatMessage extends Model
         return $this->belongsTo(ChatMessage::class, 'follow_up_id');
     }
 
-    public function askDto()
+    public function askDto(): Data
     {
         return AskResultDTO::from($this->result);
     }

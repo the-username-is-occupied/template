@@ -110,7 +110,7 @@ return new class extends Migration
     {
         $driver = Schema::getConnection()->getDriverName();
 
-        if ($driver === 'sqlite' || $driver === 'pgsql' || $driver === 'mysql') {
+        if (in_array($driver, ['sqlite', 'pgsql', 'mysql'], true)) {
             DB::statement('CREATE INDEX content_sources_user_auto_update_true_index ON content_sources(user_id, auto_update) WHERE auto_update = true');
             DB::statement('CREATE INDEX content_sources_parent_source_id_not_null_index ON content_sources(parent_source_id) WHERE parent_source_id IS NOT NULL');
             DB::statement("CREATE INDEX content_sources_pending_review_index ON content_sources(review_status) WHERE review_status = 'pending_review'");
